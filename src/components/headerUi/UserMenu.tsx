@@ -82,8 +82,7 @@ const NotificationButton: React.FC<{
       variant="ghost"
       size="icon"
       className="relative rounded-full hover:bg-gray-50/80 dark:hover:bg-gray-800/50"
-      asChild
-    >
+      asChild>
       <Link href="/notifications">
         <Bell className="h-5 w-5" />
         {notificationCount > 0 && (
@@ -95,12 +94,10 @@ const NotificationButton: React.FC<{
               type: "spring",
               stiffness: 500,
               damping: 30,
-            }}
-          >
+            }}>
             <Badge
               variant="destructive"
-              className="h-5 w-5 p-0 flex items-center justify-center text-xs rounded-full bg-gradient-to-r from-red-500 to-red-600 shadow-lg"
-            >
+              className="h-5 w-5 p-0 flex items-center justify-center text-xs rounded-full bg-gradient-to-r from-red-500 to-red-600 shadow-lg">
               {notificationCount > 99 ? "99+" : notificationCount}
             </Badge>
           </motion.div>
@@ -360,8 +357,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({
           <Button
             variant="ghost"
             className="rounded-full p-0 hover:bg-accent relative"
-            size="icon"
-          >
+            size="icon">
             <div className="relative">
               <Avatar className="h-9 w-9 ring-2 ring-offset-1 ring-gray-200/50 dark:ring-gray-700/50">
                 <AvatarImage
@@ -561,7 +557,9 @@ export const UserMenu: React.FC<UserMenuProps> = ({
               {/* Admin Panel - Only for system admins */}
               {(isAdmin || isSuperAdmin) && (
                 <DropdownMenuItem asChild>
-                  <Link href="/admin" className="w-full cursor-pointer">
+                  <Link
+                    href="/admin-dashboard"
+                    className="w-full cursor-pointer">
                     <Shield className="mr-3 h-4 w-4" />
                     <span>Admin Panel</span>
                     {isSuperAdmin && (
@@ -579,8 +577,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({
             {/* Logout */}
             <DropdownMenuItem
               className="text-destructive focus:text-destructive cursor-pointer"
-              onClick={onLogout}
-            >
+              onClick={onLogout}>
               <LogOut className="mr-3 h-4 w-4" />
               <span>Sign out</span>
             </DropdownMenuItem>
