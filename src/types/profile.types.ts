@@ -4,7 +4,6 @@ import {
   BaseEntity,
   SoftDeletable,
   UserLocation,
-  ProfilePicture,
   SocialMediaHandle,
   ContactDetails,
   IdDetails,
@@ -19,7 +18,7 @@ import { IUser } from "./user.types";
 export interface ProfileWarning {
   _id?: Types.ObjectId;
   reason: string;
-  severity: 'low' | 'medium' | 'high';
+  severity: "low" | "medium" | "high";
   issuedAt: Date;
   issuedBy?: Types.ObjectId;
 }
@@ -36,7 +35,6 @@ export interface IUserProfile extends BaseEntity, SoftDeletable {
   contactDetails?: ContactDetails;
   idDetails?: IdDetails;
   completeness?: number;
-  profilePicture?: ProfilePicture;
   isActiveInMarketplace?: boolean;
   verificationStatus: VerificationStatus;
   moderationStatus: ModerationStatus;
@@ -44,10 +42,10 @@ export interface IUserProfile extends BaseEntity, SoftDeletable {
   lastModeratedAt?: Date;
   moderationNotes?: string;
   warningsCount: number;
-  
+
   // Add the missing warnings field
   warnings?: ProfileWarning[];
-  
+
   // Additional fields that might be missing from your interface but exist in the model
   verificationReason?: string;
   moderationReason?: string;
@@ -61,7 +59,10 @@ export interface DomainProfile extends BaseEntity {
   isActive: boolean;
 }
 
-export type CreateProfileRequestBody = Omit<IUserProfile, "userId" | "_id" | "createdAt" | "updatedAt">
+export type CreateProfileRequestBody = Omit<
+  IUserProfile,
+  "userId" | "_id" | "createdAt" | "updatedAt"
+>;
 
 export interface ProfileResponse {
   message: string;
@@ -73,7 +74,7 @@ export interface ProfileResponse {
 // Additional types for warning management
 export interface AddWarningRequestBody {
   reason: string;
-  severity: 'low' | 'medium' | 'high';
+  severity: "low" | "medium" | "high";
   issuedBy?: string;
 }
 

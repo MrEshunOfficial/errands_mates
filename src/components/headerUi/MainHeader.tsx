@@ -34,7 +34,7 @@ import { NavigationItem, baseNavigationItems } from "@/lib/utils/navElements";
 import { IUser, IUserProfile } from "@/types";
 import { SystemRole, UserRole } from "@/types/base.types";
 import { useAuth } from "@/hooks/auth/useAuth";
-import { useProfile } from "@/hooks/auth/useProfile";
+import { useProfile } from "@/hooks/profiles/useProfile";
 
 // Logo Component with enhanced styling
 const ErrandMateLogo: React.FC = () => (
