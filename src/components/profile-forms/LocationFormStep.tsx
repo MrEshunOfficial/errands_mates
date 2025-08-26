@@ -6,6 +6,24 @@ import Link from "next/link";
 import { UpdateUserProfileFormData } from "@/lib/utils/schemas/profile.schemas";
 import { getRegions } from "@/lib/api/location.api.config/get.regions";
 
+// Define proper TypeScript interfaces for the location API
+interface City {
+  id: string;
+  name: string;
+}
+
+interface Region {
+  id: string;
+  name: string;
+  cities?: City[];
+}
+
+interface LocationApiResponse {
+  success: boolean;
+  data: Region[];
+  message?: string;
+}
+
 interface LocationFormStepProps {
   className?: string;
   onFieldChange?: (field: string, value: unknown) => void;
@@ -42,18 +60,64 @@ export default function LocationFormStep({
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [showGpsHelper, setShowGpsHelper] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [regions, setRegions] = useState<Region[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   const locationData = watch();
   const ghanaPostGPS = locationData.ghanaPostGPS || "";
 
-  const [regions, setRegions] = useState<unknown[]>([]);
-  const [loading, setLoading] = useState(true);
-
+  // Fetch regions with proper error handling and typing
   useEffect(() => {
     const fetchRegions = async () => {
-      const data = await getRegions();
-      setRegions(data);
-      setLoading(false);
+      try {
+        setLoading(true);
+        setApiError(null);
+
+        const response = await getRegions();
+
+        // Handle different possible response formats
+        let regionsData: Region[] = [];
+
+        if (Array.isArray(response)) {
+          // Direct array response
+          regionsData = response;
+        } else if (response && typeof response === "object") {
+          // Object response with data property
+          if (Array.isArray(response.data)) {
+            regionsData = response.data;
+          } else if (Array.isArray(response.regions)) {
+            regionsData = response.regions;
+          }
+        }
+
+        // Validate the structure of each region
+        const validatedRegions = regionsData.filter(
+          (region): region is Region => {
+            return (
+              region &&
+              typeof region === "object" &&
+              typeof region.id === "string" &&
+              typeof region.name === "string"
+            );
+          }
+        );
+
+        setRegions(validatedRegions);
+
+        if (validatedRegions.length === 0 && regionsData.length > 0) {
+          console.warn("Regions data structure may be incorrect:", regionsData);
+          setApiError("Regions data format is invalid");
+        }
+      } catch (error) {
+        console.error("Error fetching regions:", error);
+        setApiError(
+          error instanceof Error ? error.message : "Failed to load regions"
+        );
+        setRegions([]);
+      } finally {
+        setLoading(false);
+      }
     };
 
     fetchRegions();
@@ -115,7 +179,9 @@ export default function LocationFormStep({
       locationData.city,
       locationData.nearbyLandmark,
     ];
-    const completed = requiredFields.filter((field) => field?.trim()).length;
+    const completed = requiredFields.filter((field) =>
+      field?.toString().trim()
+    ).length;
     return (completed / requiredFields.length) * 100;
   };
 
@@ -169,6 +235,13 @@ export default function LocationFormStep({
     />
   );
 
+  // Get the selected region with proper typing
+  const getSelectedRegion = (): Region | undefined => {
+    const selectedRegionId = locationData.region;
+    return regions.find((region) => region.id === selectedRegionId);
+  };
+
+  const selectedRegion = getSelectedRegion();
   const isGpsValid = validateGhanaPostGPS(ghanaPostGPS);
   const progress = calculateProgress();
 
@@ -177,6 +250,30 @@ export default function LocationFormStep({
       <p className="text-sm text-gray-600 dark:text-gray-400">
         Help others find you by providing accurate location information.
       </p>
+
+      {/* API Error Display */}
+      {apiError && (
+        <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-4">
+          <div className="flex items-start space-x-2">
+            <span className="text-red-600 dark:text-red-400">⚠️</span>
+            <div>
+              <p className="text-red-800 dark:text-red-200 font-medium text-sm">
+                Location Service Error
+              </p>
+              <p className="text-red-700 dark:text-red-300 text-sm mt-1">
+                {apiError}
+              </p>
+              <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="text-red-600 dark:text-red-400 text-xs hover:underline mt-2"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Ghana Post GPS */}
       <div className="space-y-4">
@@ -289,19 +386,29 @@ export default function LocationFormStep({
                 onChange={(e) => {
                   field.onChange(e);
                   onFieldChange?.("region", e.target.value);
+                  // Clear city when region changes
+                  setValue("city", "", { shouldDirty: true });
+                  onFieldChange?.("city", "");
                 }}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800"
+                disabled={loading}
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <option value="">Select a region</option>
-                {Array.isArray(regions) &&
-                  regions.map((region) => (
-                    <option key={region.id} value={region.id}>
-                      {region.name}
-                    </option>
-                  ))}
+                <option value="">
+                  {loading ? "Loading regions..." : "Select a region"}
+                </option>
+                {regions.map((region) => (
+                  <option key={region.id} value={region.id}>
+                    {region.name}
+                  </option>
+                ))}
               </select>
             )}
           />
+          {errors.region && (
+            <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+              {errors.region.message}
+            </p>
+          )}
         </FormField>
 
         {/* City Field */}
@@ -310,10 +417,8 @@ export default function LocationFormStep({
             name="city"
             control={control}
             render={({ field }) => {
-              // Only try to find if regions is an array
-              const selectedRegion =
-                Array.isArray(regions) &&
-                regions.find((r) => r.id === control._formValues.region);
+              const availableCities = selectedRegion?.cities || [];
+              const hasRegionSelected = !!locationData.region;
 
               return (
                 <select
@@ -323,19 +428,30 @@ export default function LocationFormStep({
                     field.onChange(e);
                     onFieldChange?.("city", e.target.value);
                   }}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800"
-                  disabled={!selectedRegion}
+                  disabled={!hasRegionSelected || loading}
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <option value="">Select a city</option>
-                  {selectedRegion?.cities?.map((city) => (
-                    <option key={city} value={city}>
-                      {city}
+                  <option value="">
+                    {!hasRegionSelected
+                      ? "Select a region first"
+                      : availableCities.length === 0
+                      ? "No cities available"
+                      : "Select a city"}
+                  </option>
+                  {availableCities.map((city) => (
+                    <option key={city.id} value={city.id}>
+                      {city.name}
                     </option>
                   ))}
                 </select>
               );
             }}
           />
+          {errors.city && (
+            <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+              {errors.city.message}
+            </p>
+          )}
         </FormField>
       </div>
 
