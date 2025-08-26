@@ -2,12 +2,8 @@
 
 import React, { useState } from "react";
 import { useFormContext, Controller, useFieldArray } from "react-hook-form";
-import {
-  formFieldConfigs,
-  validateGhanaPhone,
-} from "@/lib/schemas/profile.schema";
-import type { UpdateProfileFormData } from "@/lib/schemas/profile.schema";
-import { UserRole } from "@/types/api.types";
+import { UserRole } from "@/types";
+import { UpdateUserProfileFormData } from "@/lib/utils/schemas/profile.schemas";
 
 interface ContactFormStepProps {
   className?: string;
@@ -28,6 +24,32 @@ const socialPlatforms = [
   { name: "Other", icon: "🔗", placeholder: "Platform name" },
 ];
 
+// Form field configurations
+const formFieldConfigs = {
+  primaryContact: {
+    placeholder: "+233XXXXXXXXX or 0XXXXXXXXX",
+    maxLength: 15,
+  },
+  secondaryContact: {
+    placeholder: "+233XXXXXXXXX or 0XXXXXXXXX (optional)",
+    maxLength: 15,
+  },
+  businessEmail: {
+    placeholder: "business@example.com (optional)",
+    maxLength: 100,
+  },
+  socialMediaUsername: {
+    maxLength: 100,
+  },
+};
+
+// Ghana phone validation function
+const validateGhanaPhone = (phone: string): boolean => {
+  if (!phone) return false;
+  const ghanaPhoneRegex = /^\+233[0-9]{9}$|^0[0-9]{9}$/;
+  return ghanaPhoneRegex.test(phone.trim());
+};
+
 export default function ContactFormStep({
   className = "",
   onFieldChange,
@@ -36,7 +58,7 @@ export default function ContactFormStep({
     control,
     formState: { errors },
     watch,
-  } = useFormContext<UpdateProfileFormData>();
+  } = useFormContext<UpdateUserProfileFormData>();
 
   const [showPhoneHelper, setShowPhoneHelper] = useState(false);
 
@@ -45,11 +67,11 @@ export default function ContactFormStep({
     name: "socialMediaHandles",
   });
 
-  const contactDetails = watch("contactDetails") || {
-    primaryContact: "",
-    secondaryContact: "",
-  };
+  const primaryContact = watch("primaryContact") || "";
+  const secondaryContact = watch("secondaryContact") || "";
+  const businessEmail = watch("businessEmail") || "";
   const socialHandles = watch("socialMediaHandles") || [];
+  const userRole = watch("role");
 
   // Add new social media handle
   const addSocialHandle = () => {
@@ -72,14 +94,22 @@ export default function ContactFormStep({
 
   // Calculate completion percentage
   const getCompletionPercentage = (): number => {
-    const primaryPhone = contactDetails.primaryContact ? 1 : 0;
-    const secondaryPhone = contactDetails.secondaryContact ? 0.5 : 0;
+    const primaryPhoneScore = validateGhanaPhone(primaryContact) ? 1 : 0;
+    const secondaryPhoneScore = secondaryContact ? 0.3 : 0;
+    const businessEmailScore = businessEmail ? 0.2 : 0;
     const socialCount = socialHandles.filter(
       (handle) => handle.nameOfSocial && handle.userName
     ).length;
-    const socialScore = Math.min(socialCount * 0.3, 1);
+    const socialScore = Math.min(socialCount * 0.1, 0.5);
 
-    return ((primaryPhone + secondaryPhone + socialScore) / 2.5) * 100;
+    return (
+      ((primaryPhoneScore +
+        secondaryPhoneScore +
+        businessEmailScore +
+        socialScore) /
+        2) *
+      100
+    );
   };
 
   return (
@@ -130,7 +160,7 @@ export default function ContactFormStep({
 
         {/* Primary Contact */}
         <Controller
-          name="contactDetails.primaryContact"
+          name="primaryContact"
           control={control}
           render={({ field }) => (
             <div>
@@ -144,13 +174,10 @@ export default function ContactFormStep({
                 value={field.value || ""}
                 onChange={(e) => {
                   field.onChange(e);
-                  onFieldChange?.(
-                    "contactDetails.primaryContact",
-                    e.target.value
-                  );
+                  onFieldChange?.("primaryContact", e.target.value);
                 }}
                 className={`w-full px-4 py-3 rounded-lg border transition-colors ${
-                  errors.contactDetails?.primaryContact
+                  errors.primaryContact
                     ? "border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950 focus:ring-2 focus:ring-red-200 dark:focus:ring-red-800"
                     : validateGhanaPhone(field.value || "") && field.value
                     ? "border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950 focus:ring-2 focus:ring-green-200 dark:focus:ring-green-800"
@@ -176,10 +203,10 @@ export default function ContactFormStep({
                 </div>
               )}
 
-              {errors.contactDetails?.primaryContact && (
+              {errors.primaryContact && (
                 <div className="flex items-center space-x-2 text-red-600 dark:text-red-400 text-sm mt-2">
                   <span>⚠️</span>
-                  <span>{errors.contactDetails.primaryContact.message}</span>
+                  <span>{errors.primaryContact.message}</span>
                 </div>
               )}
 
@@ -192,7 +219,7 @@ export default function ContactFormStep({
 
         {/* Secondary Contact */}
         <Controller
-          name="contactDetails.secondaryContact"
+          name="secondaryContact"
           control={control}
           render={({ field }) => (
             <div>
@@ -206,13 +233,10 @@ export default function ContactFormStep({
                 value={field.value || ""}
                 onChange={(e) => {
                   field.onChange(e);
-                  onFieldChange?.(
-                    "contactDetails.secondaryContact",
-                    e.target.value
-                  );
+                  onFieldChange?.("secondaryContact", e.target.value);
                 }}
                 className={`w-full px-4 py-3 rounded-lg border transition-colors ${
-                  errors.contactDetails?.secondaryContact
+                  errors.secondaryContact
                     ? "border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950 focus:ring-2 focus:ring-red-200 dark:focus:ring-red-800"
                     : field.value && validateGhanaPhone(field.value)
                     ? "border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950 focus:ring-2 focus:ring-green-200 dark:focus:ring-green-800"
@@ -238,15 +262,56 @@ export default function ContactFormStep({
                 </div>
               )}
 
-              {errors.contactDetails?.secondaryContact && (
+              {errors.secondaryContact && (
                 <div className="flex items-center space-x-2 text-red-600 dark:text-red-400 text-sm mt-2">
                   <span>⚠️</span>
-                  <span>{errors.contactDetails.secondaryContact.message}</span>
+                  <span>{errors.secondaryContact.message}</span>
                 </div>
               )}
 
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 Alternative contact number for backup communication
+              </p>
+            </div>
+          )}
+        />
+
+        {/* Business Email */}
+        <Controller
+          name="businessEmail"
+          control={control}
+          render={({ field }) => (
+            <div>
+              <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+                Business Email (Optional)
+              </label>
+              <input
+                {...field}
+                type="email"
+                placeholder={formFieldConfigs.businessEmail.placeholder}
+                value={field.value || ""}
+                onChange={(e) => {
+                  field.onChange(e);
+                  onFieldChange?.("businessEmail", e.target.value);
+                }}
+                className={`w-full px-4 py-3 rounded-lg border transition-colors ${
+                  errors.businessEmail
+                    ? "border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950 focus:ring-2 focus:ring-red-200 dark:focus:ring-red-800"
+                    : field.value && field.value.includes("@")
+                    ? "border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950 focus:ring-2 focus:ring-green-200 dark:focus:ring-green-800"
+                    : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800"
+                } text-gray-900 dark:text-gray-100`}
+              />
+
+              {errors.businessEmail && (
+                <div className="flex items-center space-x-2 text-red-600 dark:text-red-400 text-sm mt-2">
+                  <span>⚠️</span>
+                  <span>{errors.businessEmail.message}</span>
+                </div>
+              )}
+
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Professional email for business communications
               </p>
             </div>
           )}
@@ -422,7 +487,7 @@ export default function ContactFormStep({
       </div>
 
       {/* Contact Preferences */}
-      <div className=" bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+      <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
         <h4 className="text-start text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">
           📞 Contact Preferences
         </h4>
@@ -467,14 +532,12 @@ export default function ContactFormStep({
             </span>
             <span
               className={
-                validateGhanaPhone(contactDetails.primaryContact || "")
+                validateGhanaPhone(primaryContact)
                   ? "text-green-600 dark:text-green-400"
                   : "text-red-600 dark:text-red-400"
               }
             >
-              {validateGhanaPhone(contactDetails.primaryContact || "")
-                ? "✅ Valid"
-                : "❌ Required"}
+              {validateGhanaPhone(primaryContact) ? "✅ Valid" : "❌ Required"}
             </span>
           </div>
           <div className="flex items-center justify-between">
@@ -483,12 +546,26 @@ export default function ContactFormStep({
             </span>
             <span
               className={
-                contactDetails.secondaryContact
+                secondaryContact
                   ? "text-green-600 dark:text-green-400"
                   : "text-gray-400"
               }
             >
-              {contactDetails.secondaryContact ? "✅ Added" : "⭕ Optional"}
+              {secondaryContact ? "✅ Added" : "⭕ Optional"}
+            </span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span className="text-gray-600 dark:text-gray-400">
+              Business Email
+            </span>
+            <span
+              className={
+                businessEmail
+                  ? "text-green-600 dark:text-green-400"
+                  : "text-gray-400"
+              }
+            >
+              {businessEmail ? "✅ Added" : "⭕ Optional"}
             </span>
           </div>
           <div className="flex items-center justify-between">
@@ -536,7 +613,7 @@ export default function ContactFormStep({
       </div>
 
       {/* Tips for Service Providers */}
-      {watch("role") === UserRole.PROVIDER && (
+      {userRole === UserRole.PROVIDER && (
         <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-4">
           <h4 className="text-start text-sm font-medium text-green-900 dark:text-green-100 mb-2">
             💼 Tips for Service Providers

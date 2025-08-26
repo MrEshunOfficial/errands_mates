@@ -9,20 +9,39 @@ import {
   AlertCircle,
   User,
   Users,
-  FileText,
-  Lightbulb,
   Eye,
   EyeOff,
+  InfoIcon,
 } from "lucide-react";
+import { UserRole, ProfilePicture } from "@/types";
+import {
+  UpdateUserProfileFormData,
+  userFormFieldConfigs as formFieldConfigs,
+} from "@/lib/utils/schemas/profile.schemas";
+
+// Define the expected form profile picture type based on the form schema
+type FormProfilePicture = {
+  url: string;
+  fileName: string;
+  fileSize?: number;
+  mimeType?: "image/jpeg" | "image/png" | "image/webp" | "image/jpg";
+  uploadedAt?: Date;
+};
+
+import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { ProfileRoleTips } from "./extras/show-tips";
+import ProfilePictureUpload from "./avatar-upload";
 
 interface BasicInfoFormStepProps {
   className?: string;
   onFieldChange?: (field: string, value: unknown) => void;
-  showImageUpload?: boolean;
-  onImageUpdate?: (imageFile: File) => Promise<void>;
-  onImageRemove?: () => Promise<void>;
-  currentProfileImage?: string;
-  userName?: string;
+  onProfilePictureUpload?: (file: File) => Promise<ProfilePicture>;
+  onProfilePictureRemove?: () => Promise<void>;
 }
 
 const roleOptions = [
@@ -31,15 +50,17 @@ const roleOptions = [
     label: "Customer (or Client)",
     shortLabel: "Customer",
     description: "I'm looking for services and want to book appointments",
+
     detailedDescription:
       "Perfect for individuals who need services like cleaning, repairs, tutoring, etc.",
     icon: "🛒",
     iconComponent: User,
     benefits: [
-      "Browse and book services easily",
+      "Browse and contact service providers directly",
       "Rate and review service providers",
-      "Track your service history",
-      "Get personalized recommendations",
+      "Track your request history (Premium)",
+      "Get personalized recommendations (Premium)",
+      "Make direct request and payment (Premium)",
     ],
     color: "blue",
   },
@@ -47,16 +68,17 @@ const roleOptions = [
     value: UserRole.PROVIDER,
     label: "Service Provider",
     shortLabel: "Provider",
-    description: "I provide services to customers and want to grow my business",
+    description: "I offer services to clients and want to expand my business.",
     detailedDescription:
       "Ideal for professionals offering services like cleaning, tutoring, repairs, etc.",
     icon: "🔧",
     iconComponent: Users,
     benefits: [
-      "Create and manage your service listings",
-      "Accept bookings and payments",
+      "Create and manage service listings",
       "Build your reputation with reviews",
-      "Access business analytics and insights",
+      "Accept request and payments (Premium)",
+      "Access business analytics and insights (Premium)",
+      "Client Recommendation and easy Matching (Premium)",
     ],
     color: "green",
   },
@@ -65,11 +87,8 @@ const roleOptions = [
 export default function BasicInfoFormStep({
   className = "",
   onFieldChange,
-  showImageUpload = false,
-  onImageUpdate,
-  onImageRemove,
-  currentProfileImage,
-  userName = "User",
+  onProfilePictureUpload,
+  onProfilePictureRemove,
 }: BasicInfoFormStepProps) {
   const {
     control,
@@ -77,19 +96,24 @@ export default function BasicInfoFormStep({
     watch,
     setValue,
     clearErrors,
-  } = useFormContext<UpdateProfileFormData>();
+  } = useFormContext<UpdateUserProfileFormData>();
 
   const selectedRole = watch("role");
   const bioValue = watch("bio") || "";
   const isActiveInMarketplace = watch("isActiveInMarketplace") || false;
+  const currentProfilePicture = watch("profilePicture");
 
   const [showBioPreview, setShowBioPreview] = useState(false);
   const [bioFocused, setBioFocused] = useState(false);
   const [showRoleDetails, setShowRoleDetails] = useState<UserRole | null>(null);
+  const [isUploadingPicture, setIsUploadingPicture] = useState(false);
+  const [profilePictureError, setProfilePictureError] = useState<string | null>(
+    null
+  );
   const [completionStatus, setCompletionStatus] = useState({
     role: false,
     bio: false,
-    image: false,
+    profilePicture: false,
   });
 
   // Update completion status
@@ -97,9 +121,9 @@ export default function BasicInfoFormStep({
     setCompletionStatus({
       role: !!selectedRole,
       bio: !!bioValue && bioValue.trim().length >= 10,
-      image: !!currentProfileImage,
+      profilePicture: !!currentProfilePicture,
     });
-  }, [selectedRole, bioValue, currentProfileImage]);
+  }, [selectedRole, bioValue, currentProfilePicture]);
 
   const handleRoleSelect = (role: UserRole) => {
     setValue("role", role, { shouldValidate: true, shouldDirty: true });
@@ -124,6 +148,95 @@ export default function BasicInfoFormStep({
     onFieldChange?.("isActiveInMarketplace", checked);
   };
 
+  // Helper function to convert ProfilePicture to FormProfilePicture
+  const convertToFormProfilePicture = (
+    profilePicture: ProfilePicture
+  ): FormProfilePicture => {
+    const allowedMimeTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/jpg",
+    ] as const;
+    type AllowedMimeType = (typeof allowedMimeTypes)[number];
+
+    const isValidMimeType = (
+      mimeType: string | undefined
+    ): mimeType is AllowedMimeType => {
+      return (
+        mimeType !== undefined &&
+        allowedMimeTypes.includes(mimeType as AllowedMimeType)
+      );
+    };
+
+    return {
+      url: profilePicture.url,
+      fileName: profilePicture.fileName,
+      fileSize: profilePicture.fileSize,
+      mimeType: isValidMimeType(profilePicture.mimeType)
+        ? profilePicture.mimeType
+        : undefined,
+      uploadedAt: profilePicture.uploadedAt,
+    };
+  };
+
+  const handleProfilePictureSelect = async (file: File) => {
+    if (!onProfilePictureUpload) {
+      setProfilePictureError("Profile picture upload not configured");
+      return;
+    }
+
+    setIsUploadingPicture(true);
+    setProfilePictureError(null);
+
+    try {
+      const uploadedPicture = await onProfilePictureUpload(file);
+
+      // Convert to form-compatible type
+      const formattedPicture = convertToFormProfilePicture(uploadedPicture);
+
+      setValue("profilePicture", formattedPicture, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+      onFieldChange?.("profilePicture", formattedPicture);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to upload profile picture";
+      setProfilePictureError(errorMessage);
+    } finally {
+      setIsUploadingPicture(false);
+    }
+  };
+
+  const handleProfilePictureRemove = async () => {
+    if (!onProfilePictureRemove) {
+      return;
+    }
+
+    setIsUploadingPicture(true);
+    setProfilePictureError(null);
+
+    try {
+      await onProfilePictureRemove();
+      setValue("profilePicture", undefined, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
+      onFieldChange?.("profilePicture", undefined);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to remove profile picture";
+      setProfilePictureError(errorMessage);
+    } finally {
+      setIsUploadingPicture(false);
+    }
+  };
+
   const getBioStrength = (
     text: string
   ): { strength: string; color: string; percentage: number } => {
@@ -137,97 +250,57 @@ export default function BasicInfoFormStep({
     return { strength: "Excellent", color: "green", percentage: 100 };
   };
 
-  const getCompletionPercentage = () => {
-    const completed = Object.values(completionStatus).filter(Boolean).length;
-    const total = showImageUpload ? 3 : 2;
-    return Math.round((completed / total) * 100);
-  };
-
   const selectedRoleOption = roleOptions.find(
     (option) => option.value === selectedRole
   );
 
   return (
-    <div className={`space-y-8 ${className}`}>
-      {/* Progress Indicator */}
-      <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between mb-2">
-          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
-            Section Progress
-          </h4>
-          <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
-            {getCompletionPercentage()}%
-          </span>
-        </div>
-        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-3">
-          <motion.div
-            className="bg-blue-500 dark:bg-blue-400 h-2 rounded-full transition-all duration-500"
-            initial={{ width: 0 }}
-            animate={{ width: `${getCompletionPercentage()}%` }}
-          />
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {[
-            { key: "role", label: "Role", required: true },
-            { key: "bio", label: "Bio", required: false },
-            ...(showImageUpload
-              ? [{ key: "image", label: "Photo", required: false }]
-              : []),
-          ].map(({ key, label, required }) => (
-            <div
-              key={key}
-              className={`flex items-center gap-1 text-xs px-2 py-1 rounded-full ${
-                completionStatus[key as keyof typeof completionStatus]
-                  ? "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300"
-                  : required
-                  ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
-                  : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
-              }`}>
-              {completionStatus[key as keyof typeof completionStatus] ? (
-                <CheckCircle className="w-3 h-3" />
-              ) : required ? (
-                <AlertCircle className="w-3 h-3" />
-              ) : (
-                <div className="w-3 h-3 rounded-full border border-current" />
-              )}
-              <span>{label}</span>
-            </div>
-          ))}
-        </div>
+    <div className={`space-y-4 ${className}`}>
+      {/* Profile Picture Section */}
+      <div className="flex justify-center">
+        <ProfilePictureUpload
+          currentPicture={currentProfilePicture}
+          onImageSelect={handleProfilePictureSelect}
+          onImageRemove={handleProfilePictureRemove}
+          isUploading={isUploadingPicture}
+          error={profilePictureError}
+          size="xl"
+          showPreview={true}
+          className="w-full"
+        />
       </div>
-
-      {/* Profile Image Upload */}
-      {showImageUpload && onImageUpdate && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-4">
-          <div className="text-center">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-              Add Your Profile Picture
-            </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
-              A friendly photo helps build trust with other users
-            </p>
-          </div>
-
-          <ImageUpload
-            currentImage={currentProfileImage}
-            userName={userName}
-            onImageUpdate={onImageUpdate}
-            onImageRemove={onImageRemove}
-            className="flex justify-center"
-          />
-        </motion.div>
-      )}
 
       {/* Role Selection */}
       <div className="space-y-6">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-2">
-            How will you be using the platform?
-            <span className="text-red-500">*</span>
-          </h3>
+          <div className="flex items-center justify-between p-2">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-2">
+              How will you be using the platform?
+              <span className="text-red-500">*</span>
+            </h3>
+
+            {/* Bio writing tips */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="flex items-center justify-start gap-1"
+                >
+                  <InfoIcon className=" text-blue-600 dark:text-blue-400" />
+                  <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                    Check Out
+                  </h4>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-3/4 bg-accent p-0 border-none">
+                <ProfileRoleTips
+                  selectedRoleOption={selectedRoleOption}
+                  selectedRole={selectedRole}
+                  completionStatus={completionStatus}
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
             Choose your primary role. You can change this later in your
             settings.
@@ -241,16 +314,20 @@ export default function BasicInfoFormStep({
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: 0.1 }}
-              className="relative">
+              className="relative"
+            >
               <div
                 onClick={() => handleRoleSelect(option.value)}
                 onMouseEnter={() => setShowRoleDetails(option.value)}
                 onMouseLeave={() => setShowRoleDetails(null)}
                 className={`relative cursor-pointer rounded-xl border-2 p-6 transition-all duration-300 hover:shadow-lg transform hover:-translate-y-1 ${
                   selectedRole === option.value
-                    ? `border-${option.color}-500 dark:border-${option.color}-400 bg-${option.color}-50 dark:bg-${option.color}-950 ring-2 ring-${option.color}-200 dark:ring-${option.color}-800 shadow-lg`
+                    ? option.color === "blue"
+                      ? "border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-950 ring-2 ring-blue-200 dark:ring-blue-800 shadow-lg"
+                      : "border-green-500 dark:border-green-400 bg-green-50 dark:bg-green-950 ring-2 ring-green-200 dark:ring-green-800 shadow-lg"
                     : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-750"
-                }`}>
+                }`}
+              >
                 {/* Selection indicator */}
                 <div className="absolute top-4 right-4">
                   <motion.div
@@ -258,9 +335,12 @@ export default function BasicInfoFormStep({
                     animate={{ scale: 1 }}
                     className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
                       selectedRole === option.value
-                        ? `border-${option.color}-500 bg-${option.color}-500`
+                        ? option.color === "blue"
+                          ? "border-blue-500 bg-blue-500"
+                          : "border-green-500 bg-green-500"
                         : "border-gray-300 dark:border-gray-600"
-                    }`}>
+                    }`}
+                  >
                     {selectedRole === option.value && (
                       <motion.div
                         initial={{ scale: 0 }}
@@ -276,9 +356,12 @@ export default function BasicInfoFormStep({
                     <div
                       className={`w-12 h-12 rounded-lg flex items-center justify-center text-2xl ${
                         selectedRole === option.value
-                          ? `bg-${option.color}-100 dark:bg-${option.color}-900/50`
+                          ? option.color === "blue"
+                            ? "bg-blue-100 dark:bg-blue-900/50"
+                            : "bg-green-100 dark:bg-green-900/50"
                           : "bg-gray-100 dark:bg-gray-700"
-                      }`}>
+                      }`}
+                    >
                       {option.icon}
                     </div>
                   </div>
@@ -297,15 +380,17 @@ export default function BasicInfoFormStep({
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: "auto" }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+                        className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700"
+                      >
                         <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
                           What you can do:
                         </p>
                         <ul className="space-y-1">
-                          {option.benefits.slice(0, 2).map((benefit, index) => (
+                          {option.benefits.map((benefit, index) => (
                             <li
                               key={index}
-                              className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                              className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400"
+                            >
                               <CheckCircle className="w-3 h-3 text-green-500 flex-shrink-0" />
                               <span>{benefit}</span>
                             </li>
@@ -324,7 +409,8 @@ export default function BasicInfoFormStep({
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-center space-x-2 text-red-600 dark:text-red-400 text-sm bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-200 dark:border-red-800">
+            className="flex items-center space-x-2 text-red-600 dark:text-red-400 text-sm bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-200 dark:border-red-800"
+          >
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
             <span>{errors.role.message}</span>
           </motion.div>
@@ -337,7 +423,8 @@ export default function BasicInfoFormStep({
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
               exit={{ opacity: 0, height: 0 }}
-              className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4"
+            >
               <div className="flex items-start space-x-3">
                 <div className="flex-shrink-0 pt-1">
                   <input
@@ -351,7 +438,8 @@ export default function BasicInfoFormStep({
                 <div className="flex-1">
                   <label
                     htmlFor="marketplace-toggle"
-                    className="text-sm font-medium text-blue-900 dark:text-blue-100 cursor-pointer">
+                    className="text-sm font-medium text-blue-900 dark:text-blue-100 cursor-pointer"
+                  >
                     Join the Service Marketplace
                   </label>
                   <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
@@ -366,12 +454,13 @@ export default function BasicInfoFormStep({
       </div>
 
       {/* Bio Section */}
-      <div className="space-y-4">
+      <div className="flex flex-col items-start justify-start gap-3 text-start">
         <div>
           <label
             htmlFor="bio"
-            className="block text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-2">
-            <FileText className="w-5 h-5" />
+            className="flex text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2 items-center gap-2"
+          >
+            <InfoIcon className="w-5 h-5" />
             Tell us about yourself
           </label>
           <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
@@ -384,7 +473,7 @@ export default function BasicInfoFormStep({
           name="bio"
           control={control}
           render={({ field }) => (
-            <div className="space-y-3">
+            <div className="space-y-3 w-full">
               <div className="relative">
                 <textarea
                   {...field}
@@ -424,7 +513,8 @@ export default function BasicInfoFormStep({
                           : getBioStrength(bioValue).color === "blue"
                           ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
                           : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
-                      }`}>
+                      }`}
+                    >
                       {getBioStrength(bioValue).strength}
                     </div>
                   )}
@@ -439,7 +529,8 @@ export default function BasicInfoFormStep({
                     type="button"
                     onClick={() => setShowBioPreview(!showBioPreview)}
                     className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors"
-                    title={showBioPreview ? "Hide preview" : "Show preview"}>
+                    title={showBioPreview ? "Hide preview" : "Show preview"}
+                  >
                     {showBioPreview ? (
                       <EyeOff className="w-4 h-4" />
                     ) : (
@@ -477,7 +568,8 @@ export default function BasicInfoFormStep({
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+                    className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4"
+                  >
                     <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Preview:
                     </h5>
@@ -492,7 +584,8 @@ export default function BasicInfoFormStep({
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="flex items-center space-x-2 text-red-600 dark:text-red-400 text-sm bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-200 dark:border-red-800">
+                  className="flex items-center space-x-2 text-red-600 dark:text-red-400 text-sm bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-200 dark:border-red-800"
+                >
                   <AlertCircle className="w-4 h-4 flex-shrink-0" />
                   <span>{errors.bio.message}</span>
                 </motion.div>
@@ -500,74 +593,7 @@ export default function BasicInfoFormStep({
             </div>
           )}
         />
-
-        {/* Bio writing tips */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-          <div className="flex items-start gap-3">
-            <Lightbulb className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-            <div>
-              <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">
-                Tips for a great bio:
-              </h4>
-              <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
-                {selectedRole === UserRole.PROVIDER ? (
-                  <>
-                    <li>• Highlight your experience and skills</li>
-                    <li>• Mention what makes your service unique</li>
-                    <li>• Include your service areas or specialties</li>
-                    <li>• Keep it professional but friendly</li>
-                  </>
-                ) : (
-                  <>
-                    <li>• Keep it professional but personal</li>
-                    <li>• Mention your interests or preferences</li>
-                    <li>• Include what you value in service providers</li>
-                    <li>• Be authentic and approachable</li>
-                  </>
-                )}
-              </ul>
-            </div>
-          </div>
-        </motion.div>
       </div>
-
-      {/* Completion Summary */}
-      <AnimatePresence>
-        {selectedRole && completionStatus.role && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-4">
-            <div className="flex items-start space-x-3">
-              <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
-              <div>
-                <h4 className="text-sm font-medium text-green-900 dark:text-green-100 mb-1">
-                  Great progress! 🎉
-                </h4>
-                <p className="text-sm text-green-800 dark:text-green-200">
-                  {selectedRole === UserRole.PROVIDER
-                    ? "As a service provider, make sure to complete your location and contact details to help customers find and reach you easily."
-                    : "As a customer, adding your location will help you discover and connect with nearby service providers."}
-                </p>
-                {selectedRoleOption && (
-                  <div className="mt-2 pt-2 border-t border-green-200 dark:border-green-800">
-                    <p className="text-xs font-medium text-green-700 dark:text-green-300 mb-1">
-                      Next up for {selectedRoleOption.shortLabel}s:
-                    </p>
-                    <div className="text-xs text-green-600 dark:text-green-400">
-                      📍 Location details • 📞 Contact information
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

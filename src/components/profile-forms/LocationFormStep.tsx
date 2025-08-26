@@ -1,34 +1,32 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useFormContext, Controller } from "react-hook-form";
-
 import Link from "next/link";
+import { UpdateUserProfileFormData } from "@/lib/utils/schemas/profile.schemas";
+import { getRegions } from "@/lib/api/location.api.config/get.regions";
 
 interface LocationFormStepProps {
   className?: string;
   onFieldChange?: (field: string, value: unknown) => void;
 }
 
-// Ghana regions for dropdown
-const ghanaRegions = [
-  "Greater Accra",
-  "Ashanti",
-  "Western",
-  "Central",
-  "Eastern",
-  "Volta",
-  "Northern",
-  "Upper East",
-  "Upper West",
-  "Brong-Ahafo",
-  "Western North",
-  "Ahafo",
-  "Bono East",
-  "North East",
-  "Savannah",
-  "Oti",
-];
+const validateGhanaPostGPS = (value: string): boolean => {
+  return /^[A-Z]{2}-\d{4}-\d{4}$/.test(value);
+};
+
+const getLocationErrorMessage = (error: GeolocationPositionError): string => {
+  switch (error.code) {
+    case error.PERMISSION_DENIED:
+      return "Location access denied. Please enable location permissions in your browser settings.";
+    case error.POSITION_UNAVAILABLE:
+      return "Location information unavailable. Please try again or enter coordinates manually.";
+    case error.TIMEOUT:
+      return "Location request timed out. Please try again.";
+    default:
+      return "Unable to retrieve location. Please check your browser settings.";
+  }
+};
 
 export default function LocationFormStep({
   className = "",
@@ -39,180 +37,237 @@ export default function LocationFormStep({
     formState: { errors },
     watch,
     setValue,
-  } = useFormContext<UpdateProfileFormData>();
+  } = useFormContext<UpdateUserProfileFormData>();
 
   const [isGettingLocation, setIsGettingLocation] = useState(false);
-  const [gpsFormatHelper, setGpsFormatHelper] = useState(false);
+  const [showGpsHelper, setShowGpsHelper] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
-  const locationData = watch("location") || {
-    ghanaPostGPS: "",
-    nearbyLandmark: "",
-    region: "",
-    city: "",
-    district: "",
-    locality: "",
-    other: "",
-    gpsCoordinates: undefined,
-  };
+  const locationData = watch();
   const ghanaPostGPS = locationData.ghanaPostGPS || "";
 
-  // Auto-validate GPS format as user types
+  const [regions, setRegions] = useState<unknown[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchRegions = async () => {
+      const data = await getRegions();
+      setRegions(data);
+      setLoading(false);
+    };
+
+    fetchRegions();
+  }, []);
+
   const handleGPSChange = (value: string) => {
     const upperValue = value.toUpperCase();
-    setValue("location.ghanaPostGPS", upperValue, {
+    setValue("ghanaPostGPS", upperValue, {
       shouldValidate: true,
       shouldDirty: true,
     });
-    onFieldChange?.("location.ghanaPostGPS", upperValue);
+    onFieldChange?.("ghanaPostGPS", upperValue);
   };
 
-  // Get user's current location
   const getCurrentLocation = () => {
     if (!navigator.geolocation) {
-      alert("Geolocation is not supported by this browser.");
+      setLocationError("Geolocation is not supported by this browser.");
       return;
     }
 
     setIsGettingLocation(true);
+    setLocationError(null);
+
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
-        setValue(
-          "location.gpsCoordinates",
-          { latitude, longitude },
-          {
-            shouldValidate: true,
-            shouldDirty: true,
-          }
-        );
-        onFieldChange?.("location.gpsCoordinates", { latitude, longitude });
+        const coordinates = { latitude, longitude };
+        setValue("gpsCoordinates", coordinates, {
+          shouldValidate: true,
+          shouldDirty: true,
+        });
+        onFieldChange?.("gpsCoordinates", coordinates);
         setIsGettingLocation(false);
+        setLocationError(null);
       },
       (error) => {
-        console.error("Error getting location:", error);
+        console.error("Geolocation error:", {
+          code: error.code,
+          message: error.message,
+          timestamp: new Date().toISOString(),
+        });
+
+        const errorMessage = getLocationErrorMessage(error);
+        setLocationError(errorMessage);
         setIsGettingLocation(false);
-        alert(
-          "Unable to get your location. Please check your browser permissions."
-        );
       },
-      { timeout: 10000, enableHighAccuracy: true }
+      {
+        timeout: 15000,
+        enableHighAccuracy: true,
+        maximumAge: 300000, // 5 minutes
+      }
     );
   };
 
-  // Calculate completion percentage
-  const getCompletionPercentage = () => {
-    const fields = [
+  const calculateProgress = (): number => {
+    const requiredFields = [
       ghanaPostGPS,
       locationData.region,
       locationData.city,
       locationData.nearbyLandmark,
     ];
-    const completed = fields.filter((field) => field && field.trim()).length;
-    return (completed / fields.length) * 100;
+    const completed = requiredFields.filter((field) => field?.trim()).length;
+    return (completed / requiredFields.length) * 100;
   };
+
+  const FormField = ({
+    name,
+    label,
+    required = false,
+    children,
+  }: {
+    name: string;
+    label: string;
+    required?: boolean;
+    children: React.ReactNode;
+  }) => (
+    <div>
+      <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+        {label} {required && <span className="text-red-500">*</span>}
+      </label>
+      {children}
+    </div>
+  );
+
+  const TextInput = ({
+    name,
+    placeholder,
+    maxLength,
+    className: inputClassName = "",
+  }: {
+    name: keyof UpdateUserProfileFormData;
+    placeholder: string;
+    maxLength?: number;
+    className?: string;
+  }) => (
+    <Controller
+      name={name}
+      control={control}
+      render={({ field }) => (
+        <input
+          {...field}
+          type="text"
+          placeholder={placeholder}
+          maxLength={maxLength}
+          value={typeof field.value === "string" ? field.value : ""}
+          onChange={(e) => {
+            field.onChange(e.target.value);
+            onFieldChange?.(name, e.target.value);
+          }}
+          className={`w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 focus:border-blue-400 dark:focus:border-blue-500 ${inputClassName}`}
+        />
+      )}
+    />
+  );
+
+  const isGpsValid = validateGhanaPostGPS(ghanaPostGPS);
+  const progress = calculateProgress();
 
   return (
     <div className={`space-y-8 ${className}`}>
-      {/* Section Header */}
-      <div>
-        <p className="text-sm text-gray-600 dark:text-gray-400">
-          Help others find you by providing accurate location information. This
-          is especially important for service providers.
-        </p>
-      </div>
+      <p className="text-sm text-gray-600 dark:text-gray-400">
+        Help others find you by providing accurate location information.
+      </p>
 
-      {/* Ghana Post GPS - Required Field */}
+      {/* Ghana Post GPS */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
-            Ghana Post GPS Address <span className="text-red-500">*</span>
-          </label>
+          <FormField
+            name="ghanaPostGPS"
+            label="Ghana Post GPS Address"
+            required
+          >
+            <></>
+          </FormField>
           <button
             type="button"
-            onClick={() => setGpsFormatHelper(!gpsFormatHelper)}
+            onClick={() => setShowGpsHelper(!showGpsHelper)}
             className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
           >
-            Need help? {gpsFormatHelper ? "Hide" : "Show"} format guide
+            {showGpsHelper ? "Hide" : "Show"} format guide
           </button>
         </div>
 
-        {gpsFormatHelper && (
+        {showGpsHelper && (
           <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
             <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-2">
-              🗺️ Ghana Post GPS Format Guide
+              Ghana Post GPS Format Guide
             </h4>
             <div className="text-sm text-blue-800 dark:text-blue-200 space-y-2">
               <p>
                 <strong>Format:</strong> XX-0000-0000 (e.g., GA-123-4567)
               </p>
               <p>
-                <strong>Examples:</strong>
+                <strong>Examples:</strong> GA-039-5028, AK-456-7890, WP-234-5678
               </p>
-              <ul className="list-disc list-inside ml-4 space-y-1">
-                <li>GA-039-5028 (Greater Accra)</li>
-                <li>AK-456-7890 (Ashanti - Kumasi)</li>
-                <li>WP-234-5678 (Western)</li>
-              </ul>
-              <p className="mt-2">
-                <strong>Don&apos;t have one?</strong> Visit{" "}
+              <p>
+                <strong>Don&apos;t have one?</strong>{" "}
                 <Link
                   href="https://gpsportal.com/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-blue-600 dark:text-blue-400 underline"
                 >
-                  Ghana Post GPS Portal
-                </Link>{" "}
-                to get yours.
+                  Get yours here
+                </Link>
               </p>
             </div>
           </div>
         )}
 
         <Controller
-          name="location.ghanaPostGPS"
+          name="ghanaPostGPS"
           control={control}
           render={({ field }) => (
             <div>
               <input
                 {...field}
                 type="text"
-                placeholder={formFieldConfigs.ghanaPostGPS.placeholder}
+                placeholder="XX-0000-0000"
                 value={field.value || ""}
                 onChange={(e) => {
                   field.onChange(e);
                   handleGPSChange(e.target.value);
                 }}
                 className={`w-full px-4 py-3 rounded-lg border transition-colors uppercase tracking-wider ${
-                  errors.location?.ghanaPostGPS
-                    ? "border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950 focus:ring-2 focus:ring-red-200 dark:focus:ring-red-800"
-                    : validateGhanaPostGPS(ghanaPostGPS) && ghanaPostGPS
-                    ? "border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950 focus:ring-2 focus:ring-green-200 dark:focus:ring-green-800"
-                    : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800"
-                } text-gray-900 dark:text-gray-100`}
+                  errors.ghanaPostGPS
+                    ? "border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950"
+                    : isGpsValid && ghanaPostGPS
+                    ? "border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950"
+                    : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800"
+                } text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800`}
               />
 
-              {/* Validation feedback */}
               {ghanaPostGPS && (
-                <div className="mt-2 text-sm">
-                  {validateGhanaPostGPS(ghanaPostGPS) ? (
-                    <div className="flex items-center text-green-600 dark:text-green-400">
-                      <span className="mr-2">✅</span>
-                      Valid GPS format
-                    </div>
-                  ) : (
-                    <div className="flex items-center text-orange-600 dark:text-orange-400">
-                      <span className="mr-2">⚠️</span>
-                      Format should be XX-0000-0000
-                    </div>
-                  )}
+                <div className="mt-2 text-sm flex items-center">
+                  <span className="mr-2">{isGpsValid ? "✅" : "⚠️"}</span>
+                  <span
+                    className={
+                      isGpsValid
+                        ? "text-green-600 dark:text-green-400"
+                        : "text-orange-600 dark:text-orange-400"
+                    }
+                  >
+                    {isGpsValid
+                      ? "Valid GPS format"
+                      : "Format should be XX-0000-0000"}
+                  </span>
                 </div>
               )}
 
-              {errors.location?.ghanaPostGPS && (
+              {errors.ghanaPostGPS && (
                 <div className="flex items-center space-x-2 text-red-600 dark:text-red-400 text-sm mt-2">
                   <span>⚠️</span>
-                  <span>{errors.location.ghanaPostGPS.message}</span>
+                  <span>{errors.ghanaPostGPS.message}</span>
                 </div>
               )}
             </div>
@@ -222,168 +277,125 @@ export default function LocationFormStep({
 
       {/* Region and City */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Controller
-          name="location.region"
-          control={control}
-          render={({ field }) => (
-            <div>
-              <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                Region
-              </label>
+        {/* Region Field */}
+        <FormField name="region" label="Region">
+          <Controller
+            name="region"
+            control={control}
+            render={({ field }) => (
               <select
                 {...field}
                 value={field.value || ""}
                 onChange={(e) => {
                   field.onChange(e);
-                  onFieldChange?.("location.region", e.target.value);
+                  onFieldChange?.("region", e.target.value);
                 }}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 focus:border-blue-400 dark:focus:border-blue-500"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800"
               >
                 <option value="">Select a region</option>
-                {ghanaRegions.map((region) => (
-                  <option key={region} value={region}>
-                    {region}
-                  </option>
-                ))}
+                {Array.isArray(regions) &&
+                  regions.map((region) => (
+                    <option key={region.id} value={region.id}>
+                      {region.name}
+                    </option>
+                  ))}
               </select>
-            </div>
-          )}
-        />
+            )}
+          />
+        </FormField>
 
-        <Controller
-          name="location.city"
-          control={control}
-          render={({ field }) => (
-            <div>
-              <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                City/Town
-              </label>
-              <input
-                {...field}
-                type="text"
-                placeholder={formFieldConfigs.city.placeholder}
-                maxLength={formFieldConfigs.city.maxLength}
-                value={field.value || ""}
-                onChange={(e) => {
-                  field.onChange(e);
-                  onFieldChange?.("location.city", e.target.value);
-                }}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 focus:border-blue-400 dark:focus:border-blue-500"
-              />
-            </div>
-          )}
-        />
+        {/* City Field */}
+        <FormField name="city" label="City/Town">
+          <Controller
+            name="city"
+            control={control}
+            render={({ field }) => {
+              // Only try to find if regions is an array
+              const selectedRegion =
+                Array.isArray(regions) &&
+                regions.find((r) => r.id === control._formValues.region);
+
+              return (
+                <select
+                  {...field}
+                  value={field.value || ""}
+                  onChange={(e) => {
+                    field.onChange(e);
+                    onFieldChange?.("city", e.target.value);
+                  }}
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800"
+                  disabled={!selectedRegion}
+                >
+                  <option value="">Select a city</option>
+                  {selectedRegion?.cities?.map((city) => (
+                    <option key={city} value={city}>
+                      {city}
+                    </option>
+                  ))}
+                </select>
+              );
+            }}
+          />
+        </FormField>
       </div>
 
       {/* District and Locality */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Controller
-          name="location.district"
-          control={control}
-          render={({ field }) => (
-            <div>
-              <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                District
-              </label>
-              <input
-                {...field}
-                type="text"
-                placeholder={formFieldConfigs.district.placeholder}
-                maxLength={formFieldConfigs.district.maxLength}
-                value={field.value || ""}
-                onChange={(e) => {
-                  field.onChange(e);
-                  onFieldChange?.("location.district", e.target.value);
-                }}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 focus:border-blue-400 dark:focus:border-blue-500"
-              />
-            </div>
-          )}
-        />
-
-        <Controller
-          name="location.locality"
-          control={control}
-          render={({ field }) => (
-            <div>
-              <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-                Locality/Neighborhood
-              </label>
-              <input
-                {...field}
-                type="text"
-                placeholder={formFieldConfigs.locality.placeholder}
-                maxLength={formFieldConfigs.locality.maxLength}
-                value={field.value || ""}
-                onChange={(e) => {
-                  field.onChange(e);
-                  onFieldChange?.("location.locality", e.target.value);
-                }}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 focus:border-blue-400 dark:focus:border-blue-500"
-              />
-            </div>
-          )}
-        />
+        <FormField name="district" label="District">
+          <TextInput
+            name="district"
+            placeholder="e.g., Tema Metropolitan"
+            maxLength={50}
+          />
+        </FormField>
+        <FormField name="locality" label="Locality/Neighborhood">
+          <TextInput
+            name="locality"
+            placeholder="e.g., East Legon, Osu"
+            maxLength={50}
+          />
+        </FormField>
       </div>
 
       {/* Nearby Landmark */}
-      <Controller
-        name="location.nearbyLandmark"
-        control={control}
-        render={({ field }) => (
-          <div>
-            <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-              Nearby Landmark
-            </label>
-            <input
-              {...field}
-              type="text"
-              placeholder={formFieldConfigs.nearbyLandmark.placeholder}
-              maxLength={formFieldConfigs.nearbyLandmark.maxLength}
-              value={field.value || ""}
-              onChange={(e) => {
-                field.onChange(e);
-                onFieldChange?.("location.nearbyLandmark", e.target.value);
-              }}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 focus:border-blue-400 dark:focus:border-blue-500"
-            />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Help others find you by mentioning a well-known landmark nearby
-            </p>
-          </div>
-        )}
-      />
+      <FormField name="nearbyLandmark" label="Nearby Landmark">
+        <TextInput
+          name="nearbyLandmark"
+          placeholder="e.g., Near Accra Mall, Behind Shell Station"
+          maxLength={100}
+        />
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          Help others find you by mentioning a well-known landmark nearby
+        </p>
+      </FormField>
 
-      {/* Additional Location Info */}
-      <Controller
-        name="location.other"
-        control={control}
-        render={({ field }) => (
-          <div>
-            <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-              Additional Location Information
-            </label>
-            <textarea
-              {...field}
-              rows={3}
-              placeholder={formFieldConfigs.other.placeholder}
-              maxLength={formFieldConfigs.other.maxLength}
-              value={field.value || ""}
-              onChange={(e) => {
-                field.onChange(e);
-                onFieldChange?.("location.other", e.target.value);
-              }}
-              className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 focus:border-blue-400 dark:focus:border-blue-500 resize-none"
-            />
-            <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
-              <span>Optional: Any other relevant location details</span>
-              <span>
-                {(field.value || "").length}/{formFieldConfigs.other.maxLength}
-              </span>
+      {/* Additional Info */}
+      <FormField name="other" label="Additional Location Information">
+        <Controller
+          name="other"
+          control={control}
+          render={({ field }) => (
+            <div>
+              <textarea
+                {...field}
+                rows={3}
+                placeholder="Any other relevant location details"
+                maxLength={200}
+                value={field.value || ""}
+                onChange={(e) => {
+                  field.onChange(e);
+                  onFieldChange?.("other", e.target.value);
+                }}
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 resize-none"
+              />
+              <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
+                <span>Optional: Any other relevant location details</span>
+                <span>{(field.value || "").length}/200</span>
+              </div>
             </div>
-          </div>
-        )}
-      />
+          )}
+        />
+      </FormField>
 
       {/* GPS Coordinates */}
       <div className="space-y-4">
@@ -400,7 +412,7 @@ export default function LocationFormStep({
             type="button"
             onClick={getCurrentLocation}
             disabled={isGettingLocation}
-            className="px-4 py-2 text-sm bg-blue-600 dark:bg-blue-500 hover:bg-blue-700 dark:hover:bg-blue-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+            className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
           >
             <span>{isGettingLocation ? "🌍" : "📍"}</span>
             <span>
@@ -411,16 +423,53 @@ export default function LocationFormStep({
           </button>
         </div>
 
+        {locationError && (
+          <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-4">
+            <div className="flex items-start space-x-2">
+              <span className="text-red-600 dark:text-red-400">⚠️</span>
+              <div>
+                <p className="text-red-800 dark:text-red-200 font-medium text-sm">
+                  Location Error
+                </p>
+                <p className="text-red-700 dark:text-red-300 text-sm mt-1">
+                  {locationError}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setLocationError(null)}
+                  className="text-red-600 dark:text-red-400 text-xs hover:underline mt-2"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {locationData.gpsCoordinates && (
           <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-4">
-            <div className="flex items-center space-x-2 text-green-800 dark:text-green-200">
-              <span>📍</span>
-              <span className="font-medium">GPS Coordinates Captured</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2 text-green-800 dark:text-green-200">
+                <span>📍</span>
+                <span className="font-medium">GPS Coordinates Captured</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setValue("gpsCoordinates", undefined, {
+                    shouldValidate: true,
+                    shouldDirty: true,
+                  });
+                  onFieldChange?.("gpsCoordinates", undefined);
+                }}
+                className="text-green-600 dark:text-green-400 text-xs hover:underline"
+              >
+                Clear
+              </button>
             </div>
             <div className="text-sm text-green-700 dark:text-green-300 mt-1">
-              Latitude: {locationData.gpsCoordinates.latitude?.toFixed(6)}
-              <br />
-              Longitude: {locationData.gpsCoordinates.longitude?.toFixed(6)}
+              Lat: {locationData.gpsCoordinates.latitude?.toFixed(6)}, Lng:{" "}
+              {locationData.gpsCoordinates.longitude?.toFixed(6)}
             </div>
           </div>
         )}
@@ -433,73 +482,62 @@ export default function LocationFormStep({
             Location Section Progress
           </h4>
           <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
-            {Math.round(getCompletionPercentage())}%
+            {Math.round(progress)}%
           </span>
         </div>
 
         <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-3">
           <div
-            className="bg-blue-500 dark:bg-blue-400 h-2 rounded-full transition-all duration-300"
-            style={{ width: `${getCompletionPercentage()}%` }}
-          ></div>
+            className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+            style={{ width: `${progress}%` }}
+          />
         </div>
 
         <div className="space-y-2 text-sm">
-          <div className="flex items-center justify-between">
-            <span className="text-gray-600 dark:text-gray-400">
-              Ghana Post GPS
-            </span>
-            <span
-              className={
-                validateGhanaPostGPS(ghanaPostGPS)
-                  ? "text-green-600 dark:text-green-400"
-                  : "text-red-600 dark:text-red-400"
-              }
-            >
-              {validateGhanaPostGPS(ghanaPostGPS) ? "✅ Valid" : "❌ Required"}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-gray-600 dark:text-gray-400">
-              Region & City
-            </span>
-            <span
-              className={
-                locationData.region && locationData.city
-                  ? "text-green-600 dark:text-green-400"
-                  : "text-gray-400"
-              }
-            >
-              {locationData.region && locationData.city
-                ? "✅ Complete"
-                : "⭕ Optional"}
-            </span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-gray-600 dark:text-gray-400">Landmark</span>
-            <span
-              className={
-                locationData.nearbyLandmark
-                  ? "text-green-600 dark:text-green-400"
-                  : "text-gray-400"
-              }
-            >
-              {locationData.nearbyLandmark ? "✅ Added" : "⭕ Recommended"}
-            </span>
-          </div>
+          {[
+            { label: "Ghana Post GPS", condition: isGpsValid, required: true },
+            {
+              label: "Region & City",
+              condition: locationData.region && locationData.city,
+            },
+            { label: "Landmark", condition: locationData.nearbyLandmark },
+          ].map(({ label, condition, required }) => (
+            <div key={label} className="flex items-center justify-between">
+              <span className="text-gray-600 dark:text-gray-400">{label}</span>
+              <span
+                className={
+                  condition
+                    ? "text-green-600 dark:text-green-400"
+                    : required
+                    ? "text-red-600 dark:text-red-400"
+                    : "text-gray-400"
+                }
+              >
+                {condition
+                  ? "✅ Complete"
+                  : required
+                  ? "❌ Required"
+                  : "⭕ Optional"}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* Location Tips */}
+      {/* Tips */}
       <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
         <h4 className="text-sm font-medium text-yellow-900 dark:text-yellow-100 mb-2">
           💡 Location Tips for Better Visibility
         </h4>
         <ul className="text-sm text-yellow-800 dark:text-yellow-200 space-y-1">
-          <li>• Accurate Ghana Post GPS helps customers find you easily</li>
-          <li>• Mention popular landmarks that locals recognize</li>
-          <li>• GPS coordinates enable precise mapping for services</li>
-          <li>• Complete location details build trust with customers</li>
+          {[
+            "Accurate Ghana Post GPS helps customers find you easily",
+            "Mention popular landmarks that locals recognize",
+            "GPS coordinates enable precise mapping for services",
+            "Complete location details build trust with customers",
+          ].map((tip, index) => (
+            <li key={index}>• {tip}</li>
+          ))}
         </ul>
       </div>
     </div>

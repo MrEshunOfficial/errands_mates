@@ -8,7 +8,9 @@ export default function ProfileLayout({ children }: { children: ReactNode }) {
       {/* Sidebar */}
       <ProfileNavigation />
       {/* Main Content */}
-      <main className="flex-1 p-2">{children}</main>
+      <main className="flex-1 p-2 flex items-center justify-center">
+        {children}
+      </main>
     </div>
   );
 }

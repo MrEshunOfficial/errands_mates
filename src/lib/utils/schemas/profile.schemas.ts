@@ -25,6 +25,38 @@ const gpsCoordinatesSchema = z.object({
 });
 
 // =============================================================================
+// PROFILE PICTURE VALIDATION SCHEMA
+// =============================================================================
+
+// Profile picture schema for form validation
+export const profilePictureFormSchema = z.object({
+  file: z
+    .instanceof(File)
+    .refine((file) => file.size <= 5 * 1024 * 1024, "File size must be less than 5MB")
+    .refine(
+      (file) => ["image/jpeg", "image/jpg", "image/png", "image/webp"].includes(file.type),
+      "Only JPEG, PNG, and WebP files are allowed"
+    )
+    .refine(
+      (file) => {
+        // Check if file name is reasonable length
+        return file.name.length <= 255;
+      },
+      "File name is too long"
+    )
+    .optional(),
+});
+
+// Profile picture data schema (for API responses)
+export const profilePictureSchema = z.object({
+  url: z.string().url("Invalid profile picture URL"),
+  fileName: z.string().min(1, "File name is required").max(255, "File name too long"),
+  fileSize: z.number().positive("File size must be positive").max(5 * 1024 * 1024, "File too large").optional(),
+  mimeType: z.enum(["image/jpeg", "image/png", "image/webp", "image/jpg"]).optional(),
+  uploadedAt: z.date().optional(),
+});
+
+// =============================================================================
 // ID TYPE CONFIGURATIONS (Must be defined before usage)
 // =============================================================================
 
@@ -83,13 +115,19 @@ export const idTypeConfigs = {
 // USER-FACING FORM SCHEMAS (Only fields users should fill)
 // =============================================================================
 
-// Basic personal information (Step 1)
+// Basic personal information (Step 1) - Now includes profile picture
 export const basicInfoFormSchema = z.object({
   bio: z
     .string()
     .trim()
     .max(500, "Bio cannot exceed 500 characters")
     .optional(),
+  profilePicture: profilePictureSchema.optional(),
+});
+
+// Profile picture update form (standalone)
+export const profilePictureUpdateFormSchema = z.object({
+  profilePicture: profilePictureFormSchema.shape.file,
 });
 
 // Role selection (Step 2)
@@ -202,8 +240,9 @@ export const idVerificationFormSchema = z.object({
 
 // Complete user profile form - only user-editable fields
 export const userProfileFormSchema = z.object({
-  // Basic info
+  // Basic info (including profile picture)
   bio: basicInfoFormSchema.shape.bio,
+  profilePicture: basicInfoFormSchema.shape.profilePicture,
 
   // Role and marketplace participation
   role: roleSelectionFormSchema.shape.role,
@@ -241,8 +280,7 @@ export const updateRoleSelectionFormSchema = roleSelectionFormSchema.partial();
 export const updateLocationFormSchema = locationFormSchema.partial();
 export const updateContactFormSchema = contactFormSchema.partial();
 export const updateSocialMediaFormSchema = socialMediaFormSchema.partial();
-export const updateIdVerificationFormSchema =
-  idVerificationFormSchema.partial();
+export const updateIdVerificationFormSchema = idVerificationFormSchema.partial();
 
 // Complete update schema
 export const updateUserProfileFormSchema = userProfileFormSchema.partial();
@@ -281,9 +319,9 @@ export const profileFormSteps = {
 // =============================================================================
 
 export type UserProfileFormData = z.infer<typeof userProfileFormSchema>;
-export type UpdateUserProfileFormData = z.infer<
-  typeof updateUserProfileFormSchema
->;
+export type UpdateUserProfileFormData = z.infer<typeof updateUserProfileFormSchema>;
+export type ProfilePictureFormData = z.infer<typeof profilePictureFormSchema>;
+export type ProfilePictureUpdateFormData = z.infer<typeof profilePictureUpdateFormSchema>;
 
 // Step-specific types
 export type BasicInfoFormData = z.infer<typeof basicInfoFormSchema>;
@@ -295,19 +333,27 @@ export type IdVerificationFormData = z.infer<typeof idVerificationFormSchema>;
 
 // Role-specific types
 export type CustomerProfileFormData = z.infer<typeof customerProfileFormSchema>;
-export type ServiceProviderProfileFormData = z.infer<
-  typeof serviceProviderProfileFormSchema
->;
+export type ServiceProviderProfileFormData = z.infer<typeof serviceProviderProfileFormSchema>;
 
 // =============================================================================
 // FORM FIELD CONFIGURATIONS
 // =============================================================================
 
 export const userFormFieldConfigs = {
+  profilePicture: {
+    label: "Profile Picture",
+    acceptedTypes: ["image/jpeg", "image/jpg", "image/png", "image/webp"],
+    maxSize: 5 * 1024 * 1024, // 5MB
+    maxSizeLabel: "5MB",
+    helpText: "Upload a clear photo of yourself. JPEG, PNG, or WebP formats only.",
+    optional: true,
+    aspectRatio: "1:1", // Square aspect ratio recommended
+    minResolution: { width: 150, height: 150 },
+    recommendedResolution: { width: 400, height: 400 },
+  },
   bio: {
     label: "About You",
-    placeholder:
-      "Tell us about yourself, your interests, and what makes you unique...",
+    placeholder: "Tell us about yourself, your interests, and what makes you unique...",
     maxLength: 500,
     rows: 4,
     optional: true,
@@ -453,6 +499,23 @@ export const validateUserProfileForm = (
   return schema.safeParse(data);
 };
 
+// Profile picture validation helper
+export const validateProfilePictureFile = (
+  file: File
+): { isValid: boolean; error?: string } => {
+  const result = profilePictureFormSchema.shape.file.safeParse(file);
+
+  if (result.success) {
+    return { isValid: true };
+  }
+
+  return {
+    isValid: false,
+    error: result.error.issues[0]?.message || "Invalid file",
+  };
+};
+
+
 // =============================================================================
 // PROFILE COMPLETENESS CALCULATION (User fields only)
 // =============================================================================
@@ -466,12 +529,11 @@ export const calculateUserProfileCompleteness = (
 } => {
   const sections = {
     basicInfo: !!(profile.bio && profile.bio.trim()),
+    profilePicture: !!profile.profilePicture?.url,
     role: !!profile.role,
     location: !!profile.ghanaPostGPS,
     contact: !!profile.primaryContact,
-    socialMedia: !!(
-      profile.socialMediaHandles && profile.socialMediaHandles.length > 0
-    ),
+    socialMedia: !!(profile.socialMediaHandles && profile.socialMediaHandles.length > 0),
     identification: !!(profile.idType && profile.idNumber), // For service providers
   };
 
@@ -480,25 +542,23 @@ export const calculateUserProfileCompleteness = (
   const essentialCompleted = essentialSections.filter(
     (section) => sections[section as keyof typeof sections]
   ).length;
-  const essentialScore = (essentialCompleted / essentialSections.length) * 60; // 60% for essentials
+  const essentialScore = (essentialCompleted / essentialSections.length) * 50; // 50% for essentials
 
   // Important sections (enhance profile quality)
-  const importantSections = ["basicInfo"];
+  const importantSections = ["basicInfo", "profilePicture"];
   const importantCompleted = importantSections.filter(
     (section) => sections[section as keyof typeof sections]
   ).length;
-  const importantScore = (importantCompleted / importantSections.length) * 30; // 30% for important
+  const importantScore = (importantCompleted / importantSections.length) * 35; // 35% for important
 
   // Optional sections (nice to have)
   const optionalSections = ["socialMedia", "identification"];
   const optionalCompleted = optionalSections.filter(
     (section) => sections[section as keyof typeof sections]
   ).length;
-  const optionalScore = (optionalCompleted / optionalSections.length) * 10; // 10% for optional
+  const optionalScore = (optionalCompleted / optionalSections.length) * 15; // 15% for optional
 
-  const percentage = Math.round(
-    essentialScore + importantScore + optionalScore
-  );
+  const percentage = Math.round(essentialScore + importantScore + optionalScore);
 
   const completedSections = Object.entries(sections)
     .filter(([_, completed]) => completed)

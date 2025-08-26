@@ -3,14 +3,21 @@
 import { idType, UserRole } from "@/types";
 import React from "react";
 import { useFormContext } from "react-hook-form";
+import {
+  UpdateUserProfileFormData,
+  calculateUserProfileCompleteness,
+} from "@/lib/utils/schemas/profile.schemas";
+import { FieldErrors, FieldError } from "react-hook-form";
+
+// Add this type definition at the top of ReviewFormStep.tsx
+type ProfileSection = "basic-info" | "location" | "contact" | "identification";
 
 interface ReviewFormStepProps {
   className?: string;
-  onEdit?: (section: string) => void;
+  onEdit?: (section: ProfileSection) => void;
   isSubmitting?: boolean;
 }
 
-// Section mapping for navigation
 export const REVIEW_SECTIONS = {
   BASIC_INFO: "basic-info",
   LOCATION: "location",
@@ -18,20 +25,185 @@ export const REVIEW_SECTIONS = {
   IDENTIFICATION: "identification",
 } as const;
 
-// ID type display names
-const idTypeLabels: Record<idType, string> = {
-  [idType.NATIONAL_ID]: "National ID",
-  [idType.VOTERS_ID]: "Voter's ID",
-  [idType.PASSPORT]: "Passport",
-  [idType.DRIVERS_LICENSE]: "Driver's License",
-  [idType.NHIS]: "NHIS",
-  [idType.OTHER]: "Other",
+type ReviewSection = (typeof REVIEW_SECTIONS)[keyof typeof REVIEW_SECTIONS];
+
+// Consolidated configuration for sections
+const SECTION_CONFIG = {
+  [REVIEW_SECTIONS.BASIC_INFO]: {
+    icon: "👤",
+    title: "Basic Information",
+    description: "Your profile basics",
+    fields: ["role", "bio"],
+    getContent: (data: UpdateUserProfileFormData) => ({
+      Role: data?.role
+        ? {
+            [UserRole.CUSTOMER]: "Customer",
+            [UserRole.PROVIDER]: "Service Provider",
+          }[data.role]
+        : "Not selected",
+      Bio: data?.bio?.trim() || "No bio provided",
+    }),
+  },
+  [REVIEW_SECTIONS.LOCATION]: {
+    icon: "📍",
+    title: "Location Details",
+    description: "Where you're located",
+    fields: [
+      "ghanaPostGPS",
+      "region",
+      "city",
+      "nearbyLandmark",
+      "gpsCoordinates",
+    ],
+    getContent: (data: UpdateUserProfileFormData) => ({
+      "Ghana Post GPS": data?.ghanaPostGPS || "Not provided",
+      Region: data?.region || "Not specified",
+      City: data?.city || "Not specified",
+      "Nearby Landmark": data?.nearbyLandmark || "Not provided",
+      ...(data?.gpsCoordinates && {
+        "GPS Coordinates": `${data.gpsCoordinates.latitude?.toFixed(
+          6
+        )}, ${data.gpsCoordinates.longitude?.toFixed(6)}`,
+      }),
+    }),
+  },
+  [REVIEW_SECTIONS.CONTACT]: {
+    icon: "📞",
+    title: "Contact Information",
+    description: "How customers can reach you",
+    fields: [
+      "primaryContact",
+      "secondaryContact",
+      "businessEmail",
+      "socialMediaHandles",
+    ],
+    getContent: (data: UpdateUserProfileFormData) => ({
+      "Primary Phone": data?.primaryContact
+        ? formatPhone(data.primaryContact)
+        : "Not provided",
+      ...(data?.secondaryContact && {
+        "Secondary Phone": formatPhone(data.secondaryContact),
+      }),
+      ...(data?.businessEmail && { "Business Email": data.businessEmail }),
+      ...(data?.socialMediaHandles?.length && {
+        "Social Media": data.socialMediaHandles
+          .filter((h) => h.nameOfSocial && h.userName)
+          .map((h) => `${h.nameOfSocial}: ${h.userName}`)
+          .join(", "),
+      }),
+    }),
+  },
+  [REVIEW_SECTIONS.IDENTIFICATION]: {
+    icon: "🆔",
+    title: "Identity Verification",
+    description: "Optional identity verification",
+    fields: ["idType", "idNumber"],
+    getContent: (data: UpdateUserProfileFormData) => {
+      if (!data?.idType) return { Status: "No identification provided" };
+
+      const idLabels = {
+        [idType.NATIONAL_ID]: "National ID",
+        [idType.VOTERS_ID]: "Voter's ID",
+        [idType.PASSPORT]: "Passport",
+        [idType.DRIVERS_LICENSE]: "Driver's License",
+        [idType.NHIS]: "NHIS",
+        [idType.OTHER]: "Other",
+      };
+
+      return {
+        "ID Type": idLabels[data.idType],
+        "ID Number": data?.idNumber || "Not provided",
+      };
+    },
+  },
+} as const;
+
+// Utility functions
+const formatPhone = (phone: string): string => {
+  if (!phone) return "";
+  if (phone.startsWith("+233")) return phone.replace("+233", "+233 ");
+  if (phone.startsWith("0") && phone.length === 10) {
+    return phone.replace(/(\d{3})(\d{3})(\d{4})/, "$1 $2 $3");
+  }
+  return phone;
 };
 
-// Role display names
-const roleLabels = {
-  [UserRole.CUSTOMER]: "Customer",
-  [UserRole.PROVIDER]: "Service Provider",
+const getSectionErrors = (
+  section: ReviewSection,
+  errors: FieldErrors
+): string[] => {
+  const fieldMap: Record<ReviewSection, string[]> = {
+    [REVIEW_SECTIONS.BASIC_INFO]: ["role", "bio"],
+    [REVIEW_SECTIONS.LOCATION]: [
+      "ghanaPostGPS",
+      "region",
+      "city",
+      "nearbyLandmark",
+    ],
+    [REVIEW_SECTIONS.CONTACT]: [
+      "primaryContact",
+      "secondaryContact",
+      "businessEmail",
+      "socialMediaHandles",
+    ],
+    [REVIEW_SECTIONS.IDENTIFICATION]: ["idType", "idNumber"],
+  };
+
+  return fieldMap[section]
+    .map((field) => {
+      let error: unknown;
+
+      if (field.includes(".")) {
+        error = field
+          .split(".")
+          .reduce<unknown>(
+            (obj, key) =>
+              typeof obj === "object" && obj !== null
+                ? (obj as Record<string, unknown>)[key]
+                : undefined,
+            errors
+          );
+      } else {
+        error = errors[field];
+      }
+
+      // Now narrow: we only care if it looks like a FieldError
+      if (error && typeof error === "object" && "message" in error) {
+        return (error as FieldError).message;
+      }
+
+      return undefined;
+    })
+    .filter((msg): msg is string => Boolean(msg));
+};
+
+const getStatusBadge = (hasErrors: boolean, hasContent: boolean) => {
+  if (hasErrors) return <StatusBadge type="error" />;
+  if (hasContent) return <StatusBadge type="complete" />;
+  return <StatusBadge type="empty" />;
+};
+
+const StatusBadge = ({ type }: { type: "complete" | "error" | "empty" }) => {
+  const variants = {
+    complete:
+      "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200",
+    error: "bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200",
+    empty: "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400",
+  };
+
+  const labels = {
+    complete: "✅ Complete",
+    error: "❌ Error",
+    empty: "⭕ Empty",
+  };
+
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${variants[type]}`}
+    >
+      {labels[type]}
+    </span>
+  );
 };
 
 export default function ReviewFormStep({
@@ -42,200 +214,138 @@ export default function ReviewFormStep({
   const {
     watch,
     formState: { errors },
-  } = useFormContext<UpdateProfileFormData>();
-
+  } = useFormContext<UpdateUserProfileFormData>();
   const formData = watch();
-  const completeness = calculateProfileCompleteness(formData || {});
+  const completeness = calculateUserProfileCompleteness(
+    formData || {}
+  ).percentage;
 
-  // Check if section has errors
-  const getSectionErrors = (section: string): string[] => {
-    const errorMessages: string[] = [];
+  const renderSection = (sectionKey: ReviewSection) => {
+    const config = SECTION_CONFIG[sectionKey];
+    const sectionErrors = getSectionErrors(sectionKey, errors);
+    const content = config.getContent(formData);
+    const hasContent = Object.values(content).some(
+      (value) =>
+        value &&
+        value !== "Not provided" &&
+        value !== "Not specified" &&
+        value !== "No identification provided"
+    );
 
-    switch (section) {
-      case REVIEW_SECTIONS.BASIC_INFO:
-        if (errors.role)
-          errorMessages.push(errors.role.message || "Role is required");
-        if (errors.bio) errorMessages.push(errors.bio.message || "Bio error");
-        break;
+    return (
+      <div
+        key={sectionKey}
+        className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6"
+      >
+        {/* Section Header */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-3">
+            <span className="text-2xl">{config.icon}</span>
+            <div>
+              <h4 className="font-medium text-gray-900 dark:text-gray-100">
+                {config.title}
+              </h4>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                {config.description}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-3">
+            {getStatusBadge(sectionErrors.length > 0, hasContent)}
+            <button
+              type="button"
+              onClick={() => onEdit?.(sectionKey)}
+              className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+              disabled={isSubmitting}
+            >
+              Edit
+            </button>
+          </div>
+        </div>
 
-      case REVIEW_SECTIONS.LOCATION:
-        if (errors.location?.ghanaPostGPS)
-          errorMessages.push(
-            errors.location.ghanaPostGPS.message || "Ghana Post GPS error"
-          );
-        if (errors.location?.region)
-          errorMessages.push(errors.location.region.message || "Region error");
-        if (errors.location?.city)
-          errorMessages.push(errors.location.city.message || "City error");
-        if (errors.location?.nearbyLandmark)
-          errorMessages.push(
-            errors.location.nearbyLandmark.message || "Landmark error"
-          );
-        break;
+        {/* Section Content */}
+        {hasContent ? (
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {Object.entries(content).map(([label, value]) => (
+                <div key={label}>
+                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                    {label}
+                  </label>
+                  <p
+                    className={`text-gray-900 dark:text-gray-100 mt-1 ${
+                      label.includes("GPS") ||
+                      label.includes("Coordinates") ||
+                      label.includes("Number")
+                        ? "font-mono"
+                        : ""
+                    } ${
+                      !value || value.includes("Not")
+                        ? "text-gray-400 italic"
+                        : ""
+                    }`}
+                  >
+                    {value}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+            <span className="text-4xl block mb-2">{config.icon}</span>
+            <p>No {config.title.toLowerCase()} provided</p>
+            {sectionKey === REVIEW_SECTIONS.IDENTIFICATION && (
+              <p className="text-xs mt-1">
+                Identity verification is optional but recommended
+              </p>
+            )}
+          </div>
+        )}
 
-      case REVIEW_SECTIONS.CONTACT:
-        if (errors.contactDetails?.primaryContact)
-          errorMessages.push(
-            errors.contactDetails.primaryContact.message ||
-              "Primary contact error"
-          );
-        if (errors.contactDetails?.secondaryContact)
-          errorMessages.push(
-            errors.contactDetails.secondaryContact.message ||
-              "Secondary contact error"
-          );
-        if (errors.socialMediaHandles)
-          errorMessages.push("Social media handles have errors");
-        break;
-
-      case REVIEW_SECTIONS.IDENTIFICATION:
-        if (errors.idDetails?.idType)
-          errorMessages.push(
-            errors.idDetails.idType.message || "ID type error"
-          );
-        if (errors.idDetails?.idNumber)
-          errorMessages.push(
-            errors.idDetails.idNumber.message || "ID number error"
-          );
-        if (errors.idDetails?.idFile)
-          errorMessages.push(
-            errors.idDetails.idFile.message || "ID file error"
-          );
-        break;
-    }
-
-    return errorMessages;
+        {/* Section Errors */}
+        {sectionErrors.length > 0 && (
+          <div className="mt-4 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-md">
+            <p className="text-sm font-medium text-red-800 dark:text-red-200 mb-1">
+              Issues to resolve:
+            </p>
+            <ul className="text-sm text-red-700 dark:text-red-300 space-y-1">
+              {sectionErrors.map((error, index) => (
+                <li key={index}>• {error}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    );
   };
 
-  // Get section completion status
-  const getSectionStatus = (
-    section: string
-  ): {
-    status: "complete" | "partial" | "empty" | "error";
-    percentage: number;
-  } => {
-    const sectionErrors = getSectionErrors(section);
-
-    if (sectionErrors.length > 0) {
-      return { status: "error", percentage: 0 };
-    }
-
-    switch (section) {
-      case REVIEW_SECTIONS.BASIC_INFO:
-        const hasRole = !!formData?.role;
-        const hasBio = !!formData?.bio?.trim();
-        const basicPercentage =
-          (((hasRole ? 1 : 0) + (hasBio ? 1 : 0)) / 2) * 100;
-        if (basicPercentage === 100)
-          return { status: "complete", percentage: basicPercentage };
-        if (basicPercentage > 0)
-          return { status: "partial", percentage: basicPercentage };
-        return { status: "empty", percentage: 0 };
-
-      case REVIEW_SECTIONS.LOCATION:
-        const hasGPS = validateGhanaPostGPS(
-          formData?.location?.ghanaPostGPS || ""
-        );
-        const hasRegion = !!formData?.location?.region?.trim();
-        const hasCity = !!formData?.location?.city?.trim();
-        const hasLandmark = !!formData?.location?.nearbyLandmark?.trim();
-        const locationPercentage =
-          (((hasGPS ? 1 : 0) +
-            (hasRegion ? 0.5 : 0) +
-            (hasCity ? 0.5 : 0) +
-            (hasLandmark ? 0.5 : 0)) /
-            2.5) *
-          100;
-        if (locationPercentage >= 80)
-          return { status: "complete", percentage: locationPercentage };
-        if (locationPercentage > 0)
-          return { status: "partial", percentage: locationPercentage };
-        return { status: "empty", percentage: 0 };
-
-      case REVIEW_SECTIONS.CONTACT:
-        const hasPrimaryPhone = validateGhanaPhone(
-          formData?.contactDetails?.primaryContact || ""
-        );
-        const hasSecondaryPhone = validateGhanaPhone(
-          formData?.contactDetails?.secondaryContact || ""
-        );
-        const hasSocialMedia = (formData?.socialMediaHandles || []).some(
-          (handle) => handle.nameOfSocial?.trim() && handle.userName?.trim()
-        );
-        const contactPercentage =
-          (((hasPrimaryPhone ? 1 : 0) +
-            (hasSecondaryPhone ? 0.3 : 0) +
-            (hasSocialMedia ? 0.5 : 0)) /
-            1.8) *
-          100;
-        if (contactPercentage >= 80)
-          return { status: "complete", percentage: contactPercentage };
-        if (contactPercentage > 0)
-          return { status: "partial", percentage: contactPercentage };
-        return { status: "empty", percentage: 0 };
-
-      case REVIEW_SECTIONS.IDENTIFICATION:
-        const hasIdType = !!formData?.idDetails?.idType;
-        const hasIdNumber = !!formData?.idDetails?.idNumber?.trim();
-        const hasIdFile = !!formData?.idDetails?.idFile?.url;
-        const idPercentage =
-          (((hasIdType ? 1 : 0) + (hasIdNumber ? 1 : 0) + (hasIdFile ? 1 : 0)) /
-            3) *
-          100;
-        if (idPercentage === 100)
-          return { status: "complete", percentage: idPercentage };
-        if (idPercentage > 0)
-          return { status: "partial", percentage: idPercentage };
-        return { status: "empty", percentage: 0 };
-
-      default:
-        return { status: "empty", percentage: 0 };
-    }
-  };
-
-  // Get status badge
-  const getStatusBadge = (
-    status: "complete" | "partial" | "empty" | "error"
-  ) => {
-    switch (status) {
-      case "complete":
-        return (
-          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
-            ✅ Complete
-          </span>
-        );
-      case "partial":
-        return (
-          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200">
-            ⚡ Partial
-          </span>
-        );
-      case "error":
-        return (
-          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200">
-            ❌ Error
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
-            ⭕ Empty
-          </span>
-        );
-    }
-  };
-
-  // Format phone number for display
-  const formatPhoneDisplay = (phone: string): string => {
-    if (!phone) return "";
-    if (phone.startsWith("+233")) {
-      return phone.replace("+233", "+233 ");
-    }
-    if (phone.startsWith("0") && phone.length === 10) {
-      return phone.replace(/(\d{3})(\d{3})(\d{4})/, "$1 $2 $3");
-    }
-    return phone;
-  };
+  const missingFields = [
+    {
+      condition: !formData?.role,
+      text: "Select your role to help us customize your experience",
+    },
+    {
+      condition: !formData?.bio?.trim(),
+      text: "Add a bio to tell people about yourself",
+    },
+    {
+      condition: !formData?.ghanaPostGPS,
+      text: "Add your Ghana Post GPS address to help customers find you",
+    },
+    {
+      condition: !formData?.primaryContact,
+      text: "Add a valid phone number so customers can contact you",
+    },
+    {
+      condition: !formData?.socialMediaHandles?.length,
+      text: "Add social media handles to build trust and showcase your work",
+    },
+    {
+      condition: !formData?.idType && formData?.role === UserRole.PROVIDER,
+      text: "Consider adding ID verification to build trust with customers",
+    },
+  ].filter((item) => item.condition);
 
   return (
     <div className={`space-y-8 ${className}`}>
@@ -249,7 +359,7 @@ export default function ReviewFormStep({
           any section if needed.
         </p>
 
-        {/* Overall completion circle */}
+        {/* Progress Circle */}
         <div className="relative inline-flex items-center justify-center w-24 h-24 mb-4">
           <svg className="w-24 h-24 transform -rotate-90" viewBox="0 0 100 100">
             <circle
@@ -269,6 +379,7 @@ export default function ReviewFormStep({
               strokeWidth="8"
               fill="transparent"
               strokeDasharray={`${2.51 * completeness} 251`}
+              strokeLinecap="round"
               className={`transition-all duration-500 ${
                 completeness >= 80
                   ? "text-green-500"
@@ -276,14 +387,11 @@ export default function ReviewFormStep({
                   ? "text-yellow-500"
                   : "text-blue-500"
               }`}
-              strokeLinecap="round"
             />
           </svg>
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-xl font-bold text-gray-900 dark:text-gray-100">
-              {completeness}%
-            </span>
-          </div>
+          <span className="absolute text-xl font-bold text-gray-900 dark:text-gray-100">
+            {completeness}%
+          </span>
         </div>
 
         <div
@@ -293,7 +401,8 @@ export default function ReviewFormStep({
               : completeness >= 50
               ? "text-yellow-600 dark:text-yellow-400"
               : "text-blue-600 dark:text-blue-400"
-          }`}>
+          }`}
+        >
           {completeness >= 80
             ? "🎉 Profile Complete!"
             : completeness >= 50
@@ -302,389 +411,24 @@ export default function ReviewFormStep({
         </div>
       </div>
 
-      {/* Basic Information Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-3">
-            <span className="text-2xl">👤</span>
-            <div>
-              <h4 className="font-medium text-gray-900 dark:text-gray-100">
-                Basic Information
-              </h4>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Your profile basics
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-3">
-            {getStatusBadge(
-              getSectionStatus(REVIEW_SECTIONS.BASIC_INFO).status
-            )}
-            <button
-              type="button"
-              onClick={() => onEdit?.(REVIEW_SECTIONS.BASIC_INFO)}
-              className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-              disabled={isSubmitting}>
-              Edit
-            </button>
-          </div>
-        </div>
+      {/* Render All Sections */}
+      {Object.values(REVIEW_SECTIONS).map(renderSection)}
 
-        <div className="space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                Role
-              </label>
-              <p className="text-gray-900 dark:text-gray-100 mt-1">
-                {formData?.role ? roleLabels[formData.role] : "Not selected"}
-              </p>
-            </div>
-          </div>
-
-          <div>
-            <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-              Bio
-            </label>
-            <p className="text-gray-900 dark:text-gray-100 mt-1">
-              {formData?.bio ? (
-                <span className="text-sm">{formData.bio}</span>
-              ) : (
-                <span className="text-gray-400 italic">No bio provided</span>
-              )}
-            </p>
-          </div>
-        </div>
-
-        {getSectionErrors(REVIEW_SECTIONS.BASIC_INFO).length > 0 && (
-          <div className="mt-4 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-md">
-            <p className="text-sm font-medium text-red-800 dark:text-red-200 mb-1">
-              Issues to resolve:
-            </p>
-            <ul className="text-sm text-red-700 dark:text-red-300 space-y-1">
-              {getSectionErrors(REVIEW_SECTIONS.BASIC_INFO).map(
-                (error, index) => (
-                  <li key={index}>• {error}</li>
-                )
-              )}
-            </ul>
-          </div>
-        )}
-      </div>
-
-      {/* Location Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-3">
-            <span className="text-2xl">📍</span>
-            <div>
-              <h4 className="font-medium text-gray-900 dark:text-gray-100">
-                Location Details
-              </h4>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Where you&apos;re located
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-3">
-            {getStatusBadge(getSectionStatus(REVIEW_SECTIONS.LOCATION).status)}
-            <button
-              type="button"
-              onClick={() => onEdit?.(REVIEW_SECTIONS.LOCATION)}
-              className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-              disabled={isSubmitting}>
-              Edit
-            </button>
-          </div>
-        </div>
-
-        <div className="space-y-3">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                Ghana Post GPS
-              </label>
-              <p className="text-gray-900 dark:text-gray-100 mt-1 font-mono">
-                {formData?.location?.ghanaPostGPS || "Not provided"}
-              </p>
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                Region
-              </label>
-              <p className="text-gray-900 dark:text-gray-100 mt-1">
-                {formData?.location?.region || "Not specified"}
-              </p>
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                City
-              </label>
-              <p className="text-gray-900 dark:text-gray-100 mt-1">
-                {formData?.location?.city || "Not specified"}
-              </p>
-            </div>
-            <div>
-              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                Nearby Landmark
-              </label>
-              <p className="text-gray-900 dark:text-gray-100 mt-1">
-                {formData?.location?.nearbyLandmark || "Not provided"}
-              </p>
-            </div>
-          </div>
-
-          {formData?.location?.gpsCoordinates && (
-            <div>
-              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                GPS Coordinates
-              </label>
-              <p className="text-gray-900 dark:text-gray-100 mt-1 font-mono text-sm">
-                {formData.location.gpsCoordinates.latitude?.toFixed(6)},{" "}
-                {formData.location.gpsCoordinates.longitude?.toFixed(6)}
-              </p>
-            </div>
-          )}
-        </div>
-
-        {getSectionErrors(REVIEW_SECTIONS.LOCATION).length > 0 && (
-          <div className="mt-4 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-md">
-            <p className="text-sm font-medium text-red-800 dark:text-red-200 mb-1">
-              Issues to resolve:
-            </p>
-            <ul className="text-sm text-red-700 dark:text-red-300 space-y-1">
-              {getSectionErrors(REVIEW_SECTIONS.LOCATION).map(
-                (error, index) => (
-                  <li key={index}>• {error}</li>
-                )
-              )}
-            </ul>
-          </div>
-        )}
-      </div>
-
-      {/* Contact Information Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-3">
-            <span className="text-2xl">📞</span>
-            <div>
-              <h4 className="font-medium text-gray-900 dark:text-gray-100">
-                Contact Information
-              </h4>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                How customers can reach you
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-3">
-            {getStatusBadge(getSectionStatus(REVIEW_SECTIONS.CONTACT).status)}
-            <button
-              type="button"
-              onClick={() => onEdit?.(REVIEW_SECTIONS.CONTACT)}
-              className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-              disabled={isSubmitting}>
-              Edit
-            </button>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                Primary Phone
-              </label>
-              <p className="text-gray-900 dark:text-gray-100 mt-1">
-                {formData?.contactDetails?.primaryContact
-                  ? formatPhoneDisplay(formData.contactDetails.primaryContact)
-                  : "Not provided"}
-              </p>
-            </div>
-            {formData?.contactDetails?.secondaryContact && (
-              <div>
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  Secondary Phone
-                </label>
-                <p className="text-gray-900 dark:text-gray-100 mt-1">
-                  {formatPhoneDisplay(formData.contactDetails.secondaryContact)}
-                </p>
-              </div>
-            )}
-          </div>
-
-          {formData?.socialMediaHandles &&
-            formData.socialMediaHandles.length > 0 && (
-              <div>
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3 block">
-                  Social Media Handles
-                </label>
-                <div className="space-y-2">
-                  {formData.socialMediaHandles
-                    .filter((handle) => handle.nameOfSocial && handle.userName)
-                    .map((handle, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center space-x-2 text-sm">
-                        <span className="text-gray-600 dark:text-gray-400 min-w-0 flex-shrink-0">
-                          {handle.nameOfSocial}:
-                        </span>
-                        <span className="text-gray-900 dark:text-gray-100 font-mono">
-                          {handle.userName}
-                        </span>
-                      </div>
-                    ))}
-                </div>
-              </div>
-            )}
-        </div>
-
-        {getSectionErrors(REVIEW_SECTIONS.CONTACT).length > 0 && (
-          <div className="mt-4 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-md">
-            <p className="text-sm font-medium text-red-800 dark:text-red-200 mb-1">
-              Issues to resolve:
-            </p>
-            <ul className="text-sm text-red-700 dark:text-red-300 space-y-1">
-              {getSectionErrors(REVIEW_SECTIONS.CONTACT).map((error, index) => (
-                <li key={index}>• {error}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
-
-      {/* Identification Section */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center space-x-3">
-            <span className="text-2xl">🆔</span>
-            <div>
-              <h4 className="font-medium text-gray-900 dark:text-gray-100">
-                Identity Verification
-              </h4>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                Optional identity verification
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-3">
-            {getStatusBadge(
-              getSectionStatus(REVIEW_SECTIONS.IDENTIFICATION).status
-            )}
-            <button
-              type="button"
-              onClick={() => onEdit?.(REVIEW_SECTIONS.IDENTIFICATION)}
-              className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-              disabled={isSubmitting}>
-              Edit
-            </button>
-          </div>
-        </div>
-
-        {formData?.idDetails?.idType ? (
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  ID Type
-                </label>
-                <p className="text-gray-900 dark:text-gray-100 mt-1">
-                  {idTypeLabels[formData.idDetails.idType]}
-                </p>
-              </div>
-              <div>
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  ID Number
-                </label>
-                <p className="text-gray-900 dark:text-gray-100 mt-1 font-mono">
-                  {formData.idDetails.idNumber || "Not provided"}
-                </p>
-              </div>
-            </div>
-
-            {formData.idDetails.idFile?.fileName && (
-              <div>
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">
-                  Uploaded Document
-                </label>
-                <div className="flex items-center space-x-2 mt-1">
-                  <span className="text-green-600 dark:text-green-400">📄</span>
-                  <span className="text-gray-900 dark:text-gray-100 text-sm">
-                    {formData.idDetails.idFile.fileName}
-                  </span>
-                  <span className="text-green-600 dark:text-green-400 text-sm">
-                    ✅ Uploaded
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-            <span className="text-4xl block mb-2">🆔</span>
-            <p>No identification provided</p>
-            <p className="text-xs mt-1">
-              Identity verification is optional but recommended
-            </p>
-          </div>
-        )}
-
-        {getSectionErrors(REVIEW_SECTIONS.IDENTIFICATION).length > 0 && (
-          <div className="mt-4 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-md">
-            <p className="text-sm font-medium text-red-800 dark:text-red-200 mb-1">
-              Issues to resolve:
-            </p>
-            <ul className="text-sm text-red-700 dark:text-red-300 space-y-1">
-              {getSectionErrors(REVIEW_SECTIONS.IDENTIFICATION).map(
-                (error, index) => (
-                  <li key={index}>• {error}</li>
-                )
-              )}
-            </ul>
-          </div>
-        )}
-      </div>
-
-      {/* Completion Recommendations */}
-      {completeness < 100 && (
+      {/* Improvement Suggestions */}
+      {completeness < 100 && missingFields.length > 0 && (
         <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-6">
           <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-3 flex items-center">
-            <span className="mr-2">💡</span>
-            Suggestions to Improve Your Profile
+            <span className="mr-2">💡</span>Suggestions to Improve Your Profile
           </h4>
           <div className="space-y-2 text-sm text-blue-800 dark:text-blue-200">
-            {!formData?.role && (
-              <p>• Select your role to help us customize your experience</p>
-            )}
-            {!formData?.bio?.trim() && (
-              <p>• Add a bio to tell people about yourself</p>
-            )}
-            {!validateGhanaPostGPS(formData?.location?.ghanaPostGPS || "") && (
-              <p>
-                • Add your Ghana Post GPS address to help customers find you
-              </p>
-            )}
-            {!validateGhanaPhone(
-              formData?.contactDetails?.primaryContact || ""
-            ) && <p>• Add a valid phone number so customers can contact you</p>}
-            {(!formData?.socialMediaHandles ||
-              formData.socialMediaHandles.length === 0) && (
-              <p>
-                • Add social media handles to build trust and showcase your work
-              </p>
-            )}
-            {!formData?.idDetails?.idType &&
-              formData?.role === UserRole.PROVIDER && (
-                <p>
-                  • Consider adding ID verification to build trust with
-                  customers
-                </p>
-              )}
+            {missingFields.map((field, index) => (
+              <p key={index}>• {field.text}</p>
+            ))}
           </div>
         </div>
       )}
 
-      {/* Final Submit Notice */}
+      {/* Completion Notice */}
       <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-6 text-center">
         <span className="text-4xl block mb-3">🎉</span>
         <h4 className="font-medium text-green-900 dark:text-green-100 mb-2">
@@ -703,5 +447,3 @@ export default function ReviewFormStep({
     </div>
   );
 }
-
-export type { ReviewFormStepProps };
