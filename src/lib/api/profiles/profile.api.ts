@@ -1,4 +1,4 @@
-import { IUserProfile } from "@/types/profile.types";
+import { IUserProfile, ProfilePictureResponse } from "@/types/profile.types";
 import {
   UserRole,
   VerificationStatus,
@@ -27,7 +27,6 @@ export class ProfileAPIError extends Error {
 // Profile-specific request/response types
 export interface UpdateProfileData {
   name?: string;
-  avatar?: string;
   profile?: {
     role?: UserRole;
     bio?: string;
@@ -172,7 +171,7 @@ type ErrorResponse = {
 class ProfileAPI {
   private baseURL: string;
 
-  constructor(baseURL: string = "/api/profiles") {
+  constructor(baseURL: string = "/api/profile") {
     this.baseURL = baseURL;
   }
 
@@ -234,7 +233,7 @@ class ProfileAPI {
    * Get current user's profile
    */
   async getProfile(): Promise<AuthResponse> {
-    return this.makeRequest("/me", {
+    return this.makeRequest("/", {
       method: "GET",
     });
   }
@@ -243,7 +242,7 @@ class ProfileAPI {
    * Update profile information
    */
   async updateProfile(data: UpdateProfileData): Promise<AuthResponse> {
-    return this.makeRequest("/me", {
+    return this.makeRequest("/", {
       method: "PUT",
       body: JSON.stringify(data),
     });
@@ -377,6 +376,34 @@ class ProfileAPI {
   async removeSocialMediaHandle(handleId: string): Promise<AuthResponse> {
     return this.makeRequest(`/social-media/${handleId}`, {
       method: "DELETE",
+    });
+  }
+
+  /**
+   * Update profile picture
+   */
+  async updateProfilePicture(profilePicture: ProfilePicture): Promise<AuthResponse> {
+    return this.makeRequest("/profile-picture", {
+      method: "PUT",
+      body: JSON.stringify({ profilePicture }),
+    });
+  }
+
+  /**
+   * Remove profile picture
+   */
+  async removeProfilePicture(): Promise<AuthResponse> {
+    return this.makeRequest("/profile-picture", {
+      method: "DELETE",
+    });
+  }
+
+  /**
+   * Get profile picture
+   */
+  async getProfilePicture(): Promise<ProfilePictureResponse> {
+    return this.makeRequest("/profile-picture", {
+      method: "GET",
     });
   }
 

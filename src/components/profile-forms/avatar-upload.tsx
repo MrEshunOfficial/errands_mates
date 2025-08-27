@@ -1,358 +1,456 @@
-"use client";
-
 import React, { useState, useRef, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import {
+  Camera,
+  Upload,
   X,
+  Loader2,
   Check,
   AlertCircle,
-  User,
-  Loader2,
-  Image as ImageIcon,
-  RefreshCw,
+  Edit3,
+  Trash2,
 } from "lucide-react";
-import { validateProfilePictureFile } from "@/lib/utils/schemas/profile.schemas";
-import { ProfilePicture } from "@/types";
+import type { ProfilePicture } from "@/types/base.types";
+import { useProfile } from "@/hooks/profiles/useProfile";
 import Image from "next/image";
-import { Button } from "../ui/button";
+import { motion, AnimatePresence } from "framer-motion";
 
-interface ProfilePictureUploadProps {
-  currentPicture?: ProfilePicture | null;
-  onImageSelect: (file: File) => void;
-  onImageRemove: () => void;
-  onUploadStart?: () => void;
-  onUploadComplete?: (picture: ProfilePicture) => void;
-  onUploadError?: (error: string) => void;
-  isUploading?: boolean;
-  error?: string | null;
-  disabled?: boolean;
-  size?: "sm" | "md" | "lg" | "xl";
+interface ProfilePictureUpdateProps {
   className?: string;
-  showPreview?: boolean;
-  allowedTypes?: string[];
-  maxSizeInMB?: number;
+  size?: "sm" | "md" | "lg" | "xl";
+  showLabel?: boolean;
+  allowRemove?: boolean;
+  onSuccess?: (profilePicture: ProfilePicture) => void;
+  onError?: (error: string) => void;
 }
 
 const sizeClasses = {
-  sm: "w-16 h-16",
-  md: "w-24 h-24",
-  lg: "w-32 h-32",
-  xl: "w-40 h-40",
+  sm: "w-20 h-20",
+  md: "w-28 h-28",
+  lg: "w-36 h-36",
+  xl: "w-44 h-44",
 };
 
 const iconSizes = {
-  sm: "w-4 h-4",
-  md: "w-5 h-5",
-  lg: "w-6 h-6",
-  xl: "w-8 h-8",
+  sm: 18,
+  md: 22,
+  lg: 26,
+  xl: 30,
 };
 
-export default function ProfilePictureUpload({
-  currentPicture,
-  onImageSelect,
-  onImageRemove,
-  onUploadStart,
-  onUploadError,
-  isUploading = false,
-  error,
-  disabled = false,
-  size = "lg",
+export default function ProfilePictureUpdate({
   className = "",
-  showPreview = true,
-  allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"],
-  maxSizeInMB = 5,
-}: ProfilePictureUploadProps) {
-  const [dragActive, setDragActive] = useState(false);
+  size = "lg",
+  showLabel = true,
+  allowRemove = true,
+  onSuccess,
+  onError,
+}: ProfilePictureUpdateProps) {
+  const {
+    profile,
+    updateProfilePicture,
+    removeProfilePicture,
+    isLoading,
+    error,
+  } = useProfile();
+
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [validationError, setValidationError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState(false);
+  const [showActions, setShowActions] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFile = useCallback(
-    (file: File) => {
-      setValidationError(null);
+  // Get current profile picture URL
+  const currentProfilePicture = profile?.profilePicture?.url;
+  const displayUrl = previewUrl || currentProfilePicture;
+  const hasImage = !!displayUrl;
+  const hasError = uploadError || error;
 
-      // Validate file
-      const validation = validateProfilePictureFile(file);
-      if (!validation.isValid) {
-        setValidationError(validation.error || "Invalid file");
-        onUploadError?.(validation.error || "Invalid file");
+  const validateFile = useCallback((file: File): string | null => {
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    const allowedTypes = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+    ];
+
+    if (!allowedTypes.includes(file.type)) {
+      return "Please select a valid image file (JPEG, PNG, GIF, or WebP)";
+    }
+
+    if (file.size > maxSize) {
+      return "File size must be less than 5MB";
+    }
+
+    return null;
+  }, []);
+
+  const handleFileSelect = useCallback(
+    async (file: File) => {
+      const validationError = validateFile(file);
+      if (validationError) {
+        setUploadError(validationError);
+        onError?.(validationError);
         return;
       }
 
-      // Create preview URL
-      const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
+      setUploadError(null);
+      setUploadSuccess(false);
 
-      // Call parent handler
-      onImageSelect(file);
-      onUploadStart?.();
-    },
-    [onImageSelect, onUploadStart, onUploadError]
-  );
+      // Create preview immediately
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setPreviewUrl(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
 
-  const handleDrag = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      if (disabled || isUploading) return;
+      // Upload file
+      setIsUploading(true);
 
-      if (e.type === "dragenter" || e.type === "dragover") {
-        setDragActive(true);
-      } else if (e.type === "dragleave") {
-        setDragActive(false);
+      try {
+        // Convert file to base64 or handle upload logic based on your API requirements
+        const base64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
+
+        const profilePictureData: ProfilePicture = {
+          url: base64,
+          fileName: file.name,
+          fileSize: file.size,
+          mimeType: file.type,
+          uploadedAt: new Date(),
+        };
+
+        await updateProfilePicture(profilePictureData);
+
+        setUploadSuccess(true);
+        setPreviewUrl(null); // Clear preview since it's now the actual profile picture
+        onSuccess?.(profilePictureData);
+
+        // Clear success message after 3 seconds
+        setTimeout(() => setUploadSuccess(false), 3000);
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "Failed to update profile picture";
+        setUploadError(errorMessage);
+        setPreviewUrl(null);
+        onError?.(errorMessage);
+      } finally {
+        setIsUploading(false);
       }
     },
-    [disabled, isUploading]
+    [validateFile, updateProfilePicture, onSuccess, onError]
+  );
+
+  const handleFileInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (file) {
+        handleFileSelect(file);
+      }
+      // Reset input value to allow selecting the same file again
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    },
+    [handleFileSelect]
   );
 
   const handleDrop = useCallback(
-    (e: React.DragEvent) => {
+    (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
       e.stopPropagation();
-      setDragActive(false);
+      setDragOver(false);
 
-      if (disabled || isUploading) return;
-
-      const files = e.dataTransfer.files;
-      if (files && files[0]) {
-        handleFile(files[0]);
+      const files = Array.from(e.dataTransfer.files);
+      if (files.length > 0) {
+        handleFileSelect(files[0]);
       }
     },
-    [disabled, isUploading, handleFile]
+    [handleFileSelect]
   );
 
-  const handleInputChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      if (disabled || isUploading) return;
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOver(true);
+  }, []);
 
-      const files = e.target.files;
-      if (files && files[0]) {
-        handleFile(files[0]);
-      }
-    },
-    [disabled, isUploading, handleFile]
-  );
-
-  const handleRemove = useCallback(() => {
-    if (disabled || isUploading) return;
-
-    setPreviewUrl(null);
-    setValidationError(null);
-    onImageRemove();
-
-    // Reset file input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only set dragOver to false if we're actually leaving the drop zone
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setDragOver(false);
     }
-  }, [disabled, isUploading, onImageRemove]);
+  }, []);
 
-  const handleClick = useCallback(() => {
-    if (disabled || isUploading) return;
+  const handleRemovePicture = useCallback(async () => {
+    if (!allowRemove) return;
+
+    // If it's a preview (not yet saved), just clear the preview
+    if (previewUrl) {
+      setPreviewUrl(null);
+      setUploadSuccess(false);
+      setUploadError(null);
+      return;
+    }
+
+    // If it's a saved profile picture, remove it from the server
+    setIsUploading(true);
+    setUploadError(null);
+
+    try {
+      await removeProfilePicture();
+      setUploadSuccess(true);
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setUploadSuccess(false), 3000);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Failed to remove profile picture";
+      setUploadError(errorMessage);
+      onError?.(errorMessage);
+    } finally {
+      setIsUploading(false);
+    }
+  }, [allowRemove, removeProfilePicture, onError, previewUrl]);
+
+  const handleUploadClick = useCallback(() => {
     fileInputRef.current?.click();
-  }, [disabled, isUploading]);
-
-  const displayImage = previewUrl || currentPicture?.url;
-  const hasImage = !!displayImage;
-  const showError = validationError || error;
+  }, []);
 
   return (
-    <div className={`space-y-4 ${className}`}>
-      {/* Upload Area */}
-      <div className="flex flex-col items-center">
+    <div className={`w-full ${className}`}>
+      {showLabel && (
+        <div className="mb-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-2">
+            <Camera className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            Profile Picture
+          </h3>
+          <p className="text-sm text-gray-600 dark:text-gray-400">
+            Add a photo to help others recognize you. Your photo will be visible
+            to other users.
+          </p>
+        </div>
+      )}
+
+      <div className="flex flex-col items-center space-y-4">
+        {/* Profile Picture Container */}
         <div
-          className={`relative ${
-            sizeClasses[size]
-          } w-40 h-40  /* increased size */
-    rounded-md overflow-hidden group cursor-pointer transition-all duration-300
-    ${
-      dragActive
-        ? "ring-4 ring-blue-300 dark:ring-blue-600 ring-opacity-50 scale-105"
-        : hasImage
-        ? "ring-2 ring-gray-200 dark:ring-gray-700 hover:ring-blue-300 dark:hover:ring-blue-600"
-        : "ring-2 ring-dashed ring-gray-300 dark:ring-gray-600 hover:ring-blue-400 dark:hover:ring-blue-500"
-    } ${disabled || isUploading ? "opacity-50 cursor-not-allowed" : ""}`}
-          onClick={handleClick}
-          onDragEnter={handleDrag}
-          onDragLeave={handleDrag}
-          onDragOver={handleDrag}
-          onDrop={handleDrop}>
-          {/* Image or placeholder */}
-          {hasImage ? (
-            <Image
-              src={displayImage}
-              alt="Profile picture"
-              fill
-              className="absolute inset-0 w-full h-full object-cover transition-all duration-300 group-hover:scale-110"
-            />
-          ) : (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <User
-                className={`${iconSizes[size]} text-gray-400 dark:text-gray-500`}
-              />
-            </div>
+          className="relative group"
+          onMouseEnter={() => setShowActions(true)}
+          onMouseLeave={() => setShowActions(false)}
+        >
+          <div
+            onDrop={handleDrop}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onClick={!hasImage ? handleUploadClick : undefined}
+            className={`
+              ${
+                sizeClasses[size]
+              } rounded-full overflow-hidden border-4 transition-all duration-300 relative
+              ${hasImage ? "cursor-default" : "cursor-pointer"}
+              ${
+                dragOver
+                  ? "border-blue-500 dark:border-blue-400 shadow-lg shadow-blue-200 dark:shadow-blue-900/50 scale-105"
+                  : hasError
+                  ? "border-red-400 dark:border-red-500 shadow-lg shadow-red-200 dark:shadow-red-900/50"
+                  : hasImage
+                  ? "border-gray-200 dark:border-gray-600 group-hover:border-gray-300 dark:group-hover:border-gray-500 shadow-lg"
+                  : "border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 hover:shadow-lg hover:shadow-blue-100 dark:hover:shadow-blue-900/30"
+              }
+              ${
+                !hasImage
+                  ? "bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700"
+                  : ""
+              }
+            `}
+          >
+            {/* Image Display */}
+            {hasImage ? (
+              <>
+                <Image
+                  src={displayUrl}
+                  alt="Profile"
+                  className="w-full h-full object-cover"
+                  fill
+                />
+
+                {/* Hover Overlay */}
+                <AnimatePresence>
+                  {showActions && !isUploading && !isLoading && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="absolute inset-0 bg-black/40 flex items-center justify-center"
+                    >
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={handleUploadClick}
+                          className="p-2 bg-white/90 hover:bg-white text-gray-700 rounded-full shadow-md transition-all duration-200 hover:scale-110"
+                          title="Change picture"
+                        >
+                          <Edit3 size={16} />
+                        </button>
+                        {allowRemove && (
+                          <button
+                            onClick={handleRemovePicture}
+                            className="p-2 bg-red-500/90 hover:bg-red-500 text-white rounded-full shadow-md transition-all duration-200 hover:scale-110"
+                            title="Remove picture"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </>
+            ) : (
+              /* Empty State */
+              <div className="w-full h-full flex flex-col items-center justify-center text-center p-4">
+                <div
+                  className={`
+                  p-3 rounded-full mb-2 transition-all duration-200
+                  ${
+                    dragOver
+                      ? "bg-blue-100 dark:bg-blue-900/50 scale-110"
+                      : "bg-gray-200 dark:bg-gray-600 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/50"
+                  }
+                `}
+                >
+                  {dragOver ? (
+                    <Camera
+                      size={iconSizes[size]}
+                      className="text-blue-600 dark:text-blue-400"
+                    />
+                  ) : (
+                    <Upload
+                      size={iconSizes[size]}
+                      className="text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400"
+                    />
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <p
+                    className={`text-sm font-medium transition-colors ${
+                      dragOver
+                        ? "text-blue-600 dark:text-blue-400"
+                        : "text-gray-600 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400"
+                    }`}
+                  >
+                    {dragOver ? "Drop here" : "Add Photo"}
+                  </p>
+                  {!dragOver && (
+                    <p className="text-xs text-gray-400 dark:text-gray-500">
+                      Click or drag & drop
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Loading Overlay */}
+            <AnimatePresence>
+              {(isUploading || isLoading) && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute inset-0 bg-white/90 dark:bg-gray-900/90 flex flex-col items-center justify-center backdrop-blur-sm"
+                >
+                  <Loader2
+                    size={iconSizes[size]}
+                    className="text-blue-600 dark:text-blue-400 animate-spin mb-2"
+                  />
+                  <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                    {isUploading ? "Uploading..." : "Loading..."}
+                  </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Success Overlay */}
+            <AnimatePresence>
+              {uploadSuccess && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  className="absolute inset-0 bg-green-500/90 flex flex-col items-center justify-center"
+                >
+                  <motion.div
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    transition={{ delay: 0.1 }}
+                  >
+                    <Check size={iconSizes[size]} className="text-white mb-2" />
+                  </motion.div>
+                  <p className="text-xs font-medium text-white">Updated!</p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Quick Remove Button (for mobile/touch devices) */}
+          {hasImage && allowRemove && !isUploading && !isLoading && (
+            <button
+              onClick={handleRemovePicture}
+              className="absolute -top-1 -right-1 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg transition-all duration-200 hover:scale-110 lg:opacity-0 lg:group-hover:opacity-100"
+              title="Remove picture"
+            >
+              <X size={12} />
+            </button>
           )}
-
-          {/* Upload status indicator */}
-          <AnimatePresence>
-            {isUploading && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                <div className="bg-white dark:bg-gray-800 rounded-full p-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-blue-600 dark:text-blue-400" />
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Success indicator */}
-          <AnimatePresence>
-            {currentPicture && !previewUrl && !isUploading && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                className="absolute top-2 right-2">
-                <div className="bg-green-500 rounded-full p-1">
-                  <Check className="w-3 h-3 text-white" />
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Remove button */}
-          <AnimatePresence>
-            {hasImage && !isUploading && (
-              <motion.button
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRemove();
-                }}
-                disabled={disabled}
-                className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 shadow-lg transition-colors z-10">
-                <X className="w-4 h-4" /> {/* slightly bigger */}
-              </motion.button>
-            )}
-          </AnimatePresence>
         </div>
 
-        {/* Hidden file input */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept={allowedTypes.join(",")}
-          onChange={handleInputChange}
-          disabled={disabled || isUploading}
-          className="hidden"
-          aria-label="Upload profile picture"
-        />
+        {/* File Format Info */}
+        <p className="text-xs text-gray-500 dark:text-gray-400 text-center max-w-xs">
+          Supported formats: JPEG, PNG, GIF, WebP • Max size: 5MB
+        </p>
 
-        {/* Upload text */}
-        <div className="text-center mt-3">
-          <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-            {isUploading
-              ? "Uploading..."
-              : hasImage
-              ? "Change photo"
-              : "Update your profile photo"}
-          </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-            {dragActive
-              ? "Drop your photo here"
-              : `Click to upload or drag & drop (Max ${maxSizeInMB}MB)`}
-          </p>
-          <p className="text-xs text-gray-400 dark:text-gray-500">
-            {allowedTypes
-              .map((type) => type.split("/")[1].toUpperCase())
-              .join(", ")}
-          </p>
-        </div>
+        {/* Error Message */}
+        <AnimatePresence>
+          {hasError && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="flex items-center space-x-2 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg max-w-md w-full"
+            >
+              <AlertCircle
+                size={16}
+                className="text-red-500 dark:text-red-400 flex-shrink-0"
+              />
+              <p className="text-sm text-red-700 dark:text-red-300">
+                {uploadError || error}
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
-      {/* Error message */}
-      <AnimatePresence>
-        {showError && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="flex items-center space-x-2 text-red-600 dark:text-red-400 text-sm bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-200 dark:border-red-800">
-            <AlertCircle className="w-4 h-4 flex-shrink-0" />
-            <span>{showError}</span>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Upload preview details */}
-      <AnimatePresence>
-        {previewUrl && showPreview && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <ImageIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                <span className="text-sm text-blue-900 dark:text-blue-100 font-medium">
-                  Photo ready to upload
-                </span>
-              </div>
-              {!isUploading && (
-                <Button
-                  type="button"
-                  onClick={handleRemove}
-                  className="text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100 transition-colors">
-                  <X className="w-4 h-4" />
-                </Button>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Current image info */}
-      <AnimatePresence>
-        {currentPicture && !previewUrl && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Check className="w-4 h-4 text-green-600 dark:text-green-400" />
-                <span className="text-sm text-green-900 dark:text-green-100 font-medium">
-                  Profile photo uploaded
-                </span>
-              </div>
-              <div className="flex items-center space-x-2">
-                {currentPicture.fileName && (
-                  <span className="text-xs text-green-700 dark:text-green-300">
-                    {currentPicture.fileName}
-                  </span>
-                )}
-                <button
-                  type="button"
-                  onClick={handleClick}
-                  className="text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 transition-colors"
-                  title="Change photo">
-                  <RefreshCw className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Hidden File Input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+        onChange={handleFileInputChange}
+        className="hidden"
+      />
     </div>
   );
 }
-
-// Export types for better TypeScript integration
-export type { ProfilePictureUploadProps };

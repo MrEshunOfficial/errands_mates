@@ -87,3 +87,13 @@ export interface WarningManagementResponse {
   userId?: string;
   error?: string;
 }
+
+export interface UpdateProfilePictureData {
+  profilePicture: ProfilePicture;
+}
+
+export interface ProfilePictureResponse {
+  message: string;
+  profilePicture?: ProfilePicture;
+  hasProfilePicture: boolean;
+}

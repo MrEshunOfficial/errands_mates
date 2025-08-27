@@ -1,11 +1,13 @@
-// hooks/useProfile.ts - Smart profile management hook with automatic data fetching
+// hooks/useProfile.ts - Complete profile management hook with all API methods
 
 import { useState, useEffect, useCallback } from 'react';
 import type { IUserProfile } from '@/types/profile.types';
 import type { 
   UserRole, 
   VerificationStatus, 
-  ModerationStatus} from '@/types/base.types';
+  ModerationStatus,
+  ProfilePicture
+} from '@/types/base.types';
 import type { AuthResponse } from '@/types/user.types';
 import { 
   ProfileAPIError, 
@@ -43,6 +45,7 @@ interface ProfileActions {
   updateProfile: (data: UpdateProfileData) => Promise<void>;
   updateProfileRole: (data: UpdateProfileRoleData) => Promise<void>;
   updateLocation: (data: UpdateLocationData) => Promise<void>;
+  getProfileWithContext: () => Promise<void>;
   deleteProfile: () => Promise<void>;
   restoreProfile: () => Promise<void>;
   
@@ -58,8 +61,16 @@ interface ProfileActions {
   addSocialMediaHandle: (data: AddSocialMediaData) => Promise<void>;
   removeSocialMediaHandle: (handleId: string) => Promise<void>;
   
+  // Profile picture management
+  updateProfilePicture: (profilePicture: ProfilePicture) => Promise<void>;
+  removeProfilePicture: () => Promise<void>;
+  getProfilePicture: () => Promise<{ message: string; profilePicture?: ProfilePicture }>;
+  
   // Verification
   initiateVerification: () => Promise<void>;
+  
+  // Batch operations
+  batchProfileOperations: () => Promise<void>;
   
   // Data operations
   exportProfileData: () => Promise<{ message: string; data: unknown }>;
@@ -85,6 +96,9 @@ interface ProfileActions {
   
   // Analytics
   getProfileAnalytics: () => Promise<ProfileAnalyticsResponse>;
+  
+  // Health check
+  healthCheck: () => Promise<{ message: string; timestamp: string }>;
   
   // Utility
   clearError: () => void;
@@ -143,7 +157,6 @@ export const useProfile = (): ProfileState & ProfileActions => {
         updateState({ isLoading: false });
       }
       
-      
       onSuccess?.(response);
       return response;
     } catch (error) {
@@ -174,6 +187,10 @@ export const useProfile = (): ProfileState & ProfileActions => {
 
   const updateLocation = useCallback(async (data: UpdateLocationData) => {
     await handleProfileAction(() => profileAPI.updateLocation(data));
+  }, [handleProfileAction]);
+
+  const getProfileWithContext = useCallback(async () => {
+    await handleProfileAction(() => profileAPI.getProfileWithContext());
   }, [handleProfileAction]);
 
   const deleteProfile = useCallback(async () => {
@@ -218,9 +235,30 @@ export const useProfile = (): ProfileState & ProfileActions => {
     await handleProfileAction(() => profileAPI.removeSocialMediaHandle(handleId));
   }, [handleProfileAction]);
 
+  // Profile picture management
+  const updateProfilePicture = useCallback(async (profilePicture: ProfilePicture) => {
+    await handleProfileAction(() => profileAPI.updateProfilePicture(profilePicture));
+  }, [handleProfileAction]);
+
+  const removeProfilePicture = useCallback(async () => {
+    await handleProfileAction(() => profileAPI.removeProfilePicture());
+  }, [handleProfileAction]);
+
+  const getProfilePicture = useCallback(async () => {
+    return handleProfileAction(
+      () => profileAPI.getProfilePicture(),
+      { updateProfileFromResponse: false, showLoading: false }
+    );
+  }, [handleProfileAction]);
+
   // Verification
   const initiateVerification = useCallback(async () => {
     await handleProfileAction(() => profileAPI.initiateVerification());
+  }, [handleProfileAction]);
+
+  // Batch operations
+  const batchProfileOperations = useCallback(async () => {
+    await handleProfileAction(() => profileAPI.batchProfileOperations());
   }, [handleProfileAction]);
 
   // Data operations
@@ -360,6 +398,14 @@ export const useProfile = (): ProfileState & ProfileActions => {
     );
   }, [handleProfileAction]);
 
+  // Health check
+  const healthCheck = useCallback(async () => {
+    return handleProfileAction(
+      () => profileAPI.healthCheck(),
+      { updateProfileFromResponse: false, showLoading: false }
+    );
+  }, [handleProfileAction]);
+
   // Utility functions
   const clearError = useCallback(() => {
     updateState({ error: null });
@@ -446,6 +492,7 @@ export const useProfile = (): ProfileState & ProfileActions => {
     updateProfile,
     updateProfileRole,
     updateLocation,
+    getProfileWithContext,
     deleteProfile,
     restoreProfile,
     updatePreferences,
@@ -454,7 +501,11 @@ export const useProfile = (): ProfileState & ProfileActions => {
     updateMarketplaceStatus,
     addSocialMediaHandle,
     removeSocialMediaHandle,
+    updateProfilePicture,
+    removeProfilePicture,
+    getProfilePicture,
     initiateVerification,
+    batchProfileOperations,
     exportProfileData,
     refreshCompleteness,
     refreshActivitySummary,
@@ -472,6 +523,7 @@ export const useProfile = (): ProfileState & ProfileActions => {
     getMarketplaceActiveProfiles,
     getPendingModerationProfiles,
     getProfileAnalytics,
+    healthCheck,
     clearError,
     hasRole,
   };

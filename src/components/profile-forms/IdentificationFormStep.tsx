@@ -8,6 +8,13 @@ import {
   idTypeConfigs,
   type UpdateUserProfileFormData,
 } from "@/lib/utils/schemas/profile.schemas";
+import {
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+} from "@radix-ui/react-popover";
+import { InfoIcon } from "lucide-react";
+import { Button } from "../ui/button";
 
 interface IdentificationFormStepProps {
   className?: string;
@@ -177,7 +184,7 @@ export default function IdentificationFormStep({
           <h4 className="text-sm font-medium text-green-900 dark:text-green-100">
             Why verify your identity?
           </h4>
-          <ul className="text-sm text-green-800 dark:text-green-200 mt-2 space-y-1">
+          <ul className="text-start text-sm text-green-800 dark:text-green-200 mt-2 space-y-1">
             <li>• Build trust with potential customers</li>
             <li>• Get priority in search results</li>
             <li>• Access premium features</li>
@@ -539,7 +546,7 @@ export default function IdentificationFormStep({
           <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100">
             Your Security & Privacy
           </h4>
-          <div className="text-sm text-blue-800 dark:text-blue-200 mt-1 space-y-1">
+          <div className="text-start text-sm text-blue-800 dark:text-blue-200 mt-1 space-y-1">
             <p>• Your ID information is encrypted and stored securely</p>
             <p>
               • Only authorized verification staff can access your documents
@@ -564,7 +571,7 @@ export default function IdentificationFormStep({
   );
 
   return (
-    <div className={`space-y-8 ${className}`}>
+    <div className={`space-y-4 ${className}`}>
       {/* Section Header */}
       <div>
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
@@ -575,9 +582,6 @@ export default function IdentificationFormStep({
           optional but highly recommended for service providers.
         </p>
       </div>
-
-      {/* Benefits Notice */}
-      {renderBenefitsNotice()}
 
       {/* ID Type Selection */}
       {renderIdTypeSelector()}
@@ -590,11 +594,27 @@ export default function IdentificationFormStep({
       {/* File Upload */}
       {renderFileUpload()}
 
-      {/* Progress Summary */}
-      {renderProgressSummary()}
-
-      {/* Security Notice */}
-      {renderSecurityNotice()}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            className="w-full flex items-center justify-center gap-1"
+          >
+            <InfoIcon className=" text-blue-600 dark:text-blue-400" />
+            <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100">
+              Check Out tips
+            </h4>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-full bg-accent p-2 bg-none border-none space-y-2">
+          {/* Benefits Notice */}
+          {renderBenefitsNotice()}
+          {/* Progress Summary */}
+          {renderProgressSummary()}
+          {/* Security Notice */}
+          {renderSecurityNotice()}
+        </PopoverContent>
+      </Popover>
 
       {/* Skip Option */}
       {renderSkipOption()}

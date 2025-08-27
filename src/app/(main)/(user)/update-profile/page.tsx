@@ -487,7 +487,8 @@ export default function FlexibleProfileForm({
           <p className="text-gray-600 dark:text-gray-300 mb-4">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">
+            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
+          >
             Retry
           </button>
         </div>
@@ -542,7 +543,8 @@ export default function FlexibleProfileForm({
         <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-4">
           <div
             className="bg-blue-600 dark:bg-blue-500 h-2 rounded-full transition-all duration-300"
-            style={{ width: `${currentCompleteness}%` }}></div>
+            style={{ width: `${currentCompleteness}%` }}
+          ></div>
         </div>
 
         {/* Step indicators */}
@@ -564,7 +566,8 @@ export default function FlexibleProfileForm({
               <div
                 key={step.key}
                 className={`cursor-pointer p-3 rounded-lg border transition-all ${borderColor}`}
-                onClick={() => goToStep(step.key)}>
+                onClick={() => goToStep(step.key)}
+              >
                 <div className="text-center">
                   <div className="text-2xl mb-1">{step.icon}</div>
                   <div className="text-xs font-medium text-gray-900 dark:text-gray-100 mb-1">
@@ -580,7 +583,8 @@ export default function FlexibleProfileForm({
                           ? "bg-red-400 dark:bg-red-500"
                           : "bg-green-400 dark:bg-green-500"
                       }`}
-                      style={{ width: `${stepCompleteness}%` }}></div>
+                      style={{ width: `${stepCompleteness}%` }}
+                    ></div>
                   </div>
                   {hasErrors && (
                     <div className="text-xs text-red-600 dark:text-red-400 mt-1">
@@ -681,14 +685,16 @@ export default function FlexibleProfileForm({
                   type="button"
                   onClick={goToPrevStep}
                   disabled={isFirstStep}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                   ← Previous
                 </button>
                 {!isLastStep && (
                   <button
                     type="button"
                     onClick={goToNextStep}
-                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 border border-transparent rounded-md hover:bg-blue-700 dark:hover:bg-blue-600">
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 border border-transparent rounded-md hover:bg-blue-700 dark:hover:bg-blue-600"
+                  >
                     Next →
                   </button>
                 )}
@@ -698,7 +704,8 @@ export default function FlexibleProfileForm({
                   type="button"
                   onClick={handleSave}
                   disabled={isSaving || isSubmitting || !hasUnsavedChanges}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                   {isSaving ? "Saving..." : "Save Progress"}
                 </button>
                 {!isLastStep && (
@@ -711,7 +718,8 @@ export default function FlexibleProfileForm({
                       }
                     }}
                     disabled={isSaving || isSubmitting}
-                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 border border-transparent rounded-md hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 border border-transparent rounded-md hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     {isSaving ? "Saving..." : "Save & Continue"}
                   </button>
                 )}

@@ -1,8 +1,8 @@
-// LocationFormStep.tsx - Fixed Version with Popover Components
+// LocationFormStep.tsx - Fixed Version with Proper Validation
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useFormContext, Controller } from "react-hook-form";
+import { useFormContext, Controller, PathValue } from "react-hook-form";
 import Link from "next/link";
 import { UpdateUserProfileFormData } from "@/lib/utils/schemas/profile.schemas";
 import { getRegions } from "@/lib/api/location.api.config/get.regions";
@@ -36,7 +36,7 @@ interface LocationFormStepProps {
 }
 
 const validateGhanaPostGPS = (value: string): boolean => {
-  return /^[A-Z]{2}-\d{4}-\d{4}$/.test(value);
+  return /^[A-Z]{2}-\d{3}-\d{4}$/.test(value);
 };
 
 const getLocationErrorMessage = (error: GeolocationPositionError): string => {
@@ -55,8 +55,8 @@ const getLocationErrorMessage = (error: GeolocationPositionError): string => {
 // Enhanced geolocation options
 const getGeolocationOptions = (): PositionOptions => ({
   enableHighAccuracy: true,
-  timeout: 20000, // Increased timeout
-  maximumAge: 0, // Always get fresh location
+  timeout: 20000,
+  maximumAge: 0,
 });
 
 // Data transformation utility
@@ -125,6 +125,7 @@ export default function LocationFormStep({
     watch,
     setValue,
     trigger,
+    clearErrors,
   } = useFormContext<UpdateUserProfileFormData>();
 
   const [isGettingLocation, setIsGettingLocation] = useState(false);
@@ -187,28 +188,41 @@ export default function LocationFormStep({
     fetchRegions();
   }, []);
 
-  // Enhanced field change handler
-  const handleFieldChange = (
-    fieldName: keyof UpdateUserProfileFormData,
-    value: unknown
+  // Enhanced field change handler with proper validation
+  const handleFieldChange = <K extends keyof UpdateUserProfileFormData>(
+    fieldName: K,
+    value: UpdateUserProfileFormData[K]
   ) => {
-    console.log(`Field ${fieldName} changed to:`, value);
+    console.log(`Field ${String(fieldName)} changed to:`, value);
 
-    // Trigger validation for the field
-    trigger(fieldName);
+    clearErrors(fieldName);
 
-    // Call the parent's onChange handler
+    setValue(fieldName, value as PathValue<UpdateUserProfileFormData, K>, {
+      shouldValidate: true,
+      shouldDirty: true,
+      shouldTouch: true,
+    });
+
+    setTimeout(() => {
+      trigger(fieldName);
+    }, 0);
+
     onFieldChange?.(fieldName, value);
   };
 
   const handleGPSChange = (value: string) => {
     const upperValue = value.toUpperCase();
-    setValue("ghanaPostGPS", upperValue, {
-      shouldValidate: true,
-      shouldDirty: true,
-      shouldTouch: true,
-    });
     handleFieldChange("ghanaPostGPS", upperValue);
+  };
+
+  const handleRegionChange = (regionId: string) => {
+    // Clear city when region changes
+    handleFieldChange("region", regionId);
+    handleFieldChange("city", "");
+  };
+
+  const handleCityChange = (cityId: string) => {
+    handleFieldChange("city", cityId);
   };
 
   // Enhanced location getter with better error handling
@@ -220,7 +234,6 @@ export default function LocationFormStep({
       return;
     }
 
-    // Check if location services are available
     if (!window.isSecureContext) {
       setLocationError(
         "Location services require a secure connection (HTTPS). Please use a secure connection."
@@ -232,7 +245,6 @@ export default function LocationFormStep({
     setLocationError(null);
 
     try {
-      // Test if geolocation permission is granted
       const permission = await navigator.permissions.query({
         name: "geolocation",
       });
@@ -253,12 +265,6 @@ export default function LocationFormStep({
 
       const { latitude, longitude } = position.coords;
       const coordinates = { latitude, longitude };
-
-      setValue("gpsCoordinates", coordinates, {
-        shouldValidate: true,
-        shouldDirty: true,
-        shouldTouch: true,
-      });
 
       handleFieldChange("gpsCoordinates", coordinates);
       setLocationError(null);
@@ -387,7 +393,8 @@ export default function LocationFormStep({
               <button
                 type="button"
                 onClick={() => window.location.reload()}
-                className="text-red-600 dark:text-red-400 text-xs hover:underline mt-2">
+                className="text-red-600 dark:text-red-400 text-xs hover:underline mt-2"
+              >
                 Try Again
               </button>
             </div>
@@ -401,13 +408,15 @@ export default function LocationFormStep({
           <FormField
             name="ghanaPostGPS"
             label="Ghana Post GPS Address"
-            required>
+            required
+          >
             <></>
           </FormField>
           <button
             type="button"
             onClick={() => setShowGpsHelper(!showGpsHelper)}
-            className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
+            className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+          >
             {showGpsHelper ? "Hide" : "Show"} format guide
           </button>
         </div>
@@ -430,7 +439,8 @@ export default function LocationFormStep({
                   href="https://gpsportal.com/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 dark:text-blue-400 underline">
+                  className="text-blue-600 dark:text-blue-400 underline"
+                >
                   Get yours here
                 </Link>
               </p>
@@ -471,7 +481,8 @@ export default function LocationFormStep({
                       isGpsValid
                         ? "text-green-600 dark:text-green-400"
                         : "text-orange-600 dark:text-orange-400"
-                    }>
+                    }
+                  >
                     {isGpsValid
                       ? "Valid GPS format"
                       : "Format should be XX-0000-0000"}
@@ -504,18 +515,12 @@ export default function LocationFormStep({
                 onChange={(e) => {
                   const newValue = e.target.value;
                   field.onChange(newValue);
-                  handleFieldChange("region", newValue);
-
-                  // Clear city when region changes
-                  setValue("city", "", {
-                    shouldDirty: true,
-                    shouldTouch: true,
-                  });
-                  handleFieldChange("city", "");
+                  handleRegionChange(newValue);
                 }}
                 onBlur={field.onBlur}
                 disabled={loading}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 disabled:opacity-50 disabled:cursor-not-allowed">
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
                 <option value="">
                   {loading ? "Loading regions..." : "Select a region"}
                 </option>
@@ -550,11 +555,12 @@ export default function LocationFormStep({
                   onChange={(e) => {
                     const newValue = e.target.value;
                     field.onChange(newValue);
-                    handleFieldChange("city", newValue);
+                    handleCityChange(newValue);
                   }}
                   onBlur={field.onBlur}
                   disabled={!hasRegionSelected || loading}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 disabled:opacity-50 disabled:cursor-not-allowed">
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                   <option value="">
                     {!hasRegionSelected
                       ? "Select a region first"
@@ -587,6 +593,11 @@ export default function LocationFormStep({
             placeholder="e.g., Tema Metropolitan"
             maxLength={50}
           />
+          {errors.district && (
+            <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+              {errors.district.message}
+            </p>
+          )}
         </FormField>
         <FormField name="locality" label="Locality/Neighborhood">
           <TextInput
@@ -594,6 +605,11 @@ export default function LocationFormStep({
             placeholder="e.g., East Legon, Osu"
             maxLength={50}
           />
+          {errors.locality && (
+            <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+              {errors.locality.message}
+            </p>
+          )}
         </FormField>
       </div>
 
@@ -607,6 +623,11 @@ export default function LocationFormStep({
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
           Help others find you by mentioning a well-known landmark nearby
         </p>
+        {errors.nearbyLandmark && (
+          <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+            {errors.nearbyLandmark.message}
+          </p>
+        )}
       </FormField>
 
       {/* Additional Info */}
@@ -634,6 +655,11 @@ export default function LocationFormStep({
                 <span>Optional: Any other relevant location details</span>
                 <span>{(field.value || "").length}/200</span>
               </div>
+              {errors.other && (
+                <p className="mt-1 text-sm text-red-600 dark:text-red-400">
+                  {errors.other.message}
+                </p>
+              )}
             </div>
           )}
         />
@@ -654,7 +680,8 @@ export default function LocationFormStep({
             type="button"
             onClick={getCurrentLocation}
             disabled={isGettingLocation}
-            className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg disabled:cursor-not-allowed transition-colors flex items-center space-x-2">
+            className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+          >
             <span>{isGettingLocation ? "🌍" : "📍"}</span>
             <span>
               {isGettingLocation
@@ -679,13 +706,15 @@ export default function LocationFormStep({
                   <button
                     type="button"
                     onClick={() => setLocationError(null)}
-                    className="text-red-600 dark:text-red-400 text-xs hover:underline">
+                    className="text-red-600 dark:text-red-400 text-xs hover:underline"
+                  >
                     Dismiss
                   </button>
                   <button
                     type="button"
                     onClick={getCurrentLocation}
-                    className="text-red-600 dark:text-red-400 text-xs hover:underline">
+                    className="text-red-600 dark:text-red-400 text-xs hover:underline"
+                  >
                     Try Again
                   </button>
                 </div>
@@ -704,14 +733,10 @@ export default function LocationFormStep({
               <button
                 type="button"
                 onClick={() => {
-                  setValue("gpsCoordinates", undefined, {
-                    shouldValidate: true,
-                    shouldDirty: true,
-                    shouldTouch: true,
-                  });
                   handleFieldChange("gpsCoordinates", undefined);
                 }}
-                className="text-green-600 dark:text-green-400 text-xs hover:underline">
+                className="text-green-600 dark:text-green-400 text-xs hover:underline"
+              >
                 Clear
               </button>
             </div>
@@ -719,6 +744,12 @@ export default function LocationFormStep({
               Lat: {locationData.gpsCoordinates.latitude?.toFixed(6)}, Lng:{" "}
               {locationData.gpsCoordinates.longitude?.toFixed(6)}
             </div>
+          </div>
+        )}
+
+        {errors.gpsCoordinates && (
+          <div className="text-red-600 dark:text-red-400 text-sm">
+            {errors.gpsCoordinates.message}
           </div>
         )}
       </div>

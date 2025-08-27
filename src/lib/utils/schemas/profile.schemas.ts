@@ -5,7 +5,7 @@ import { z } from "zod";
 const ghanaPhoneRegex = /^\+233[0-9]{9}$|^0[0-9]{9}$/;
 
 // Ghana Post GPS regex pattern from your backend
-const ghanaPostGPSRegex = /^[A-Z]{2}-\d{4}-\d{4}$/;
+const ghanaPostGPSRegex = /^[A-Z]{2}-\d{3}-\d{4}$/;
 
 // Email validation regex
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -143,7 +143,7 @@ export const locationFormSchema = z.object({
   ghanaPostGPS: z
     .string()
     .trim()
-    .regex(ghanaPostGPSRegex, "Ghana Post GPS must be in format XX-0000-0000")
+    .regex(ghanaPostGPSRegex, "Ghana Post GPS must be in format XX-000-0000")
     .min(1, "Ghana Post GPS is required"),
   nearbyLandmark: z
     .string()
@@ -560,13 +560,13 @@ export const calculateUserProfileCompleteness = (
 
   const percentage = Math.round(essentialScore + importantScore + optionalScore);
 
-  const completedSections = Object.entries(sections)
-    .filter(([_, completed]) => completed)
-    .map(([section, _]) => section);
+const completedSections = Object.entries(sections)
+  .filter(([, completed]) => completed)
+  .map(([section]) => section);
 
-  const missingSections = Object.entries(sections)
-    .filter(([_, completed]) => !completed)
-    .map(([section, _]) => section);
+const missingSections = Object.entries(sections)
+  .filter(([, completed]) => !completed)
+  .map(([section]) => section);
 
   return {
     percentage,
