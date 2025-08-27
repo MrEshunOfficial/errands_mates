@@ -1,3 +1,4 @@
+// LocationFormStep.tsx - Fixed Version with Popover Components
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -6,22 +7,27 @@ import Link from "next/link";
 import { UpdateUserProfileFormData } from "@/lib/utils/schemas/profile.schemas";
 import { getRegions } from "@/lib/api/location.api.config/get.regions";
 
-// Define proper TypeScript interfaces for the location API
+// Components
+import { LocationTips } from "./extras/location-tips";
+import { LocationProgress } from "./extras/LocationProgress";
+
+// Updated interfaces to match your actual API response
 interface City {
-  id: string;
+  id?: string;
   name: string;
+}
+
+interface RawRegionData {
+  id?: string;
+  name?: string;
+  region?: string;
+  cities?: (string | City)[];
 }
 
 interface Region {
   id: string;
   name: string;
-  cities?: City[];
-}
-
-interface LocationApiResponse {
-  success: boolean;
-  data: Region[];
-  message?: string;
+  cities: City[];
 }
 
 interface LocationFormStepProps {
@@ -36,14 +42,77 @@ const validateGhanaPostGPS = (value: string): boolean => {
 const getLocationErrorMessage = (error: GeolocationPositionError): string => {
   switch (error.code) {
     case error.PERMISSION_DENIED:
-      return "Location access denied. Please enable location permissions in your browser settings.";
+      return "Location access denied. Please enable location permissions and try again.";
     case error.POSITION_UNAVAILABLE:
-      return "Location information unavailable. Please try again or enter coordinates manually.";
+      return "Location service unavailable. Check your internet connection and GPS settings.";
     case error.TIMEOUT:
-      return "Location request timed out. Please try again.";
+      return "Location request timed out. Please try again with a stable connection.";
     default:
-      return "Unable to retrieve location. Please check your browser settings.";
+      return "Location service error. Please check your device settings and try again.";
   }
+};
+
+// Enhanced geolocation options
+const getGeolocationOptions = (): PositionOptions => ({
+  enableHighAccuracy: true,
+  timeout: 20000, // Increased timeout
+  maximumAge: 0, // Always get fresh location
+});
+
+// Data transformation utility
+const transformRegionsData = (rawData: RawRegionData[]): Region[] => {
+  return rawData
+    .map((rawRegion, index): Region | null => {
+      try {
+        let regionName: string;
+        let regionId: string;
+        let regionCities: City[] = [];
+
+        if (rawRegion.id && rawRegion.name) {
+          regionName = rawRegion.name;
+          regionId = rawRegion.id;
+        } else if (rawRegion.region) {
+          regionName = rawRegion.region;
+          regionId = rawRegion.region.toLowerCase().replace(/\s+/g, "_");
+        } else {
+          console.warn(`Skipping invalid region at index ${index}:`, rawRegion);
+          return null;
+        }
+
+        if (rawRegion.cities && Array.isArray(rawRegion.cities)) {
+          regionCities = rawRegion.cities
+            .map((city, cityIndex): City | null => {
+              if (typeof city === "string") {
+                return {
+                  id: `${regionId}_${city.toLowerCase().replace(/\s+/g, "_")}`,
+                  name: city,
+                };
+              } else if (city && typeof city === "object") {
+                return {
+                  id: city.id || `${regionId}_city_${cityIndex}`,
+                  name: city.name || `City ${cityIndex + 1}`,
+                };
+              }
+              return null;
+            })
+            .filter((city): city is City => city !== null);
+        }
+
+        return {
+          id: regionId,
+          name: regionName,
+          cities: regionCities,
+        };
+      } catch (error) {
+        console.error(
+          `Error processing region at index ${index}:`,
+          error,
+          rawRegion
+        );
+        return null;
+      }
+    })
+    .filter((region): region is Region => region !== null);
 };
 
 export default function LocationFormStep({
@@ -55,6 +124,7 @@ export default function LocationFormStep({
     formState: { errors },
     watch,
     setValue,
+    trigger,
   } = useFormContext<UpdateUserProfileFormData>();
 
   const [isGettingLocation, setIsGettingLocation] = useState(false);
@@ -67,53 +137,47 @@ export default function LocationFormStep({
   const locationData = watch();
   const ghanaPostGPS = locationData.ghanaPostGPS || "";
 
-  // Fetch regions with proper error handling and typing
+  // Fetch regions with improved error handling
   useEffect(() => {
     const fetchRegions = async () => {
       try {
         setLoading(true);
         setApiError(null);
 
+        console.log("Fetching regions...");
         const response = await getRegions();
+        console.log("Raw API response:", response);
 
-        // Handle different possible response formats
-        let regionsData: Region[] = [];
+        let rawRegionsData: RawRegionData[] = [];
 
         if (Array.isArray(response)) {
-          // Direct array response
-          regionsData = response;
+          rawRegionsData = response;
         } else if (response && typeof response === "object") {
-          // Object response with data property
           if (Array.isArray(response.data)) {
-            regionsData = response.data;
+            rawRegionsData = response.data;
           } else if (Array.isArray(response.regions)) {
-            regionsData = response.regions;
+            rawRegionsData = response.regions;
+          } else {
+            throw new Error("Invalid API response structure");
           }
+        } else {
+          throw new Error("API returned invalid data format");
         }
 
-        // Validate the structure of each region
-        const validatedRegions = regionsData.filter(
-          (region): region is Region => {
-            return (
-              region &&
-              typeof region === "object" &&
-              typeof region.id === "string" &&
-              typeof region.name === "string"
-            );
-          }
-        );
+        console.log("Raw regions data:", rawRegionsData);
+        const transformedRegions = transformRegionsData(rawRegionsData);
+        console.log("Transformed regions:", transformedRegions);
 
-        setRegions(validatedRegions);
+        setRegions(transformedRegions);
 
-        if (validatedRegions.length === 0 && regionsData.length > 0) {
-          console.warn("Regions data structure may be incorrect:", regionsData);
-          setApiError("Regions data format is invalid");
+        if (transformedRegions.length === 0) {
+          setApiError("No regions data available");
         }
       } catch (error) {
         console.error("Error fetching regions:", error);
-        setApiError(
-          error instanceof Error ? error.message : "Failed to load regions"
-        );
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to load regions";
+        setApiError(errorMessage);
         setRegions([]);
       } finally {
         setLoading(false);
@@ -123,53 +187,99 @@ export default function LocationFormStep({
     fetchRegions();
   }, []);
 
+  // Enhanced field change handler
+  const handleFieldChange = (
+    fieldName: keyof UpdateUserProfileFormData,
+    value: unknown
+  ) => {
+    console.log(`Field ${fieldName} changed to:`, value);
+
+    // Trigger validation for the field
+    trigger(fieldName);
+
+    // Call the parent's onChange handler
+    onFieldChange?.(fieldName, value);
+  };
+
   const handleGPSChange = (value: string) => {
     const upperValue = value.toUpperCase();
     setValue("ghanaPostGPS", upperValue, {
       shouldValidate: true,
       shouldDirty: true,
+      shouldTouch: true,
     });
-    onFieldChange?.("ghanaPostGPS", upperValue);
+    handleFieldChange("ghanaPostGPS", upperValue);
   };
 
-  const getCurrentLocation = () => {
+  // Enhanced location getter with better error handling
+  const getCurrentLocation = async () => {
     if (!navigator.geolocation) {
-      setLocationError("Geolocation is not supported by this browser.");
+      setLocationError(
+        "Geolocation is not supported by this browser. Please enter coordinates manually."
+      );
+      return;
+    }
+
+    // Check if location services are available
+    if (!window.isSecureContext) {
+      setLocationError(
+        "Location services require a secure connection (HTTPS). Please use a secure connection."
+      );
       return;
     }
 
     setIsGettingLocation(true);
     setLocationError(null);
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        const coordinates = { latitude, longitude };
-        setValue("gpsCoordinates", coordinates, {
-          shouldValidate: true,
-          shouldDirty: true,
-        });
-        onFieldChange?.("gpsCoordinates", coordinates);
-        setIsGettingLocation(false);
-        setLocationError(null);
-      },
-      (error) => {
-        console.error("Geolocation error:", {
-          code: error.code,
-          message: error.message,
-          timestamp: new Date().toISOString(),
-        });
+    try {
+      // Test if geolocation permission is granted
+      const permission = await navigator.permissions.query({
+        name: "geolocation",
+      });
 
-        const errorMessage = getLocationErrorMessage(error);
-        setLocationError(errorMessage);
-        setIsGettingLocation(false);
-      },
-      {
-        timeout: 15000,
-        enableHighAccuracy: true,
-        maximumAge: 300000, // 5 minutes
+      if (permission.state === "denied") {
+        throw new GeolocationPositionError();
       }
-    );
+
+      const position = await new Promise<GeolocationPosition>(
+        (resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(
+            resolve,
+            reject,
+            getGeolocationOptions()
+          );
+        }
+      );
+
+      const { latitude, longitude } = position.coords;
+      const coordinates = { latitude, longitude };
+
+      setValue("gpsCoordinates", coordinates, {
+        shouldValidate: true,
+        shouldDirty: true,
+        shouldTouch: true,
+      });
+
+      handleFieldChange("gpsCoordinates", coordinates);
+      setLocationError(null);
+
+      console.log("Location retrieved successfully:", coordinates);
+    } catch (error) {
+      console.error("Geolocation error:", error);
+
+      let errorMessage: string;
+
+      if (error instanceof GeolocationPositionError) {
+        errorMessage = getLocationErrorMessage(error);
+      } else {
+        errorMessage =
+          "Unable to retrieve location. Please check your browser settings and try again.";
+      }
+
+      setLocationError(errorMessage);
+    } finally {
+      setIsGettingLocation(false);
+    }
   };
 
   const calculateProgress = (): number => {
@@ -226,16 +336,17 @@ export default function LocationFormStep({
           maxLength={maxLength}
           value={typeof field.value === "string" ? field.value : ""}
           onChange={(e) => {
-            field.onChange(e.target.value);
-            onFieldChange?.(name, e.target.value);
+            const newValue = e.target.value;
+            field.onChange(newValue);
+            handleFieldChange(name, newValue);
           }}
+          onBlur={field.onBlur}
           className={`w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 focus:border-blue-400 dark:focus:border-blue-500 ${inputClassName}`}
         />
       )}
     />
   );
 
-  // Get the selected region with proper typing
   const getSelectedRegion = (): Region | undefined => {
     const selectedRegionId = locationData.region;
     return regions.find((region) => region.id === selectedRegionId);
@@ -247,9 +358,19 @@ export default function LocationFormStep({
 
   return (
     <div className={`space-y-8 ${className}`}>
-      <p className="text-sm text-gray-600 dark:text-gray-400">
-        Help others find you by providing accurate location information.
-      </p>
+      <div className="flex items-center justify-between">
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          Help others find you by providing accurate location information.
+        </p>
+        <div className="flex items-center space-x-3">
+          <LocationTips />
+          <LocationProgress
+            progress={progress}
+            isGpsValid={isGpsValid}
+            locationData={locationData}
+          />
+        </div>
+      </div>
 
       {/* API Error Display */}
       {apiError && (
@@ -266,8 +387,7 @@ export default function LocationFormStep({
               <button
                 type="button"
                 onClick={() => window.location.reload()}
-                className="text-red-600 dark:text-red-400 text-xs hover:underline mt-2"
-              >
+                className="text-red-600 dark:text-red-400 text-xs hover:underline mt-2">
                 Try Again
               </button>
             </div>
@@ -281,15 +401,13 @@ export default function LocationFormStep({
           <FormField
             name="ghanaPostGPS"
             label="Ghana Post GPS Address"
-            required
-          >
+            required>
             <></>
           </FormField>
           <button
             type="button"
             onClick={() => setShowGpsHelper(!showGpsHelper)}
-            className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
-          >
+            className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
             {showGpsHelper ? "Hide" : "Show"} format guide
           </button>
         </div>
@@ -312,8 +430,7 @@ export default function LocationFormStep({
                   href="https://gpsportal.com/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 dark:text-blue-400 underline"
-                >
+                  className="text-blue-600 dark:text-blue-400 underline">
                   Get yours here
                 </Link>
               </p>
@@ -332,9 +449,11 @@ export default function LocationFormStep({
                 placeholder="XX-0000-0000"
                 value={field.value || ""}
                 onChange={(e) => {
-                  field.onChange(e);
-                  handleGPSChange(e.target.value);
+                  const newValue = e.target.value;
+                  field.onChange(newValue);
+                  handleGPSChange(newValue);
                 }}
+                onBlur={field.onBlur}
                 className={`w-full px-4 py-3 rounded-lg border transition-colors uppercase tracking-wider ${
                   errors.ghanaPostGPS
                     ? "border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-950"
@@ -352,8 +471,7 @@ export default function LocationFormStep({
                       isGpsValid
                         ? "text-green-600 dark:text-green-400"
                         : "text-orange-600 dark:text-orange-400"
-                    }
-                  >
+                    }>
                     {isGpsValid
                       ? "Valid GPS format"
                       : "Format should be XX-0000-0000"}
@@ -384,15 +502,20 @@ export default function LocationFormStep({
                 {...field}
                 value={field.value || ""}
                 onChange={(e) => {
-                  field.onChange(e);
-                  onFieldChange?.("region", e.target.value);
+                  const newValue = e.target.value;
+                  field.onChange(newValue);
+                  handleFieldChange("region", newValue);
+
                   // Clear city when region changes
-                  setValue("city", "", { shouldDirty: true });
-                  onFieldChange?.("city", "");
+                  setValue("city", "", {
+                    shouldDirty: true,
+                    shouldTouch: true,
+                  });
+                  handleFieldChange("city", "");
                 }}
+                onBlur={field.onBlur}
                 disabled={loading}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 disabled:opacity-50 disabled:cursor-not-allowed">
                 <option value="">
                   {loading ? "Loading regions..." : "Select a region"}
                 </option>
@@ -425,12 +548,13 @@ export default function LocationFormStep({
                   {...field}
                   value={field.value || ""}
                   onChange={(e) => {
-                    field.onChange(e);
-                    onFieldChange?.("city", e.target.value);
+                    const newValue = e.target.value;
+                    field.onChange(newValue);
+                    handleFieldChange("city", newValue);
                   }}
+                  onBlur={field.onBlur}
                   disabled={!hasRegionSelected || loading}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 disabled:opacity-50 disabled:cursor-not-allowed">
                   <option value="">
                     {!hasRegionSelected
                       ? "Select a region first"
@@ -499,9 +623,11 @@ export default function LocationFormStep({
                 maxLength={200}
                 value={field.value || ""}
                 onChange={(e) => {
-                  field.onChange(e);
-                  onFieldChange?.("other", e.target.value);
+                  const newValue = e.target.value;
+                  field.onChange(newValue);
+                  handleFieldChange("other", newValue);
                 }}
+                onBlur={field.onBlur}
                 className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 resize-none"
               />
               <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -528,8 +654,7 @@ export default function LocationFormStep({
             type="button"
             onClick={getCurrentLocation}
             disabled={isGettingLocation}
-            className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
-          >
+            className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg disabled:cursor-not-allowed transition-colors flex items-center space-x-2">
             <span>{isGettingLocation ? "🌍" : "📍"}</span>
             <span>
               {isGettingLocation
@@ -550,13 +675,20 @@ export default function LocationFormStep({
                 <p className="text-red-700 dark:text-red-300 text-sm mt-1">
                   {locationError}
                 </p>
-                <button
-                  type="button"
-                  onClick={() => setLocationError(null)}
-                  className="text-red-600 dark:text-red-400 text-xs hover:underline mt-2"
-                >
-                  Dismiss
-                </button>
+                <div className="flex space-x-3 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setLocationError(null)}
+                    className="text-red-600 dark:text-red-400 text-xs hover:underline">
+                    Dismiss
+                  </button>
+                  <button
+                    type="button"
+                    onClick={getCurrentLocation}
+                    className="text-red-600 dark:text-red-400 text-xs hover:underline">
+                    Try Again
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -575,11 +707,11 @@ export default function LocationFormStep({
                   setValue("gpsCoordinates", undefined, {
                     shouldValidate: true,
                     shouldDirty: true,
+                    shouldTouch: true,
                   });
-                  onFieldChange?.("gpsCoordinates", undefined);
+                  handleFieldChange("gpsCoordinates", undefined);
                 }}
-                className="text-green-600 dark:text-green-400 text-xs hover:underline"
-              >
+                className="text-green-600 dark:text-green-400 text-xs hover:underline">
                 Clear
               </button>
             </div>
@@ -589,72 +721,6 @@ export default function LocationFormStep({
             </div>
           </div>
         )}
-      </div>
-
-      {/* Progress Summary */}
-      <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between mb-3">
-          <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">
-            Location Section Progress
-          </h4>
-          <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
-            {Math.round(progress)}%
-          </span>
-        </div>
-
-        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-3">
-          <div
-            className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-
-        <div className="space-y-2 text-sm">
-          {[
-            { label: "Ghana Post GPS", condition: isGpsValid, required: true },
-            {
-              label: "Region & City",
-              condition: locationData.region && locationData.city,
-            },
-            { label: "Landmark", condition: locationData.nearbyLandmark },
-          ].map(({ label, condition, required }) => (
-            <div key={label} className="flex items-center justify-between">
-              <span className="text-gray-600 dark:text-gray-400">{label}</span>
-              <span
-                className={
-                  condition
-                    ? "text-green-600 dark:text-green-400"
-                    : required
-                    ? "text-red-600 dark:text-red-400"
-                    : "text-gray-400"
-                }
-              >
-                {condition
-                  ? "✅ Complete"
-                  : required
-                  ? "❌ Required"
-                  : "⭕ Optional"}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Tips */}
-      <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-        <h4 className="text-sm font-medium text-yellow-900 dark:text-yellow-100 mb-2">
-          💡 Location Tips for Better Visibility
-        </h4>
-        <ul className="text-sm text-yellow-800 dark:text-yellow-200 space-y-1">
-          {[
-            "Accurate Ghana Post GPS helps customers find you easily",
-            "Mention popular landmarks that locals recognize",
-            "GPS coordinates enable precise mapping for services",
-            "Complete location details build trust with customers",
-          ].map((tip, index) => (
-            <li key={index}>• {tip}</li>
-          ))}
-        </ul>
       </div>
     </div>
   );

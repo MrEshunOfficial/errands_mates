@@ -1,14 +1,14 @@
-import {IUserProfile} from "@/types/profile.types";
-import { 
-  UserRole, 
-  VerificationStatus, 
-  ModerationStatus, 
+import { IUserProfile } from "@/types/profile.types";
+import {
+  UserRole,
+  VerificationStatus,
+  ModerationStatus,
   IUserPreferences,
-  UserLocation, 
+  UserLocation,
   NotificationPreferences,
   ContactDetails,
   IdDetails,
-  ProfilePicture
+  ProfilePicture,
 } from "@/types/base.types";
 import { AuthResponse } from "@/types/user.types";
 
@@ -20,7 +20,7 @@ export class ProfileAPIError extends Error {
     public data?: unknown
   ) {
     super(message);
-    this.name = 'ProfileAPIError';
+    this.name = "ProfileAPIError";
   }
 }
 
@@ -162,13 +162,17 @@ export interface ProfileActivitySummaryResponse {
   };
 }
 
-type ErrorResponse = { message?: string; error?: string; [key: string]: unknown };
+type ErrorResponse = {
+  message?: string;
+  error?: string;
+  [key: string]: unknown;
+};
 
 // Profile API class
 class ProfileAPI {
   private baseURL: string;
 
-  constructor(baseURL: string = '/api/profile') {
+  constructor(baseURL: string = "/api/profiles") {
     this.baseURL = baseURL;
   }
 
@@ -180,20 +184,20 @@ class ProfileAPI {
 
     const config: RequestInit = {
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
         ...options.headers,
       },
-      credentials: 'include',
+      credentials: "include",
       ...options,
     };
 
     try {
       const response = await fetch(url, config);
 
-      const contentType = response.headers.get('content-type');
+      const contentType = response.headers.get("content-type");
       let data: unknown;
 
-      if (contentType && contentType.includes('application/json')) {
+      if (contentType && contentType.includes("application/json")) {
         data = (await response.json()) as T;
       } else {
         data = { message: await response.text() } as T;
@@ -202,7 +206,9 @@ class ProfileAPI {
       if (!response.ok) {
         const err = data as ErrorResponse;
         throw new ProfileAPIError(
-          err.message || err.error || `Request failed with status ${response.status}`,
+          err.message ||
+            err.error ||
+            `Request failed with status ${response.status}`,
           response.status,
           data
         );
@@ -215,7 +221,7 @@ class ProfileAPI {
       }
 
       throw new ProfileAPIError(
-        'Network error or server is unreachable',
+        "Network error or server is unreachable",
         0,
         error
       );
@@ -228,8 +234,8 @@ class ProfileAPI {
    * Get current user's profile
    */
   async getProfile(): Promise<AuthResponse> {
-    return this.makeRequest('/', {
-      method: 'GET',
+    return this.makeRequest("/me", {
+      method: "GET",
     });
   }
 
@@ -237,8 +243,8 @@ class ProfileAPI {
    * Update profile information
    */
   async updateProfile(data: UpdateProfileData): Promise<AuthResponse> {
-    return this.makeRequest('/', {
-      method: 'PUT',
+    return this.makeRequest("/me", {
+      method: "PUT",
       body: JSON.stringify(data),
     });
   }
@@ -247,8 +253,8 @@ class ProfileAPI {
    * Update profile role
    */
   async updateProfileRole(data: UpdateProfileRoleData): Promise<AuthResponse> {
-    return this.makeRequest('/role', {
-      method: 'PATCH',
+    return this.makeRequest("/role", {
+      method: "PATCH",
       body: JSON.stringify(data),
     });
   }
@@ -257,8 +263,8 @@ class ProfileAPI {
    * Update profile location
    */
   async updateLocation(data: UpdateLocationData): Promise<AuthResponse> {
-    return this.makeRequest('/location', {
-      method: 'PATCH',
+    return this.makeRequest("/location", {
+      method: "PATCH",
       body: JSON.stringify(data),
     });
   }
@@ -266,9 +272,13 @@ class ProfileAPI {
   /**
    * Get profile completeness percentage
    */
-  async getProfileCompleteness(): Promise<{ message: string; completeness: number; data: { completeness: number } }> {
-    return this.makeRequest('/completeness', {
-      method: 'GET',
+  async getProfileCompleteness(): Promise<{
+    message: string;
+    completeness: number;
+    data: { completeness: number };
+  }> {
+    return this.makeRequest("/completeness", {
+      method: "GET",
     });
   }
 
@@ -276,8 +286,8 @@ class ProfileAPI {
    * Get profile with additional context
    */
   async getProfileWithContext(): Promise<AuthResponse> {
-    return this.makeRequest('/with-context', {
-      method: 'GET',
+    return this.makeRequest("/with-context", {
+      method: "GET",
     });
   }
 
@@ -285,8 +295,8 @@ class ProfileAPI {
    * Delete profile (soft delete)
    */
   async deleteProfile(): Promise<AuthResponse> {
-    return this.makeRequest('/', {
-      method: 'DELETE',
+    return this.makeRequest("/", {
+      method: "DELETE",
     });
   }
 
@@ -294,8 +304,8 @@ class ProfileAPI {
    * Restore deleted profile
    */
   async restoreProfile(): Promise<AuthResponse> {
-    return this.makeRequest('/restore', {
-      method: 'PATCH',
+    return this.makeRequest("/restore", {
+      method: "PATCH",
     });
   }
 
@@ -305,8 +315,8 @@ class ProfileAPI {
    * Update profile preferences
    */
   async updatePreferences(data: UpdatePreferencesData): Promise<AuthResponse> {
-    return this.makeRequest('/preferences', {
-      method: 'PUT',
+    return this.makeRequest("/preferences", {
+      method: "PUT",
       body: JSON.stringify(data),
     });
   }
@@ -314,9 +324,11 @@ class ProfileAPI {
   /**
    * Update a specific preference
    */
-  async updateSpecificPreference(data: UpdateSpecificPreferenceData): Promise<AuthResponse> {
-    return this.makeRequest('/preferences/specific', {
-      method: 'PATCH',
+  async updateSpecificPreference(
+    data: UpdateSpecificPreferenceData
+  ): Promise<AuthResponse> {
+    return this.makeRequest("/preferences/specific", {
+      method: "PATCH",
       body: JSON.stringify(data),
     });
   }
@@ -324,9 +336,11 @@ class ProfileAPI {
   /**
    * Bulk update preferences for a category
    */
-  async bulkUpdatePreferences(data: BulkUpdatePreferencesData): Promise<AuthResponse> {
-    return this.makeRequest('/preferences/bulk', {
-      method: 'PATCH',
+  async bulkUpdatePreferences(
+    data: BulkUpdatePreferencesData
+  ): Promise<AuthResponse> {
+    return this.makeRequest("/preferences/bulk", {
+      method: "PATCH",
       body: JSON.stringify(data),
     });
   }
@@ -336,9 +350,11 @@ class ProfileAPI {
   /**
    * Update marketplace active status
    */
-  async updateMarketplaceStatus(data: UpdateMarketplaceStatusData): Promise<AuthResponse> {
-    return this.makeRequest('/marketplace-status', {
-      method: 'PATCH',
+  async updateMarketplaceStatus(
+    data: UpdateMarketplaceStatusData
+  ): Promise<AuthResponse> {
+    return this.makeRequest("/marketplace-status", {
+      method: "PATCH",
       body: JSON.stringify(data),
     });
   }
@@ -349,8 +365,8 @@ class ProfileAPI {
    * Add social media handle
    */
   async addSocialMediaHandle(data: AddSocialMediaData): Promise<AuthResponse> {
-    return this.makeRequest('/social-media', {
-      method: 'POST',
+    return this.makeRequest("/social-media", {
+      method: "POST",
       body: JSON.stringify(data),
     });
   }
@@ -360,7 +376,7 @@ class ProfileAPI {
    */
   async removeSocialMediaHandle(handleId: string): Promise<AuthResponse> {
     return this.makeRequest(`/social-media/${handleId}`, {
-      method: 'DELETE',
+      method: "DELETE",
     });
   }
 
@@ -370,8 +386,8 @@ class ProfileAPI {
    * Initiate profile verification
    */
   async initiateVerification(): Promise<AuthResponse> {
-    return this.makeRequest('/initiate-verification', {
-      method: 'PATCH',
+    return this.makeRequest("/initiate-verification", {
+      method: "PATCH",
     });
   }
 
@@ -381,8 +397,8 @@ class ProfileAPI {
    * Get batch profile data
    */
   async batchProfileOperations(): Promise<AuthResponse> {
-    return this.makeRequest('/batch-operations', {
-      method: 'GET',
+    return this.makeRequest("/batch-operations", {
+      method: "GET",
     });
   }
 
@@ -392,8 +408,8 @@ class ProfileAPI {
    * Export profile data
    */
   async exportProfileData(): Promise<{ message: string; data: unknown }> {
-    return this.makeRequest('/export', {
-      method: 'GET',
+    return this.makeRequest("/export", {
+      method: "GET",
     });
   }
 
@@ -401,8 +417,8 @@ class ProfileAPI {
    * Get profile activity summary
    */
   async getActivitySummary(): Promise<ProfileActivitySummaryResponse> {
-    return this.makeRequest('/activity-summary', {
-      method: 'GET',
+    return this.makeRequest("/activity-summary", {
+      method: "GET",
     });
   }
 
@@ -411,106 +427,138 @@ class ProfileAPI {
   /**
    * Get all profiles (admin only)
    */
-  async getAllProfiles(page?: number, limit?: number): Promise<PaginatedProfileResponse> {
+  async getAllProfiles(
+    page?: number,
+    limit?: number
+  ): Promise<PaginatedProfileResponse> {
     const params = new URLSearchParams();
-    if (page) params.append('page', page.toString());
-    if (limit) params.append('limit', limit.toString());
-    
+    if (page) params.append("page", page.toString());
+    if (limit) params.append("limit", limit.toString());
+
     const queryString = params.toString();
-    const endpoint = queryString ? `/all?${queryString}` : '/all';
-    
+    const endpoint = queryString ? `/all?${queryString}` : "/all";
+
     return this.makeRequest(endpoint, {
-      method: 'GET',
+      method: "GET",
     });
   }
 
   /**
    * Get profiles by status
    */
-  async getProfilesByStatus(status: string, page?: number, limit?: number): Promise<PaginatedProfileResponse> {
+  async getProfilesByStatus(
+    status: string,
+    page?: number,
+    limit?: number
+  ): Promise<PaginatedProfileResponse> {
     const params = new URLSearchParams();
-    if (page) params.append('page', page.toString());
-    if (limit) params.append('limit', limit.toString());
-    
+    if (page) params.append("page", page.toString());
+    if (limit) params.append("limit", limit.toString());
+
     const queryString = params.toString();
-    const endpoint = queryString ? `/by-status/${status}?${queryString}` : `/by-status/${status}`;
-    
+    const endpoint = queryString
+      ? `/by-status/${status}?${queryString}`
+      : `/by-status/${status}`;
+
     return this.makeRequest(endpoint, {
-      method: 'GET',
+      method: "GET",
     });
   }
 
   /**
    * Get profiles by verification status
    */
-  async getProfilesByVerificationStatus(status: VerificationStatus, page?: number, limit?: number): Promise<PaginatedProfileResponse> {
+  async getProfilesByVerificationStatus(
+    status: VerificationStatus,
+    page?: number,
+    limit?: number
+  ): Promise<PaginatedProfileResponse> {
     const params = new URLSearchParams();
-    if (page) params.append('page', page.toString());
-    if (limit) params.append('limit', limit.toString());
-    
+    if (page) params.append("page", page.toString());
+    if (limit) params.append("limit", limit.toString());
+
     const queryString = params.toString();
-    const endpoint = queryString ? `/by-verification-status/${status}?${queryString}` : `/by-verification-status/${status}`;
-    
+    const endpoint = queryString
+      ? `/by-verification-status/${status}?${queryString}`
+      : `/by-verification-status/${status}`;
+
     return this.makeRequest(endpoint, {
-      method: 'GET',
+      method: "GET",
     });
   }
 
   /**
    * Get profiles by moderation status
    */
-  async getProfilesByModerationStatus(status: ModerationStatus, page?: number, limit?: number): Promise<PaginatedProfileResponse> {
+  async getProfilesByModerationStatus(
+    status: ModerationStatus,
+    page?: number,
+    limit?: number
+  ): Promise<PaginatedProfileResponse> {
     const params = new URLSearchParams();
-    if (page) params.append('page', page.toString());
-    if (limit) params.append('limit', limit.toString());
-    
+    if (page) params.append("page", page.toString());
+    if (limit) params.append("limit", limit.toString());
+
     const queryString = params.toString();
-    const endpoint = queryString ? `/by-moderation-status/${status}?${queryString}` : `/by-moderation-status/${status}`;
-    
+    const endpoint = queryString
+      ? `/by-moderation-status/${status}?${queryString}`
+      : `/by-moderation-status/${status}`;
+
     return this.makeRequest(endpoint, {
-      method: 'GET',
+      method: "GET",
     });
   }
 
   /**
    * Get incomplete profiles
    */
-  async getIncompleteProfiles(threshold?: number, page?: number, limit?: number): Promise<PaginatedProfileResponse> {
+  async getIncompleteProfiles(
+    threshold?: number,
+    page?: number,
+    limit?: number
+  ): Promise<PaginatedProfileResponse> {
     const params = new URLSearchParams();
-    if (threshold) params.append('threshold', threshold.toString());
-    if (page) params.append('page', page.toString());
-    if (limit) params.append('limit', limit.toString());
-    
+    if (threshold) params.append("threshold", threshold.toString());
+    if (page) params.append("page", page.toString());
+    if (limit) params.append("limit", limit.toString());
+
     const queryString = params.toString();
-    const endpoint = queryString ? `/incomplete?${queryString}` : '/incomplete';
-    
+    const endpoint = queryString ? `/incomplete?${queryString}` : "/incomplete";
+
     return this.makeRequest(endpoint, {
-      method: 'GET',
+      method: "GET",
     });
   }
 
   /**
    * Get marketplace active profiles
    */
-  async getMarketplaceActiveProfiles(page?: number, limit?: number): Promise<PaginatedProfileResponse> {
+  async getMarketplaceActiveProfiles(
+    page?: number,
+    limit?: number
+  ): Promise<PaginatedProfileResponse> {
     const params = new URLSearchParams();
-    if (page) params.append('page', page.toString());
-    if (limit) params.append('limit', limit.toString());
-    
+    if (page) params.append("page", page.toString());
+    if (limit) params.append("limit", limit.toString());
+
     const queryString = params.toString();
-    const endpoint = queryString ? `/marketplace-active?${queryString}` : '/marketplace-active';
-    
+    const endpoint = queryString
+      ? `/marketplace-active?${queryString}`
+      : "/marketplace-active";
+
     return this.makeRequest(endpoint, {
-      method: 'GET',
+      method: "GET",
     });
   }
 
   /**
    * Update verification status (admin only)
    */
-  async updateVerificationStatus(data: UpdateVerificationStatusData): Promise<AuthResponse> {
-    return this.makeRequest('/verification-status', {
-      method: 'PATCH',
+  async updateVerificationStatus(
+    data: UpdateVerificationStatusData
+  ): Promise<AuthResponse> {
+    return this.makeRequest("/verification-status", {
+      method: "PATCH",
       body: JSON.stringify(data),
     });
   }
@@ -518,9 +566,11 @@ class ProfileAPI {
   /**
    * Update moderation status (admin only)
    */
-  async updateModerationStatus(data: UpdateModerationStatusData): Promise<AuthResponse> {
-    return this.makeRequest('/moderation-status', {
-      method: 'PATCH',
+  async updateModerationStatus(
+    data: UpdateModerationStatusData
+  ): Promise<AuthResponse> {
+    return this.makeRequest("/moderation-status", {
+      method: "PATCH",
       body: JSON.stringify(data),
     });
   }
@@ -528,9 +578,11 @@ class ProfileAPI {
   /**
    * Moderate profile content (admin only)
    */
-  async moderateProfileContent(data: ModerateProfileContentData): Promise<AuthResponse> {
-    return this.makeRequest('/moderate-content', {
-      method: 'POST',
+  async moderateProfileContent(
+    data: ModerateProfileContentData
+  ): Promise<AuthResponse> {
+    return this.makeRequest("/moderate-content", {
+      method: "POST",
       body: JSON.stringify(data),
     });
   }
@@ -538,26 +590,35 @@ class ProfileAPI {
   /**
    * Get pending moderation profiles
    */
-  async getPendingModerationProfiles(page?: number, limit?: number): Promise<PaginatedProfileResponse> {
+  async getPendingModerationProfiles(
+    page?: number,
+    limit?: number
+  ): Promise<PaginatedProfileResponse> {
     const params = new URLSearchParams();
-    if (page) params.append('page', page.toString());
-    if (limit) params.append('limit', limit.toString());
-    
+    if (page) params.append("page", page.toString());
+    if (limit) params.append("limit", limit.toString());
+
     const queryString = params.toString();
-    const endpoint = queryString ? `/pending-moderation?${queryString}` : '/pending-moderation';
-    
+    const endpoint = queryString
+      ? `/pending-moderation?${queryString}`
+      : "/pending-moderation";
+
     return this.makeRequest(endpoint, {
-      method: 'GET',
+      method: "GET",
     });
   }
 
   /**
    * Recalculate profile completeness
    */
-  async recalculateCompleteness(userId?: string): Promise<{ message: string; [key: string]: unknown }> {
-    const endpoint = userId ? `/recalculate-completeness/${userId}` : '/recalculate-completeness';
+  async recalculateCompleteness(
+    userId?: string
+  ): Promise<{ message: string; [key: string]: unknown }> {
+    const endpoint = userId
+      ? `/recalculate-completeness/${userId}`
+      : "/recalculate-completeness";
     return this.makeRequest(endpoint, {
-      method: 'POST',
+      method: "POST",
     });
   }
 
@@ -566,35 +627,39 @@ class ProfileAPI {
   /**
    * Search profiles with filters
    */
-  async searchProfiles(params: ProfileSearchParams): Promise<PaginatedProfileResponse> {
+  async searchProfiles(
+    params: ProfileSearchParams
+  ): Promise<PaginatedProfileResponse> {
     const searchParams = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
         searchParams.append(key, value.toString());
       }
     });
-    
+
     const queryString = searchParams.toString();
-    const endpoint = queryString ? `/search?${queryString}` : '/search';
-    
+    const endpoint = queryString ? `/search?${queryString}` : "/search";
+
     return this.makeRequest(endpoint, {
-      method: 'GET',
+      method: "GET",
     });
   }
 
   /**
    * Get profiles by location
    */
-  async getProfilesByLocation(params: LocationSearchParams): Promise<PaginatedProfileResponse> {
+  async getProfilesByLocation(
+    params: LocationSearchParams
+  ): Promise<PaginatedProfileResponse> {
     const searchParams = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
         searchParams.append(key, value.toString());
       }
     });
-    
+
     return this.makeRequest(`/by-location?${searchParams.toString()}`, {
-      method: 'GET',
+      method: "GET",
     });
   }
 
@@ -604,8 +669,8 @@ class ProfileAPI {
    * Get profile analytics (admin only)
    */
   async getProfileAnalytics(): Promise<ProfileAnalyticsResponse> {
-    return this.makeRequest('/analytics', {
-      method: 'GET',
+    return this.makeRequest("/analytics", {
+      method: "GET",
     });
   }
 
@@ -615,8 +680,8 @@ class ProfileAPI {
    * Health check endpoint
    */
   async healthCheck(): Promise<{ message: string; timestamp: string }> {
-    return this.makeRequest('/health', {
-      method: 'GET',
+    return this.makeRequest("/health", {
+      method: "GET",
     });
   }
 }
@@ -625,7 +690,10 @@ class ProfileAPI {
 export const profileAPI = new ProfileAPI();
 
 // Export utility functions for role checking (from your controller)
-export const hasProfileRole = (profile: IUserProfile | null, role: UserRole): boolean => {
+export const hasProfileRole = (
+  profile: IUserProfile | null,
+  role: UserRole
+): boolean => {
   return profile?.role === role;
 };
 

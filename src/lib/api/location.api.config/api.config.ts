@@ -1,10 +1,10 @@
 export const API_CONFIG = {
-  baseUrl: 'https://category-api-iota.vercel.app/api',
+  baseUrl: "https://category-api-iota.vercel.app/api",
   endpoints: {
-    regions: '/regions'
+    regions: "/regions",
   },
   headers: {
-    Accept: 'application/json',
-    'Content-Type': 'application/json'
-  }
+    Accept: "application/json",
+    "Content-Type": "application/json",
+  },
 } as const;

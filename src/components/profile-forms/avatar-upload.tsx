@@ -14,6 +14,7 @@ import {
 import { validateProfilePictureFile } from "@/lib/utils/schemas/profile.schemas";
 import { ProfilePicture } from "@/types";
 import Image from "next/image";
+import { Button } from "../ui/button";
 
 interface ProfilePictureUploadProps {
   currentPicture?: ProfilePicture | null;
@@ -174,8 +175,7 @@ export default function ProfilePictureUpload({
           onDragEnter={handleDrag}
           onDragLeave={handleDrag}
           onDragOver={handleDrag}
-          onDrop={handleDrop}
-        >
+          onDrop={handleDrop}>
           {/* Image or placeholder */}
           {hasImage ? (
             <Image
@@ -199,8 +199,7 @@ export default function ProfilePictureUpload({
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.8 }}
-                className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center"
-              >
+                className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
                 <div className="bg-white dark:bg-gray-800 rounded-full p-2">
                   <Loader2 className="w-4 h-4 animate-spin text-blue-600 dark:text-blue-400" />
                 </div>
@@ -215,8 +214,7 @@ export default function ProfilePictureUpload({
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.8 }}
-                className="absolute top-2 right-2"
-              >
+                className="absolute top-2 right-2">
                 <div className="bg-green-500 rounded-full p-1">
                   <Check className="w-3 h-3 text-white" />
                 </div>
@@ -237,8 +235,7 @@ export default function ProfilePictureUpload({
                   handleRemove();
                 }}
                 disabled={disabled}
-                className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 shadow-lg transition-colors z-10"
-              >
+                className="absolute top-2 right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 shadow-lg transition-colors z-10">
                 <X className="w-4 h-4" /> {/* slightly bigger */}
               </motion.button>
             )}
@@ -285,8 +282,7 @@ export default function ProfilePictureUpload({
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="flex items-center space-x-2 text-red-600 dark:text-red-400 text-sm bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-200 dark:border-red-800"
-          >
+            className="flex items-center space-x-2 text-red-600 dark:text-red-400 text-sm bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-200 dark:border-red-800">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
             <span>{showError}</span>
           </motion.div>
@@ -300,8 +296,7 @@ export default function ProfilePictureUpload({
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3"
-          >
+            className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <ImageIcon className="w-4 h-4 text-blue-600 dark:text-blue-400" />
@@ -310,13 +305,12 @@ export default function ProfilePictureUpload({
                 </span>
               </div>
               {!isUploading && (
-                <button
+                <Button
                   type="button"
                   onClick={handleRemove}
-                  className="text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100 transition-colors"
-                >
+                  className="text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100 transition-colors">
                   <X className="w-4 h-4" />
-                </button>
+                </Button>
               )}
             </div>
           </motion.div>
@@ -330,8 +324,7 @@ export default function ProfilePictureUpload({
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-3"
-          >
+            className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2">
                 <Check className="w-4 h-4 text-green-600 dark:text-green-400" />
@@ -349,8 +342,7 @@ export default function ProfilePictureUpload({
                   type="button"
                   onClick={handleClick}
                   className="text-green-700 dark:text-green-300 hover:text-green-900 dark:hover:text-green-100 transition-colors"
-                  title="Change photo"
-                >
+                  title="Change photo">
                   <RefreshCw className="w-4 h-4" />
                 </button>
               </div>
