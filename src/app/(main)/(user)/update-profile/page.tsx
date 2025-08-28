@@ -12,17 +12,15 @@ import {
 } from "@/lib/utils/schemas/profile.schemas";
 import { toast } from "sonner";
 import { ProfilePicture, UserRole } from "@/types/base.types";
-import BasicInfoFormStep from "@/components/profile-forms/BasicInformationStep";
-import ContactFormStep from "@/components/profile-forms/ContactFormStep";
-import LocationFormStep from "@/components/profile-forms/LocationFormStep";
-import IdentificationFormStep from "@/components/profile-forms/IdentificationFormStep";
-import ReviewFormStep from "@/components/profile-forms/ReviewFormStep";
+import BasicInfoFormStep from "@/components/profile/form/BasicInformationStep";
+import ContactFormStep from "@/components/profile/form/ContactFormStep";
+import LocationFormStep from "@/components/profile/form/LocationFormStep";
+import ReviewFormStep from "@/components/profile/form/ReviewFormStep";
 
 export enum FormStep {
   BASIC_INFO = "basic-info",
   LOCATION = "location",
   CONTACT = "contact",
-  IDENTIFICATION = "identification",
   REVIEW = "review",
 }
 
@@ -32,6 +30,7 @@ interface FormStepConfig {
   description: string;
   icon: string;
   required: boolean;
+  shortDescription: string;
 }
 
 const FORM_STEPS: FormStepConfig[] = [
@@ -39,6 +38,7 @@ const FORM_STEPS: FormStepConfig[] = [
     key: FormStep.BASIC_INFO,
     title: "Basic Information",
     description: "Tell us about yourself",
+    shortDescription: "Your role and bio",
     icon: "👤",
     required: true,
   },
@@ -46,6 +46,7 @@ const FORM_STEPS: FormStepConfig[] = [
     key: FormStep.LOCATION,
     title: "Location Details",
     description: "Where are you located?",
+    shortDescription: "Your location information",
     icon: "📍",
     required: true,
   },
@@ -53,61 +54,32 @@ const FORM_STEPS: FormStepConfig[] = [
     key: FormStep.CONTACT,
     title: "Contact Information",
     description: "How can we reach you?",
+    shortDescription: "Phone, email & social media",
     icon: "📞",
     required: true,
-  },
-  {
-    key: FormStep.IDENTIFICATION,
-    title: "Identification",
-    description: "Verify your identity (optional)",
-    icon: "🆔",
-    required: false,
   },
   {
     key: FormStep.REVIEW,
     title: "Review & Complete",
     description: "Review your information",
+    shortDescription: "Final review",
     icon: "✅",
     required: false,
   },
 ];
 
-// Updated to exclude ID details fields since they're handled separately
-const STEP_FIELDS: Record<FormStep, string[]> = {
-  [FormStep.BASIC_INFO]: ["role", "bio", "isActiveInMarketplace"],
-  [FormStep.LOCATION]: [
-    "ghanaPostGPS",
-    "nearbyLandmark",
-    "region",
-    "city",
-    "district",
-    "locality",
-    "other",
-    "gpsCoordinates",
-  ],
-  [FormStep.CONTACT]: [
-    "primaryContact",
-    "secondaryContact",
-    "businessEmail",
-    "socialMediaHandles",
-  ],
-  [FormStep.IDENTIFICATION]: [], // Handled separately by useIdDetails
-  [FormStep.REVIEW]: [],
-};
-
-type ProfileSection = "basic-info" | "location" | "contact" | "identification";
+type ProfileSection = "basic-info" | "location" | "contact";
 
 interface ProfileFormPageProps {
   isEditing?: boolean;
   redirectOnSuccess?: string;
 }
 
-// Import the UpdateProfileData type from your API
 import type { UpdateProfileData } from "@/lib/api/profiles/profile.api";
 import { IUserProfile } from "@/types";
 import { useIdDetails } from "@/hooks/id-details/useIdDetails";
+import ProfileCard from "@/components/profile/form/ProfileCard";
 
-// Fallback interface if UpdateProfileData is not available
 interface FallbackUpdateProfileData {
   role?: UserRole;
   bio?: string;
@@ -137,12 +109,149 @@ interface FallbackUpdateProfileData {
   isActiveInMarketplace?: boolean;
 }
 
-// Use UpdateProfileData if available, otherwise use fallback
 type ApiProfileData = UpdateProfileData extends never
   ? FallbackUpdateProfileData
   : UpdateProfileData;
 
-export default function FlexibleProfileForm({
+// Progressive Step Completion Component
+interface ProgressiveStepProps {
+  step: FormStepConfig;
+  isCompleted: boolean;
+  isActive: boolean;
+  completeness: number;
+  onActivate: () => void;
+}
+
+const ProgressiveStep: React.FC<ProgressiveStepProps> = ({
+  step,
+  isCompleted,
+  isActive,
+  onActivate,
+}) => {
+  if (isCompleted && !isActive) {
+    return (
+      <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border border-green-200 dark:border-green-700 rounded-2xl p-6 transition-all duration-300">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-500 rounded-full flex items-center justify-center text-white shadow-lg">
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                {step.title}
+              </h3>
+              <p className="text-sm text-green-600 dark:text-green-400 font-medium">
+                Completed
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onActivate}
+            className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 underline transition-colors"
+          >
+            Edit
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+};
+
+// Skip Warning Modal Component
+interface SkipWarningModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  stepTitle: string;
+}
+
+const SkipWarningModal: React.FC<SkipWarningModalProps> = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  stepTitle,
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-6">
+        <div className="text-center mb-6">
+          <div className="w-16 h-16 bg-gradient-to-r from-orange-500 to-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg
+              className="w-8 h-8 text-white"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.232 16.5c-.77.833.192 2.5 1.732 2.5z"
+              />
+            </svg>
+          </div>
+          <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+            Skip {stepTitle}?
+          </h3>
+          <p className="text-gray-600 dark:text-gray-300 mb-4">
+            You&apos;re about to skip an important section. Without complete
+            profile information:
+          </p>
+        </div>
+
+        <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-xl p-4 mb-6">
+          <ul className="text-sm text-orange-800 dark:text-orange-200 space-y-2">
+            <li className="flex items-start">
+              <span className="text-orange-500 mr-2">•</span>
+              Limited access to marketplace features
+            </li>
+            <li className="flex items-start">
+              <span className="text-orange-500 mr-2">•</span>
+              Reduced visibility to potential connections
+            </li>
+            <li className="flex items-start">
+              <span className="text-orange-500 mr-2">•</span>
+              May miss important opportunities
+            </li>
+          </ul>
+        </div>
+
+        <div className="flex space-x-3">
+          <button
+            onClick={onClose}
+            className="flex-1 px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl transition-colors"
+          >
+            Continue Filling
+          </button>
+          <button
+            onClick={onConfirm}
+            className="flex-1 px-4 py-3 text-sm font-medium text-white bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 rounded-xl transition-all"
+          >
+            Skip for Now
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default function ProgressiveProfileForm({
   isEditing = false,
   redirectOnSuccess = "/dashboard",
 }: ProfileFormPageProps) {
@@ -156,26 +265,24 @@ export default function FlexibleProfileForm({
     refreshProfile,
   } = useProfile();
 
-  // Separate ID details management
   const {
-    validation: idValidation,
     hasIdDetails,
     isComplete: isIdComplete,
     hasValidationErrors: hasIdValidationErrors,
   } = useIdDetails();
 
-  // Consolidated state
   const [currentStep, setCurrentStep] = useState<FormStep>(FormStep.BASIC_INFO);
+  const [completedSteps, setCompletedSteps] = useState<Set<FormStep>>(
+    new Set()
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const [idStepComplete, setIdStepComplete] = useState(false);
+  const [showSkipWarning, setShowSkipWarning] = useState(false);
 
-  // Safe profile access with proper typing
   const safeProfile = profile as IUserProfile | null | undefined;
 
-  // Initialize form with proper default values (excluding ID details)
   const defaultValues = useMemo<UpdateUserProfileFormData>(
     () => ({
       role: safeProfile?.role,
@@ -193,7 +300,6 @@ export default function FlexibleProfileForm({
       businessEmail: safeProfile?.contactDetails?.businessEmail || "",
       socialMediaHandles: safeProfile?.socialMediaHandles || [],
       isActiveInMarketplace: safeProfile?.isActiveInMarketplace || false,
-      // Remove ID details from form - they're handled separately
     }),
     [safeProfile]
   );
@@ -206,7 +312,7 @@ export default function FlexibleProfileForm({
 
   const {
     handleSubmit,
-    formState: { isDirty, errors },
+    formState: { isDirty },
     reset,
     watch,
     getValues,
@@ -214,7 +320,6 @@ export default function FlexibleProfileForm({
 
   const formData = watch();
 
-  // Transform form data to API format (excluding ID details)
   const transformFormData = useCallback(
     (data: UpdateUserProfileFormData): ApiProfileData => {
       const gpsCoordinates =
@@ -226,15 +331,12 @@ export default function FlexibleProfileForm({
             }
           : undefined;
 
-      // Create a partial profile data object
       const profileData: Partial<IUserProfile> = {};
 
-      // Basic fields
       if (data.bio !== undefined) {
         profileData.bio = data.bio;
       }
 
-      // Location - only include if ghanaPostGPS is provided (required field)
       if (data.ghanaPostGPS) {
         profileData.location = {
           ghanaPostGPS: data.ghanaPostGPS,
@@ -248,7 +350,6 @@ export default function FlexibleProfileForm({
         };
       }
 
-      // Contact details - only include if primaryContact is provided (required field)
       if (data.primaryContact) {
         profileData.contactDetails = {
           primaryContact: data.primaryContact,
@@ -259,7 +360,6 @@ export default function FlexibleProfileForm({
         };
       }
 
-      // Social media handles
       if (data.socialMediaHandles?.length) {
         profileData.socialMediaHandles = data.socialMediaHandles.filter(
           (h): h is { nameOfSocial: string; userName: string } =>
@@ -267,17 +367,14 @@ export default function FlexibleProfileForm({
         );
       }
 
-      // Marketplace status
       if (data.isActiveInMarketplace !== undefined) {
         profileData.isActiveInMarketplace = data.isActiveInMarketplace;
       }
 
-      // Role
       if (data.role !== undefined) {
         profileData.role = data.role;
       }
 
-      // Return the profile data wrapped as expected by the API
       return {
         profile: profileData,
       } as ApiProfileData;
@@ -285,7 +382,6 @@ export default function FlexibleProfileForm({
     []
   );
 
-  // Save handler with proper error handling
   const handleSave = useCallback(async (): Promise<void> => {
     if (isSaving || isSubmitting) return;
 
@@ -296,7 +392,7 @@ export default function FlexibleProfileForm({
       const transformedData = transformFormData(getValues());
       await updateProfile(transformedData);
       setLastSaved(new Date());
-      toast.info("Progress saved successfully!");
+      toast.success("Progress saved successfully!");
       reset(getValues(), { keepValues: true });
     } catch (error) {
       const errorMessage =
@@ -315,25 +411,6 @@ export default function FlexibleProfileForm({
     reset,
   ]);
 
-  // Navigation handlers
-  const currentIndex = FORM_STEPS.findIndex((step) => step.key === currentStep);
-  const goToStep = useCallback(
-    (step: FormStep): void => setCurrentStep(step),
-    []
-  );
-  const goToNextStep = useCallback((): void => {
-    if (currentIndex < FORM_STEPS.length - 1) {
-      goToStep(FORM_STEPS[currentIndex + 1].key);
-    }
-  }, [currentIndex, goToStep]);
-
-  const goToPrevStep = useCallback((): void => {
-    if (currentIndex > 0) {
-      goToStep(FORM_STEPS[currentIndex - 1].key);
-    }
-  }, [currentIndex, goToStep]);
-
-  // Step completeness calculation - updated to handle ID step separately
   const getStepCompleteness = useCallback(
     (step: FormStep): number => {
       if (!formData) return 0;
@@ -350,17 +427,7 @@ export default function FlexibleProfileForm({
         case FormStep.CONTACT:
           return formData.primaryContact ? 100 : 0;
 
-        case FormStep.IDENTIFICATION:
-          // Use ID details state for completion calculation
-          if (hasIdDetails && isIdComplete() && !hasIdValidationErrors()) {
-            return 100;
-          } else if (hasIdDetails) {
-            return 50; // Partially complete
-          }
-          return idStepComplete ? 100 : 0; // Allow manual completion tracking
-
         case FormStep.REVIEW:
-          // Review step is complete when all required steps are done
           const requiredStepsComplete = FORM_STEPS.filter(
             (s) => s.required
           ).every((s) => getStepCompleteness(s.key) > 0);
@@ -370,62 +437,64 @@ export default function FlexibleProfileForm({
           return 0;
       }
     },
-    [
-      formData,
-      hasIdDetails,
-      isIdComplete,
-      hasIdValidationErrors,
-      idStepComplete,
-    ]
+    [formData]
   );
 
-  // Error handling - exclude ID step errors since they're handled separately
-  const stepErrors = useMemo((): Record<FormStep, string[]> => {
-    const result = Object.keys(STEP_FIELDS).reduce(
-      (acc, step) => ({ ...acc, [step]: [] }),
-      {} as Record<FormStep, string[]>
-    );
-
-    Object.entries(errors).forEach(([field, error]) => {
-      if (error?.message) {
-        const step = Object.keys(STEP_FIELDS).find((s) =>
-          STEP_FIELDS[s as FormStep].some((f) => field.startsWith(f))
-        ) as FormStep | undefined;
-
-        if (step && result[step]) {
-          result[step].push(error.message);
-        }
-      }
-    });
-
-    // Add ID validation errors separately
-    if (hasIdDetails && hasIdValidationErrors() && idValidation?.errors) {
-      result[FormStep.IDENTIFICATION] = idValidation.errors;
-    }
-
-    return result;
-  }, [errors, hasIdDetails, hasIdValidationErrors, idValidation]);
-
-  // Profile completeness calculation - exclude ID details from main calculation
   const currentCompleteness = useMemo((): number => {
     if (!formData) return 0;
 
-    // Calculate profile completeness (excluding ID details)
     const profileCompleteness =
       calculateUserProfileCompleteness(formData).percentage;
 
-    // Add bonus for ID verification if completed
     let idBonus = 0;
     if (hasIdDetails && isIdComplete() && !hasIdValidationErrors()) {
-      idBonus = 15; // 15% bonus for verified ID
+      idBonus = 15;
     } else if (hasIdDetails) {
-      idBonus = 7; // 7% bonus for attempted verification
+      idBonus = 7;
     }
 
     return Math.min(100, profileCompleteness + idBonus);
   }, [formData, hasIdDetails, isIdComplete, hasIdValidationErrors]);
 
-  // Main submission handler
+  const handleStepComplete = useCallback(async (): Promise<void> => {
+    await handleSave();
+
+    if (!isSaving && !submitError) {
+      const newCompletedSteps = new Set(completedSteps);
+      newCompletedSteps.add(currentStep);
+      setCompletedSteps(newCompletedSteps);
+
+      // Move to next step
+      const currentIndex = FORM_STEPS.findIndex(
+        (step) => step.key === currentStep
+      );
+      if (currentIndex < FORM_STEPS.length - 1) {
+        setCurrentStep(FORM_STEPS[currentIndex + 1].key);
+      }
+    }
+  }, [handleSave, isSaving, submitError, completedSteps, currentStep]);
+
+  const handleSkip = useCallback((): void => {
+    setShowSkipWarning(true);
+  }, []);
+
+  const confirmSkip = useCallback((): void => {
+    setShowSkipWarning(false);
+
+    // If this is the last required step, go to dashboard with warning
+    const currentIndex = FORM_STEPS.findIndex(
+      (step) => step.key === currentStep
+    );
+    if (currentIndex < FORM_STEPS.length - 1) {
+      setCurrentStep(FORM_STEPS[currentIndex + 1].key);
+    } else {
+      toast.warning(
+        "Profile incomplete. Complete it later to unlock all features."
+      );
+      router.push(redirectOnSuccess);
+    }
+  }, [currentStep, router, redirectOnSuccess]);
+
   const onSubmit = useCallback(
     async (data: UpdateUserProfileFormData): Promise<void> => {
       if (isSubmitting) return;
@@ -462,18 +531,15 @@ export default function FlexibleProfileForm({
     ]
   );
 
-  // Handle edit navigation
   const handleEdit = useCallback((section: ProfileSection): void => {
     const stepMap: Record<ProfileSection, FormStep> = {
       "basic-info": FormStep.BASIC_INFO,
       location: FormStep.LOCATION,
       contact: FormStep.CONTACT,
-      identification: FormStep.IDENTIFICATION,
     };
     setCurrentStep(stepMap[section]);
   }, []);
 
-  // Initialize form with profile data (excluding ID details)
   useEffect(() => {
     if (safeProfile && isInitialized) {
       const initialData: UpdateUserProfileFormData = {
@@ -496,21 +562,67 @@ export default function FlexibleProfileForm({
 
       reset(initialData);
       setLastSaved(new Date());
+
+      // Mark completed steps based on existing data - calculate directly here
+      const newCompletedSteps = new Set<FormStep>();
+      FORM_STEPS.forEach((step) => {
+        let stepCompleteness = 0;
+        switch (step.key) {
+          case FormStep.BASIC_INFO:
+            const bioComplete = Boolean(
+              initialData.bio && initialData.bio.trim()
+            );
+            const roleComplete = Boolean(initialData.role);
+            stepCompleteness =
+              ((Number(bioComplete) + Number(roleComplete)) / 2) * 100;
+            break;
+          case FormStep.LOCATION:
+            stepCompleteness = initialData.ghanaPostGPS ? 100 : 0;
+            break;
+          case FormStep.CONTACT:
+            stepCompleteness = initialData.primaryContact ? 100 : 0;
+            break;
+          case FormStep.REVIEW:
+            const requiredStepsComplete = [
+              FormStep.BASIC_INFO,
+              FormStep.LOCATION,
+              FormStep.CONTACT,
+            ].every((s) => {
+              switch (s) {
+                case FormStep.BASIC_INFO:
+                  return (
+                    Boolean(initialData.bio && initialData.bio.trim()) &&
+                    Boolean(initialData.role)
+                  );
+                case FormStep.LOCATION:
+                  return Boolean(initialData.ghanaPostGPS);
+                case FormStep.CONTACT:
+                  return Boolean(initialData.primaryContact);
+                default:
+                  return false;
+              }
+            });
+            stepCompleteness = requiredStepsComplete ? 100 : 0;
+            break;
+        }
+
+        if (stepCompleteness >= 100) {
+          newCompletedSteps.add(step.key);
+        }
+      });
+      setCompletedSteps(newCompletedSteps);
     }
   }, [safeProfile, isInitialized, reset]);
 
-  // Handle ID step completion callback
-  const handleIdStepComplete = useCallback((isComplete: boolean) => {
-    setIdStepComplete(isComplete);
-  }, []);
-
-  // Loading state
   if (isLoading || !isInitialized) {
     return (
-      <div className="min-h-screen w-full flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 dark:border-blue-400"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-300">
+      <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900">
+        <div className="text-center space-y-4">
+          <div className="relative">
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-200 dark:border-blue-800 border-t-blue-600 dark:border-t-blue-400"></div>
+            <div className="absolute inset-0 rounded-full bg-gradient-to-tr from-blue-400 to-purple-500 opacity-20 animate-pulse"></div>
+          </div>
+          <p className="text-gray-600 dark:text-gray-300 font-medium">
             Loading your profile...
           </p>
         </div>
@@ -518,296 +630,408 @@ export default function FlexibleProfileForm({
     );
   }
 
-  // Error state
   if (error && !safeProfile) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-center">
-          <div className="text-red-600 dark:text-red-400 text-6xl mb-4">⚠️</div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-            Profile Error
-          </h2>
-          <p className="text-gray-600 dark:text-gray-300 mb-4">{error}</p>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-red-50 via-white to-orange-50 dark:from-gray-900 dark:via-gray-900 dark:to-red-900">
+        <div className="text-center space-y-6 max-w-md mx-auto px-6">
+          <div className="text-red-500 text-6xl mb-4">⚠️</div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+              Unable to Load Profile
+            </h2>
+            <p className="text-gray-600 dark:text-gray-300">{error}</p>
+          </div>
           <button
             onClick={() => window.location.reload()}
-            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">
-            Retry
+            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-medium transition-all transform hover:scale-105 shadow-lg"
+          >
+            Try Again
           </button>
         </div>
       </div>
     );
   }
 
-  const isFirstStep = currentIndex === 0;
-  const isLastStep = currentIndex === FORM_STEPS.length - 1;
+  const currentStepConfig = FORM_STEPS.find((s) => s.key === currentStep);
   const hasUnsavedChanges = isDirty;
 
   return (
-    <div className="container max-w-5xl mx-auto space-y-2 border rounded-2xl p-2">
-      {/* Header */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-2">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-              {isEditing ? "Edit Profile" : "Build Your Profile"}
-            </h1>
-            <p className="text-gray-600 dark:text-gray-300 mt-1">
-              Fill out sections at your own pace. Save your progress manually
-              when ready.
-            </p>
+    <>
+      <div className="bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900 min-h-screen py-8">
+        <div className="container max-w-4xl mx-auto p-4">
+          {/* Header Section */}
+          <ProfileCard
+            isEditing={isEditing}
+            currentCompleteness={currentCompleteness}
+            hasIdDetails={hasIdDetails}
+            isIdComplete={isIdComplete}
+          />
+
+          {/* Progressive Steps Display */}
+          <div className="space-y-4 mb-8">
+            {FORM_STEPS.map((step) => {
+              const isCompleted = completedSteps.has(step.key);
+              const isActive = step.key === currentStep;
+              const completeness = getStepCompleteness(step.key);
+
+              return (
+                <ProgressiveStep
+                  key={step.key}
+                  step={step}
+                  isCompleted={isCompleted}
+                  isActive={isActive}
+                  completeness={completeness}
+                  onActivate={() => setCurrentStep(step.key)}
+                />
+              );
+            })}
           </div>
-          <div className="text-right">
-            <div className="text-sm text-gray-500 dark:text-gray-400">
-              Profile Completeness
-            </div>
-            <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-              {currentCompleteness}%
-            </div>
-            {hasIdDetails && (
-              <div className="text-xs text-green-600 dark:text-green-400 mt-1">
-                ID Verification: {isIdComplete() ? "Complete" : "Pending"}
-              </div>
-            )}
-            {lastSaved && (
-              <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-                Last saved: {lastSaved.toLocaleTimeString()}
-              </div>
-            )}
-            {hasUnsavedChanges && (
-              <div className="text-xs text-orange-600 dark:text-orange-400 mt-1">
-                • Unsaved changes
-              </div>
-            )}
-            {isSaving && (
-              <div className="text-xs text-blue-600 dark:text-blue-400 mt-1 animate-pulse">
-                Saving...
-              </div>
-            )}
-          </div>
-        </div>
 
-        {/* Progress bar */}
-        <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-4">
-          <div
-            className="bg-blue-600 dark:bg-blue-500 h-2 rounded-full transition-all duration-300"
-            style={{ width: `${currentCompleteness}%` }}></div>
-        </div>
+          {/* Current Active Step */}
+          <FormProvider {...methods}>
+            <form onSubmit={handleSubmit(onSubmit)}>
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+                {submitError && (
+                  <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-400 p-6 m-6 rounded-lg">
+                    <div className="flex">
+                      <div className="text-red-400 text-xl mr-3">⚠️</div>
+                      <div className="text-red-800 dark:text-red-200 font-medium">
+                        {submitError}
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-        {/* Step indicators */}
-        <div className="grid grid-cols-5 gap-2">
-          {FORM_STEPS.map((step) => {
-            const stepCompleteness = getStepCompleteness(step.key);
-            const hasErrors = stepErrors[step.key]?.length > 0;
-            const isActive = step.key === currentStep;
-            const isOptional = !step.required;
+                {/* Current Step Header */}
+                <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-b border-gray-200 dark:border-gray-700 p-8">
+                  <div className="flex items-center space-x-6">
+                    <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-500 rounded-2xl flex items-center justify-center text-white text-3xl shadow-lg">
+                      {currentStepConfig?.icon}
+                    </div>
+                    <div className="flex-1">
+                      <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+                        {currentStepConfig?.title}
+                      </h1>
+                      <p className="text-lg text-gray-600 dark:text-gray-400">
+                        {currentStepConfig?.description}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                        {Math.round(getStepCompleteness(currentStep))}%
+                      </div>
+                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                        Complete
+                      </div>
+                    </div>
+                  </div>
 
-            const borderColor = isActive
-              ? "border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-950"
-              : hasErrors
-              ? "border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-950 hover:bg-red-100 dark:hover:bg-red-900"
-              : stepCompleteness > 0
-              ? "border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-950 hover:bg-green-100 dark:hover:bg-green-900"
-              : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-750";
+                  {/* Progress Bar */}
+                  <div className="mt-6">
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 overflow-hidden">
+                      <div
+                        className="bg-gradient-to-r from-blue-500 to-purple-500 h-3 rounded-full transition-all duration-500 ease-out"
+                        style={{
+                          width: `${getStepCompleteness(currentStep)}%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
 
-            return (
-              <div
-                key={step.key}
-                className={`cursor-pointer p-3 rounded-lg border transition-all ${borderColor}`}
-                onClick={() => goToStep(step.key)}>
-                <div className="text-center">
-                  <div className="text-2xl mb-1">{step.icon}</div>
-                  <div className="text-xs font-medium text-gray-900 dark:text-gray-100 mb-1">
-                    {step.title}
-                    {isOptional && (
-                      <span className="text-gray-400 dark:text-gray-500 ml-1">
-                        (Optional)
-                      </span>
+                {/* Form Content */}
+                <div className="p-8">
+                  <div className="max-w-2xl mx-auto">
+                    {currentStep === FormStep.BASIC_INFO && (
+                      <BasicInfoFormStep />
+                    )}
+                    {currentStep === FormStep.CONTACT && <ContactFormStep />}
+                    {currentStep === FormStep.LOCATION && <LocationFormStep />}
+                    {currentStep === FormStep.REVIEW && (
+                      <ReviewFormStep
+                        isSubmitting={isSubmitting}
+                        onEdit={handleEdit}
+                      />
                     )}
                   </div>
-                  <div className="text-xs text-gray-600 dark:text-gray-300 mb-2">
-                    {step.description}
-                  </div>
-                  <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-1">
-                    <div
-                      className={`h-1 rounded-full transition-all ${
-                        hasErrors
-                          ? "bg-red-400 dark:bg-red-500"
-                          : "bg-green-400 dark:bg-green-500"
-                      }`}
-                      style={{ width: `${stepCompleteness}%` }}></div>
-                  </div>
-                  {hasErrors && (
-                    <div className="text-xs text-red-600 dark:text-red-400 mt-1">
-                      {stepErrors[step.key].length} issue
-                      {stepErrors[step.key].length !== 1 ? "s" : ""}
+                </div>
+
+                {/* Action Footer */}
+                <div className="bg-gray-50 dark:bg-gray-700 px-8 py-6 border-t border-gray-200 dark:border-gray-600">
+                  <div className="max-w-2xl mx-auto">
+                    {currentStep !== FormStep.REVIEW ? (
+                      <div className="flex flex-col sm:flex-row gap-4">
+                        <button
+                          type="button"
+                          onClick={handleStepComplete}
+                          disabled={
+                            isSaving ||
+                            isSubmitting ||
+                            getStepCompleteness(currentStep) === 0
+                          }
+                          className="flex-1 flex items-center justify-center px-6 py-4 text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 rounded-xl font-semibold transition-all shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                        >
+                          {isSaving ? (
+                            <>
+                              <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-3"></div>
+                              Saving & Continuing...
+                            </>
+                          ) : (
+                            <>
+                              <svg
+                                className="w-5 h-5 mr-2"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M5 13l4 4L19 7"
+                                />
+                              </svg>
+                              Complete {currentStepConfig?.title}
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleSkip}
+                          disabled={isSaving || isSubmitting}
+                          className="px-6 py-4 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 font-medium transition-colors disabled:opacity-50"
+                        >
+                          Skip for now
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col sm:flex-row gap-4">
+                        <button
+                          type="submit"
+                          disabled={isSubmitting}
+                          className="flex-1 flex items-center justify-center px-8 py-4 text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 rounded-xl font-semibold transition-all shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                        >
+                          {isSubmitting ? (
+                            <>
+                              <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-3"></div>
+                              Completing Profile...
+                            </>
+                          ) : (
+                            <>
+                              <svg
+                                className="w-5 h-5 mr-2"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M5 13l4 4L19 7"
+                                />
+                              </svg>
+                              Complete Profile
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
+                            toast.warning(
+                              "Profile incomplete. Complete it later to unlock all features."
+                            );
+                            router.push(redirectOnSuccess);
+                          }}
+                          disabled={isSubmitting}
+                          className="px-6 py-4 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 font-medium transition-colors disabled:opacity-50"
+                        >
+                          Go to Dashboard
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Additional Info */}
+                    <div className="mt-6 text-center">
+                      {hasUnsavedChanges && (
+                        <div className="flex items-center justify-center text-orange-600 dark:text-orange-400 text-sm mb-3">
+                          <div className="w-2 h-2 bg-orange-500 rounded-full mr-2 animate-pulse" />
+                          You have unsaved changes
+                        </div>
+                      )}
+
+                      {lastSaved && (
+                        <div className="flex items-center justify-center text-green-600 dark:text-green-400 text-sm">
+                          <div className="w-2 h-2 bg-green-500 rounded-full mr-2" />
+                          Last saved: {lastSaved.toLocaleTimeString()}
+                        </div>
+                      )}
                     </div>
-                  )}
+
+                    {/* Step Navigation Hint */}
+                    {currentStep !== FormStep.REVIEW && (
+                      <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-xl">
+                        <div className="flex items-start space-x-3">
+                          <div className="w-5 h-5 text-blue-500 mt-0.5">
+                            <svg
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                              />
+                            </svg>
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm text-blue-800 dark:text-blue-200">
+                              <strong>Why complete your profile?</strong> A
+                              complete profile gives you access to all
+                              marketplace features, increases your visibility to
+                              potential connections, and helps others trust and
+                              engage with you.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            );
-          })}
+            </form>
+          </FormProvider>
+
+          {/* Next Steps Preview */}
+          {currentStep !== FormStep.REVIEW && (
+            <div className="mt-8 bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4 flex items-center">
+                <svg
+                  className="w-5 h-5 mr-2 text-blue-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5l7 7-7 7"
+                  />
+                </svg>
+                What&apos;s Next?
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {FORM_STEPS.slice(
+                  FORM_STEPS.findIndex((s) => s.key === currentStep) + 1
+                ).map((step) => {
+                  const isCompleted = completedSteps.has(step.key);
+                  return (
+                    <div
+                      key={step.key}
+                      className={`p-4 rounded-xl border transition-all ${
+                        isCompleted
+                          ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700"
+                          : "bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div
+                          className={`w-8 h-8 rounded-lg flex items-center justify-center text-lg ${
+                            isCompleted
+                              ? "bg-green-100 dark:bg-green-800"
+                              : "bg-gray-100 dark:bg-gray-600"
+                          }`}
+                        >
+                          {isCompleted ? "✅" : step.icon}
+                        </div>
+                        <div className="flex-1">
+                          <h4
+                            className={`font-medium text-sm ${
+                              isCompleted
+                                ? "text-green-800 dark:text-green-200"
+                                : "text-gray-900 dark:text-gray-100"
+                            }`}
+                          >
+                            {step.title}
+                          </h4>
+                          <p
+                            className={`text-xs ${
+                              isCompleted
+                                ? "text-green-600 dark:text-green-400"
+                                : "text-gray-500 dark:text-gray-400"
+                            }`}
+                          >
+                            {step.shortDescription}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Profile Completion Benefits */}
+          {currentCompleteness < 100 && (
+            <div className="mt-8 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-2xl p-6 border border-purple-200 dark:border-purple-700">
+              <div className="flex items-start space-x-4">
+                <div className="w-12 h-12 bg-gradient-to-r from-purple-500 to-blue-500 rounded-xl flex items-center justify-center text-white text-2xl shadow-lg flex-shrink-0">
+                  🎯
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-3">
+                    Unlock Your Full Potential
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div className="flex items-start space-x-2">
+                      <div className="w-1.5 h-1.5 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
+                      <span className="text-gray-700 dark:text-gray-300">
+                        <strong>Marketplace Access:</strong> List services,
+                        products, and connect with customers
+                      </span>
+                    </div>
+                    <div className="flex items-start space-x-2">
+                      <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                      <span className="text-gray-700 dark:text-gray-300">
+                        <strong>Priority Support:</strong> Get faster responses
+                        and dedicated assistance
+                      </span>
+                    </div>
+                    <div className="flex items-start space-x-2">
+                      <div className="w-1.5 h-1.5 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
+                      <span className="text-gray-700 dark:text-gray-300">
+                        <strong>Enhanced Visibility:</strong> Appear higher in
+                        search results and recommendations
+                      </span>
+                    </div>
+                    <div className="flex items-start space-x-2">
+                      <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                      <span className="text-gray-700 dark:text-gray-300">
+                        <strong>Trust Indicators:</strong> Verified badge and
+                        credibility scores
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Unsaved Changes Warning */}
-      {hasUnsavedChanges && currentStep !== FormStep.IDENTIFICATION && (
-        <div className="bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 rounded-lg p-4 mb-6">
-          <div className="flex items-center">
-            <div className="text-orange-600 dark:text-orange-400 text-lg mr-3">
-              ⚠️
-            </div>
-            <div>
-              <p className="text-orange-800 dark:text-orange-200 font-medium">
-                You have unsaved changes
-              </p>
-              <p className="text-orange-700 dark:text-orange-300 text-sm">
-                Don&apos;t forget to save your progress before moving to another
-                section.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Main Form */}
-      <FormProvider {...methods}>
-        <form onSubmit={handleSubmit(onSubmit)}>
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-2">
-            {submitError && (
-              <div className="mb-6 p-4 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-md">
-                <div className="text-red-800 dark:text-red-200">
-                  {submitError}
-                </div>
-              </div>
-            )}
-
-            {/* Current Step Info */}
-            <div className="mb-3 p-2 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md">
-              <div className="flex items-center">
-                <span className="text-2xl mr-3">
-                  {FORM_STEPS.find((s) => s.key === currentStep)?.icon}
-                </span>
-                <div>
-                  <h3 className="font-medium text-blue-900 dark:text-blue-100">
-                    {FORM_STEPS.find((s) => s.key === currentStep)?.title}
-                    {!FORM_STEPS.find((s) => s.key === currentStep)}
-                  </h3>
-                  <p className="text-sm text-blue-700 dark:text-blue-300">
-                    {FORM_STEPS.find((s) => s.key === currentStep)?.description}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Form Step Content */}
-            <div className="">
-              <div className="text-center py-2 text-gray-500 dark:text-gray-400">
-                {currentStep === FormStep.BASIC_INFO && <BasicInfoFormStep />}
-                {currentStep === FormStep.CONTACT && <ContactFormStep />}
-                {currentStep === FormStep.LOCATION && <LocationFormStep />}
-                {currentStep === FormStep.IDENTIFICATION && (
-                  <IdentificationFormStep
-                    onStepComplete={handleIdStepComplete}
-                  />
-                )}
-                {currentStep === FormStep.REVIEW && (
-                  <ReviewFormStep
-                    isSubmitting={isSubmitting}
-                    onEdit={handleEdit}
-                  />
-                )}
-                {stepErrors[currentStep]?.length > 0 &&
-                  currentStep !== FormStep.IDENTIFICATION && (
-                    <div className="mt-2 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded">
-                      <p className="text-red-700 dark:text-red-300 font-medium">
-                        Issues in this section:
-                      </p>
-                      <ul className="text-sm text-red-600 dark:text-red-400 mt-1">
-                        {stepErrors[currentStep].map((error, index) => (
-                          <li key={index}>• {error}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-              </div>
-            </div>
-
-            {/* Navigation Buttons - Modified for ID step */}
-            <div className="flex justify-between items-center pt-3 border-t border-gray-200 dark:border-gray-700">
-              <div className="flex space-x-3">
-                <button
-                  type="button"
-                  onClick={goToPrevStep}
-                  disabled={isFirstStep}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">
-                  ← Previous
-                </button>
-                {!isLastStep && (
-                  <button
-                    type="button"
-                    onClick={goToNextStep}
-                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 border border-transparent rounded-md hover:bg-blue-700 dark:hover:bg-blue-600">
-                    Next →
-                  </button>
-                )}
-              </div>
-
-              {/* Different button set for ID step */}
-              {currentStep === FormStep.IDENTIFICATION ? (
-                <div className="flex space-x-3">
-                  <button
-                    type="button"
-                    onClick={goToNextStep}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600">
-                    Skip for Now
-                  </button>
-                  {!isLastStep && (
-                    <button
-                      type="button"
-                      onClick={goToNextStep}
-                      disabled={hasIdDetails && hasIdValidationErrors()}
-                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 border border-transparent rounded-md hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed">
-                      Continue →
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div className="flex space-x-3">
-                  <button
-                    type="button"
-                    onClick={handleSave}
-                    disabled={isSaving || isSubmitting || !hasUnsavedChanges}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">
-                    {isSaving ? "Saving..." : "Save Progress"}
-                  </button>
-                  {!isLastStep && (
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        await handleSave();
-                        if (!isSaving && !submitError) {
-                          goToNextStep();
-                        }
-                      }}
-                      disabled={isSaving || isSubmitting}
-                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 border border-transparent rounded-md hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed">
-                      {isSaving ? "Saving..." : "Save & Continue"}
-                    </button>
-                  )}
-                  {isLastStep && (
-                    <button
-                      type="submit"
-                      disabled={isSubmitting}
-                      className="px-6 py-2 text-sm font-medium text-white bg-green-600 dark:bg-green-500 border border-transparent rounded-md hover:bg-green-700 dark:hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed">
-                      {isSubmitting ? "Completing..." : "Complete Profile"}
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-        </form>
-      </FormProvider>
-    </div>
+      {/* Skip Warning Modal */}
+      <SkipWarningModal
+        isOpen={showSkipWarning}
+        onClose={() => setShowSkipWarning(false)}
+        onConfirm={confirmSkip}
+        stepTitle={currentStepConfig?.title || ""}
+      />
+    </>
   );
 }

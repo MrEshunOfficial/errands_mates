@@ -40,7 +40,7 @@ export default function ProfileLayout({ children }: { children: ReactNode }) {
   }
 
   return (
-    <div className="flex">
+    <div className="flex space-x-2">
       <ProfileNavigation />
       <main className="flex-1 p-2 border rounded">{children}</main>
     </div>

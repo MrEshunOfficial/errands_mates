@@ -86,7 +86,7 @@ type ErrorResponse = {
 class IdDetailsAPI {
   private baseURL: string;
 
-  constructor(baseURL: string = "/api/id-details") {
+  constructor(baseURL: string = "/api/profile/id-details") {
     this.baseURL = baseURL;
   }
 

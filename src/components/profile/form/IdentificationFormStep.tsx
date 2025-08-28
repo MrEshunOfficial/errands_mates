@@ -3,16 +3,8 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Input } from "../ui/input";
-import { Button } from "../ui/button";
 import { idType } from "@/types";
-import {
-  idTypeConfigs,
-  idDetailsFormWithFileSchema,
-  type IdDetailsFormWithFileData,
-  validateIdNumber,
-  validateIdDocumentFile,
-} from "@/lib/utils/schemas/profile.schemas";
+
 import {
   Popover,
   PopoverTrigger,
@@ -20,6 +12,15 @@ import {
 } from "@radix-ui/react-popover";
 import { InfoIcon, AlertCircle, CheckCircle } from "lucide-react";
 import { useIdDetails } from "@/hooks/id-details/useIdDetails";
+import {
+  idTypeConfigs,
+  idDetailsFormWithFileSchema,
+  type IdDetailsFormWithFileData,
+  validateIdNumber,
+  validateIdDocumentFile,
+} from "@/lib/utils/schemas/id-verification-schema";
+import { Button } from "../../ui/button";
+import { Input } from "../../ui/input";
 
 interface IdentificationFormStepProps {
   className?: string;
@@ -154,6 +155,7 @@ export default function IdentificationFormStep({
     return hasIdType + hasValidIdNumber + hasIdFile;
   };
 
+  // Unified file upload function
   const uploadIdFile = async (
     file: File
   ): Promise<{ url: string; fileName: string }> => {
@@ -161,7 +163,14 @@ export default function IdentificationFormStep({
       // Create FormData for the file upload
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("fileType", "id-document");
+
+      // Add ID details if available
+      if (selectedIdType) {
+        formData.append("idType", selectedIdType);
+      }
+      if (idNumber) {
+        formData.append("idNumber", idNumber);
+      }
 
       // Reset progress
       setUploadProgress(0);
@@ -217,10 +226,10 @@ export default function IdentificationFormStep({
           reject(new Error("File upload timed out"));
         });
 
-        // Configure request
-        xhr.open("POST", "/api/upload/id-document");
-        xhr.timeout = 60000; // 60 second timeout for large files
-        xhr.withCredentials = true; // Include cookies for authentication
+        // Configure request - Use your existing endpoint
+        xhr.open("PUT", "/api/profile/id-details");
+        xhr.timeout = 60000;
+        xhr.withCredentials = true;
 
         // Send the request
         xhr.send(formData);
@@ -235,11 +244,11 @@ export default function IdentificationFormStep({
     }
   };
 
-  // Updated form submission handler that integrates with your existing hook
+  // Updated form submission handler
   const onSubmit = async (data: IdDetailsFormWithFileData) => {
     try {
       setIsUploading(true);
-      clearError(); // Clear any existing errors
+      clearError();
       clearValidationError();
 
       let fileReference = idDetails?.idFile;
@@ -295,9 +304,7 @@ export default function IdentificationFormStep({
       await validateDetails();
     } catch (err) {
       console.error("ID details submission error:", err);
-      // const errorMessage =
-      //   err instanceof Error ? err.message : "An unexpected error occurred";
-      // setError(errorMessage);
+      // Error handling is managed by the hook
     } finally {
       setIsUploading(false);
       setUploadProgress(0);
@@ -393,7 +400,8 @@ export default function IdentificationFormStep({
         <button
           type="button"
           onClick={() => setShowIdHelper(!showIdHelper)}
-          className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
+          className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+        >
           {showIdHelper ? "Hide" : "Show"} ID requirements
         </button>
       </div>
@@ -420,7 +428,8 @@ export default function IdentificationFormStep({
                     isSelected
                       ? "border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-950 ring-2 ring-blue-200 dark:ring-blue-800"
                       : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-600"
-                  }`}>
+                  }`}
+                >
                   <div className="text-center">
                     <span className="text-3xl block mb-2">{config.icon}</span>
                     <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-1">
@@ -540,7 +549,8 @@ export default function IdentificationFormStep({
         onDragEnter={handleDrag}
         onDragLeave={handleDrag}
         onDragOver={handleDrag}
-        onDrop={handleDrop}>
+        onDrop={handleDrop}
+      >
         <Input
           ref={fileInputRef}
           type="file"
@@ -610,7 +620,8 @@ export default function IdentificationFormStep({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+              className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+            >
               Replace
             </button>
             <button
@@ -620,7 +631,8 @@ export default function IdentificationFormStep({
                 setValue("file", undefined);
                 onFieldChange?.("file", null);
               }}
-              className="text-sm text-red-600 dark:text-red-400 hover:underline">
+              className="text-sm text-red-600 dark:text-red-400 hover:underline"
+            >
               Remove
             </button>
           </div>
@@ -708,7 +720,8 @@ export default function IdentificationFormStep({
             <span
               className={
                 value ? "text-green-600 dark:text-green-400" : "text-gray-400"
-              }>
+              }
+            >
               {value ? "✅ Complete" : "⭕ Pending"}
             </span>
           </div>
@@ -726,7 +739,8 @@ export default function IdentificationFormStep({
                 validation.isComplete
                   ? "text-green-600 dark:text-green-400"
                   : "text-orange-600 dark:text-orange-400"
-              }`}>
+              }`}
+            >
               {validation.isComplete ? "Ready for Review" : "Incomplete"}
             </span>
           </div>
@@ -789,7 +803,8 @@ export default function IdentificationFormStep({
         type="button"
         onClick={handleFormSubmit}
         disabled={!isValid || updating || loading}
-        className="flex-1">
+        className="flex-1"
+      >
         {updating
           ? "Saving..."
           : hasIdDetails
@@ -803,7 +818,8 @@ export default function IdentificationFormStep({
           variant="outline"
           onClick={validateDetails}
           disabled={validating}
-          className="flex-1 sm:flex-none">
+          className="flex-1 sm:flex-none"
+        >
           {validating ? "Validating..." : "Re-validate"}
         </Button>
       )}
@@ -846,7 +862,8 @@ export default function IdentificationFormStep({
         <PopoverTrigger asChild>
           <Button
             variant="outline"
-            className="w-full flex items-center justify-center gap-2">
+            className="w-full flex items-center justify-center gap-2"
+          >
             <InfoIcon className="text-blue-600 dark:text-blue-400" size={16} />
             <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
               View Tips & Information

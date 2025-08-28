@@ -8,9 +8,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Button } from "../ui/button";
 import { InfoIcon } from "lucide-react";
 import { ProfileContactTips } from "./extras/ProfileContactTips";
+import { Button } from "../../ui/button";
 interface ContactFormStepProps {
   className?: string;
   onFieldChange?: (field: string, value: unknown) => void;
@@ -77,7 +77,6 @@ export default function ContactFormStep({
   const secondaryContact = watch("secondaryContact") || "";
   const businessEmail = watch("businessEmail") || "";
   const socialHandles = watch("socialMediaHandles") || [];
-  const userRole = watch("role");
 
   // Add new social media handle
   const addSocialHandle = () => {

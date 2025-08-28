@@ -1,6 +1,6 @@
 "use client";
 
-import { IdDetails, idType, UserRole } from "@/types";
+import { UserRole } from "@/types";
 import React from "react";
 import { useFormContext } from "react-hook-form";
 import {
@@ -9,7 +9,7 @@ import {
 } from "@/lib/utils/schemas/profile.schemas";
 import { FieldErrors, FieldError } from "react-hook-form";
 
-type ProfileSection = "basic-info" | "location" | "contact" | "identification";
+type ProfileSection = "basic-info" | "location" | "contact";
 
 interface ReviewFormStepProps {
   className?: string;
@@ -21,7 +21,6 @@ export const REVIEW_SECTIONS = {
   BASIC_INFO: "basic-info",
   LOCATION: "location",
   CONTACT: "contact",
-  IDENTIFICATION: "identification",
 } as const;
 
 type ReviewSection = (typeof REVIEW_SECTIONS)[keyof typeof REVIEW_SECTIONS];
@@ -92,31 +91,6 @@ const SECTION_CONFIG = {
       }),
     }),
   },
-  [REVIEW_SECTIONS.IDENTIFICATION]: {
-    icon: "🆔",
-    title: "Identity Verification",
-    description: "Optional identity verification",
-    fields: ["idType", "idNumber"],
-    getContent: (data: ExtendedUpdateUserProfileFormData) => {
-      // Handle the case where ID fields might not exist
-      if (!data?.idType) return { Status: "No identification provided" };
-
-      const idLabels = {
-        [idType.NATIONAL_ID]: "National ID",
-        [idType.VOTERS_ID]: "Voter's ID",
-        [idType.PASSPORT]: "Passport",
-        [idType.DRIVERS_LICENSE]: "Driver's License",
-        [idType.NHIS]: "NHIS",
-        [idType.OTHER]: "Other",
-      };
-
-      return {
-        "ID Type": idLabels[data.idType],
-        "ID Number": data?.idNumber || "Not provided",
-        Status: data?.idNumber ? "ID details provided" : "Incomplete",
-      };
-    },
-  },
 } as const;
 
 // Utility functions
@@ -147,7 +121,6 @@ const getSectionErrors = (
       "businessEmail",
       "socialMediaHandles",
     ],
-    [REVIEW_SECTIONS.IDENTIFICATION]: ["idType", "idNumber"],
   };
 
   return fieldMap[section]
@@ -200,7 +173,8 @@ const StatusBadge = ({ type }: { type: "complete" | "error" | "empty" }) => {
 
   return (
     <span
-      className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${variants[type]}`}>
+      className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${variants[type]}`}
+    >
       {labels[type]}
     </span>
   );
@@ -264,7 +238,8 @@ export default function ReviewFormStep({
     return (
       <div
         key={sectionKey}
-        className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+        className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6"
+      >
         {/* Section Header */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-3">
@@ -284,7 +259,8 @@ export default function ReviewFormStep({
               type="button"
               onClick={() => onEdit?.(sectionKey)}
               className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-              disabled={isSubmitting}>
+              disabled={isSubmitting}
+            >
               Edit
             </button>
           </div>
@@ -310,7 +286,8 @@ export default function ReviewFormStep({
                       !value || value.toString().includes("Not")
                         ? "text-gray-400 italic"
                         : ""
-                    }`}>
+                    }`}
+                  >
                     {value}
                   </p>
                 </div>
@@ -321,11 +298,6 @@ export default function ReviewFormStep({
           <div className="text-center py-8 text-gray-500 dark:text-gray-400">
             <span className="text-4xl block mb-2">{config.icon}</span>
             <p>No {config.title.toLowerCase()} provided</p>
-            {sectionKey === REVIEW_SECTIONS.IDENTIFICATION && (
-              <p className="text-xs mt-1">
-                Identity verification is optional but recommended
-              </p>
-            )}
           </div>
         )}
 
@@ -427,7 +399,8 @@ export default function ReviewFormStep({
               : completeness >= 50
               ? "text-yellow-600 dark:text-yellow-400"
               : "text-blue-600 dark:text-blue-400"
-          }`}>
+          }`}
+        >
           {completeness >= 80
             ? "Profile Complete!"
             : completeness >= 50
