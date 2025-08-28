@@ -31,6 +31,7 @@ interface FormStepConfig {
   title: string;
   description: string;
   icon: string;
+  required: boolean;
 }
 
 const FORM_STEPS: FormStepConfig[] = [
@@ -39,33 +40,39 @@ const FORM_STEPS: FormStepConfig[] = [
     title: "Basic Information",
     description: "Tell us about yourself",
     icon: "👤",
+    required: true,
   },
   {
     key: FormStep.LOCATION,
     title: "Location Details",
     description: "Where are you located?",
     icon: "📍",
+    required: true,
   },
   {
     key: FormStep.CONTACT,
     title: "Contact Information",
     description: "How can we reach you?",
     icon: "📞",
+    required: true,
   },
   {
     key: FormStep.IDENTIFICATION,
     title: "Identification",
     description: "Verify your identity (optional)",
     icon: "🆔",
+    required: false,
   },
   {
     key: FormStep.REVIEW,
     title: "Review & Complete",
     description: "Review your information",
     icon: "✅",
+    required: false,
   },
 ];
 
+// Updated to exclude ID details fields since they're handled separately
 const STEP_FIELDS: Record<FormStep, string[]> = {
   [FormStep.BASIC_INFO]: ["role", "bio", "isActiveInMarketplace"],
   [FormStep.LOCATION]: [
@@ -84,7 +91,7 @@ const STEP_FIELDS: Record<FormStep, string[]> = {
     "businessEmail",
     "socialMediaHandles",
   ],
-  [FormStep.IDENTIFICATION]: ["idType", "idNumber"],
+  [FormStep.IDENTIFICATION]: [], // Handled separately by useIdDetails
   [FormStep.REVIEW]: [],
 };
 
@@ -98,6 +105,8 @@ interface ProfileFormPageProps {
 // Import the UpdateProfileData type from your API
 import type { UpdateProfileData } from "@/lib/api/profiles/profile.api";
 import { IUserProfile } from "@/types";
+import { useIdDetails } from "@/hooks/id-details/useIdDetails";
+
 // Fallback interface if UpdateProfileData is not available
 interface FallbackUpdateProfileData {
   role?: UserRole;
@@ -125,11 +134,6 @@ interface FallbackUpdateProfileData {
     nameOfSocial: string;
     userName: string;
   }>;
-  idDetails?: {
-    idType: string;
-    idNumber: string;
-    idFile: { url: string; fileName: string };
-  };
   isActiveInMarketplace?: boolean;
 }
 
@@ -152,17 +156,26 @@ export default function FlexibleProfileForm({
     refreshProfile,
   } = useProfile();
 
+  // Separate ID details management
+  const {
+    validation: idValidation,
+    hasIdDetails,
+    isComplete: isIdComplete,
+    hasValidationErrors: hasIdValidationErrors,
+  } = useIdDetails();
+
   // Consolidated state
   const [currentStep, setCurrentStep] = useState<FormStep>(FormStep.BASIC_INFO);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [idStepComplete, setIdStepComplete] = useState(false);
 
   // Safe profile access with proper typing
   const safeProfile = profile as IUserProfile | null | undefined;
 
-  // Initialize form with proper default values
+  // Initialize form with proper default values (excluding ID details)
   const defaultValues = useMemo<UpdateUserProfileFormData>(
     () => ({
       role: safeProfile?.role,
@@ -179,9 +192,8 @@ export default function FlexibleProfileForm({
       secondaryContact: safeProfile?.contactDetails?.secondaryContact || "",
       businessEmail: safeProfile?.contactDetails?.businessEmail || "",
       socialMediaHandles: safeProfile?.socialMediaHandles || [],
-      idType: safeProfile?.idDetails?.idType,
-      idNumber: safeProfile?.idDetails?.idNumber || "",
       isActiveInMarketplace: safeProfile?.isActiveInMarketplace || false,
+      // Remove ID details from form - they're handled separately
     }),
     [safeProfile]
   );
@@ -202,7 +214,7 @@ export default function FlexibleProfileForm({
 
   const formData = watch();
 
-  // Transform form data to API format with proper typing
+  // Transform form data to API format (excluding ID details)
   const transformFormData = useCallback(
     (data: UpdateUserProfileFormData): ApiProfileData => {
       const gpsCoordinates =
@@ -214,7 +226,7 @@ export default function FlexibleProfileForm({
             }
           : undefined;
 
-      // Create a partial profile data object instead of full IUserProfile
+      // Create a partial profile data object
       const profileData: Partial<IUserProfile> = {};
 
       // Basic fields
@@ -253,15 +265,6 @@ export default function FlexibleProfileForm({
           (h): h is { nameOfSocial: string; userName: string } =>
             Boolean(h.nameOfSocial && h.userName)
         );
-      }
-
-      // ID details
-      if (data.idNumber && data.idType) {
-        profileData.idDetails = {
-          idType: data.idType,
-          idNumber: data.idNumber,
-          idFile: { url: "", fileName: "" },
-        };
       }
 
       // Marketplace status
@@ -312,7 +315,7 @@ export default function FlexibleProfileForm({
     reset,
   ]);
 
-  // Navigation handlers with proper typing
+  // Navigation handlers
   const currentIndex = FORM_STEPS.findIndex((step) => step.key === currentStep);
   const goToStep = useCallback(
     (step: FormStep): void => setCurrentStep(step),
@@ -330,7 +333,7 @@ export default function FlexibleProfileForm({
     }
   }, [currentIndex, goToStep]);
 
-  // Step completeness calculation with proper typing
+  // Step completeness calculation - updated to handle ID step separately
   const getStepCompleteness = useCallback(
     (step: FormStep): number => {
       if (!formData) return 0;
@@ -348,16 +351,35 @@ export default function FlexibleProfileForm({
           return formData.primaryContact ? 100 : 0;
 
         case FormStep.IDENTIFICATION:
-          return formData.idNumber && formData.idType ? 100 : 0;
+          // Use ID details state for completion calculation
+          if (hasIdDetails && isIdComplete() && !hasIdValidationErrors()) {
+            return 100;
+          } else if (hasIdDetails) {
+            return 50; // Partially complete
+          }
+          return idStepComplete ? 100 : 0; // Allow manual completion tracking
+
+        case FormStep.REVIEW:
+          // Review step is complete when all required steps are done
+          const requiredStepsComplete = FORM_STEPS.filter(
+            (s) => s.required
+          ).every((s) => getStepCompleteness(s.key) > 0);
+          return requiredStepsComplete ? 100 : 0;
 
         default:
           return 0;
       }
     },
-    [formData]
+    [
+      formData,
+      hasIdDetails,
+      isIdComplete,
+      hasIdValidationErrors,
+      idStepComplete,
+    ]
   );
 
-  // Error handling with proper typing
+  // Error handling - exclude ID step errors since they're handled separately
   const stepErrors = useMemo((): Record<FormStep, string[]> => {
     const result = Object.keys(STEP_FIELDS).reduce(
       (acc, step) => ({ ...acc, [step]: [] }),
@@ -376,14 +398,32 @@ export default function FlexibleProfileForm({
       }
     });
 
-    return result;
-  }, [errors]);
+    // Add ID validation errors separately
+    if (hasIdDetails && hasIdValidationErrors() && idValidation?.errors) {
+      result[FormStep.IDENTIFICATION] = idValidation.errors;
+    }
 
-  // Profile completeness calculation
+    return result;
+  }, [errors, hasIdDetails, hasIdValidationErrors, idValidation]);
+
+  // Profile completeness calculation - exclude ID details from main calculation
   const currentCompleteness = useMemo((): number => {
     if (!formData) return 0;
-    return calculateUserProfileCompleteness(formData).percentage;
-  }, [formData]);
+
+    // Calculate profile completeness (excluding ID details)
+    const profileCompleteness =
+      calculateUserProfileCompleteness(formData).percentage;
+
+    // Add bonus for ID verification if completed
+    let idBonus = 0;
+    if (hasIdDetails && isIdComplete() && !hasIdValidationErrors()) {
+      idBonus = 15; // 15% bonus for verified ID
+    } else if (hasIdDetails) {
+      idBonus = 7; // 7% bonus for attempted verification
+    }
+
+    return Math.min(100, profileCompleteness + idBonus);
+  }, [formData, hasIdDetails, isIdComplete, hasIdValidationErrors]);
 
   // Main submission handler
   const onSubmit = useCallback(
@@ -433,7 +473,7 @@ export default function FlexibleProfileForm({
     setCurrentStep(stepMap[section]);
   }, []);
 
-  // Initialize form with profile data
+  // Initialize form with profile data (excluding ID details)
   useEffect(() => {
     if (safeProfile && isInitialized) {
       const initialData: UpdateUserProfileFormData = {
@@ -451,8 +491,6 @@ export default function FlexibleProfileForm({
         secondaryContact: safeProfile.contactDetails?.secondaryContact || "",
         businessEmail: safeProfile.contactDetails?.businessEmail || "",
         socialMediaHandles: safeProfile.socialMediaHandles || [],
-        idType: safeProfile.idDetails?.idType,
-        idNumber: safeProfile.idDetails?.idNumber || "",
         isActiveInMarketplace: safeProfile.isActiveInMarketplace || false,
       };
 
@@ -460,6 +498,11 @@ export default function FlexibleProfileForm({
       setLastSaved(new Date());
     }
   }, [safeProfile, isInitialized, reset]);
+
+  // Handle ID step completion callback
+  const handleIdStepComplete = useCallback((isComplete: boolean) => {
+    setIdStepComplete(isComplete);
+  }, []);
 
   // Loading state
   if (isLoading || !isInitialized) {
@@ -487,8 +530,7 @@ export default function FlexibleProfileForm({
           <p className="text-gray-600 dark:text-gray-300 mb-4">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md"
-          >
+            className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">
             Retry
           </button>
         </div>
@@ -521,6 +563,11 @@ export default function FlexibleProfileForm({
             <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
               {currentCompleteness}%
             </div>
+            {hasIdDetails && (
+              <div className="text-xs text-green-600 dark:text-green-400 mt-1">
+                ID Verification: {isIdComplete() ? "Complete" : "Pending"}
+              </div>
+            )}
             {lastSaved && (
               <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                 Last saved: {lastSaved.toLocaleTimeString()}
@@ -543,8 +590,7 @@ export default function FlexibleProfileForm({
         <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mb-4">
           <div
             className="bg-blue-600 dark:bg-blue-500 h-2 rounded-full transition-all duration-300"
-            style={{ width: `${currentCompleteness}%` }}
-          ></div>
+            style={{ width: `${currentCompleteness}%` }}></div>
         </div>
 
         {/* Step indicators */}
@@ -553,6 +599,7 @@ export default function FlexibleProfileForm({
             const stepCompleteness = getStepCompleteness(step.key);
             const hasErrors = stepErrors[step.key]?.length > 0;
             const isActive = step.key === currentStep;
+            const isOptional = !step.required;
 
             const borderColor = isActive
               ? "border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-950"
@@ -566,12 +613,16 @@ export default function FlexibleProfileForm({
               <div
                 key={step.key}
                 className={`cursor-pointer p-3 rounded-lg border transition-all ${borderColor}`}
-                onClick={() => goToStep(step.key)}
-              >
+                onClick={() => goToStep(step.key)}>
                 <div className="text-center">
                   <div className="text-2xl mb-1">{step.icon}</div>
                   <div className="text-xs font-medium text-gray-900 dark:text-gray-100 mb-1">
                     {step.title}
+                    {isOptional && (
+                      <span className="text-gray-400 dark:text-gray-500 ml-1">
+                        (Optional)
+                      </span>
+                    )}
                   </div>
                   <div className="text-xs text-gray-600 dark:text-gray-300 mb-2">
                     {step.description}
@@ -583,8 +634,7 @@ export default function FlexibleProfileForm({
                           ? "bg-red-400 dark:bg-red-500"
                           : "bg-green-400 dark:bg-green-500"
                       }`}
-                      style={{ width: `${stepCompleteness}%` }}
-                    ></div>
+                      style={{ width: `${stepCompleteness}%` }}></div>
                   </div>
                   {hasErrors && (
                     <div className="text-xs text-red-600 dark:text-red-400 mt-1">
@@ -600,7 +650,7 @@ export default function FlexibleProfileForm({
       </div>
 
       {/* Unsaved Changes Warning */}
-      {hasUnsavedChanges && (
+      {hasUnsavedChanges && currentStep !== FormStep.IDENTIFICATION && (
         <div className="bg-orange-50 dark:bg-orange-950 border border-orange-200 dark:border-orange-800 rounded-lg p-4 mb-6">
           <div className="flex items-center">
             <div className="text-orange-600 dark:text-orange-400 text-lg mr-3">
@@ -640,6 +690,7 @@ export default function FlexibleProfileForm({
                 <div>
                   <h3 className="font-medium text-blue-900 dark:text-blue-100">
                     {FORM_STEPS.find((s) => s.key === currentStep)?.title}
+                    {!FORM_STEPS.find((s) => s.key === currentStep)}
                   </h3>
                   <p className="text-sm text-blue-700 dark:text-blue-300">
                     {FORM_STEPS.find((s) => s.key === currentStep)?.description}
@@ -655,7 +706,9 @@ export default function FlexibleProfileForm({
                 {currentStep === FormStep.CONTACT && <ContactFormStep />}
                 {currentStep === FormStep.LOCATION && <LocationFormStep />}
                 {currentStep === FormStep.IDENTIFICATION && (
-                  <IdentificationFormStep />
+                  <IdentificationFormStep
+                    onStepComplete={handleIdStepComplete}
+                  />
                 )}
                 {currentStep === FormStep.REVIEW && (
                   <ReviewFormStep
@@ -663,67 +716,94 @@ export default function FlexibleProfileForm({
                     onEdit={handleEdit}
                   />
                 )}
-                {stepErrors[currentStep]?.length > 0 && (
-                  <div className="mt-2 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded">
-                    <p className="text-red-700 dark:text-red-300 font-medium">
-                      Issues in this section:
-                    </p>
-                    <ul className="text-sm text-red-600 dark:text-red-400 mt-1">
-                      {stepErrors[currentStep].map((error, index) => (
-                        <li key={index}>• {error}</li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
+                {stepErrors[currentStep]?.length > 0 &&
+                  currentStep !== FormStep.IDENTIFICATION && (
+                    <div className="mt-2 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded">
+                      <p className="text-red-700 dark:text-red-300 font-medium">
+                        Issues in this section:
+                      </p>
+                      <ul className="text-sm text-red-600 dark:text-red-400 mt-1">
+                        {stepErrors[currentStep].map((error, index) => (
+                          <li key={index}>• {error}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
               </div>
             </div>
 
-            {/* Navigation Buttons */}
+            {/* Navigation Buttons - Modified for ID step */}
             <div className="flex justify-between items-center pt-3 border-t border-gray-200 dark:border-gray-700">
               <div className="flex space-x-3">
                 <button
                   type="button"
                   onClick={goToPrevStep}
                   disabled={isFirstStep}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
+                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">
                   ← Previous
                 </button>
                 {!isLastStep && (
                   <button
                     type="button"
                     onClick={goToNextStep}
-                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 border border-transparent rounded-md hover:bg-blue-700 dark:hover:bg-blue-600"
-                  >
+                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 border border-transparent rounded-md hover:bg-blue-700 dark:hover:bg-blue-600">
                     Next →
                   </button>
                 )}
               </div>
-              <div className="flex space-x-3">
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={isSaving || isSubmitting || !hasUnsavedChanges}
-                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isSaving ? "Saving..." : "Save Progress"}
-                </button>
-                {!isLastStep && (
+
+              {/* Different button set for ID step */}
+              {currentStep === FormStep.IDENTIFICATION ? (
+                <div className="flex space-x-3">
                   <button
                     type="button"
-                    onClick={async () => {
-                      await handleSave();
-                      if (!isSaving && !submitError) {
-                        goToNextStep();
-                      }
-                    }}
-                    disabled={isSaving || isSubmitting}
-                    className="px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 border border-transparent rounded-md hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isSaving ? "Saving..." : "Save & Continue"}
+                    onClick={goToNextStep}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600">
+                    Skip for Now
                   </button>
-                )}
-              </div>
+                  {!isLastStep && (
+                    <button
+                      type="button"
+                      onClick={goToNextStep}
+                      disabled={hasIdDetails && hasIdValidationErrors()}
+                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 border border-transparent rounded-md hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                      Continue →
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="flex space-x-3">
+                  <button
+                    type="button"
+                    onClick={handleSave}
+                    disabled={isSaving || isSubmitting || !hasUnsavedChanges}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                    {isSaving ? "Saving..." : "Save Progress"}
+                  </button>
+                  {!isLastStep && (
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await handleSave();
+                        if (!isSaving && !submitError) {
+                          goToNextStep();
+                        }
+                      }}
+                      disabled={isSaving || isSubmitting}
+                      className="px-4 py-2 text-sm font-medium text-white bg-blue-600 dark:bg-blue-500 border border-transparent rounded-md hover:bg-blue-700 dark:hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                      {isSaving ? "Saving..." : "Save & Continue"}
+                    </button>
+                  )}
+                  {isLastStep && (
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="px-6 py-2 text-sm font-medium text-white bg-green-600 dark:bg-green-500 border border-transparent rounded-md hover:bg-green-700 dark:hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed">
+                      {isSubmitting ? "Completing..." : "Complete Profile"}
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </form>

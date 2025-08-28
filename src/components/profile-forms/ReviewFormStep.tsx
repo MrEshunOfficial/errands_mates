@@ -1,15 +1,14 @@
 "use client";
 
-import { idType, UserRole } from "@/types";
+import { IdDetails, idType, UserRole } from "@/types";
 import React from "react";
 import { useFormContext } from "react-hook-form";
 import {
-  UpdateUserProfileFormData,
+  ExtendedUpdateUserProfileFormData,
   calculateUserProfileCompleteness,
 } from "@/lib/utils/schemas/profile.schemas";
 import { FieldErrors, FieldError } from "react-hook-form";
 
-// Add this type definition at the top of ReviewFormStep.tsx
 type ProfileSection = "basic-info" | "location" | "contact" | "identification";
 
 interface ReviewFormStepProps {
@@ -27,14 +26,14 @@ export const REVIEW_SECTIONS = {
 
 type ReviewSection = (typeof REVIEW_SECTIONS)[keyof typeof REVIEW_SECTIONS];
 
-// Consolidated configuration for sections
+// Updated section configuration with proper ID handling
 const SECTION_CONFIG = {
   [REVIEW_SECTIONS.BASIC_INFO]: {
     icon: "👤",
     title: "Basic Information",
     description: "Your profile basics",
     fields: ["role", "bio"],
-    getContent: (data: UpdateUserProfileFormData) => ({
+    getContent: (data: ExtendedUpdateUserProfileFormData) => ({
       Role: data?.role
         ? {
             [UserRole.CUSTOMER]: "Customer",
@@ -55,7 +54,7 @@ const SECTION_CONFIG = {
       "nearbyLandmark",
       "gpsCoordinates",
     ],
-    getContent: (data: UpdateUserProfileFormData) => ({
+    getContent: (data: ExtendedUpdateUserProfileFormData) => ({
       "Ghana Post GPS": data?.ghanaPostGPS || "Not provided",
       Region: data?.region || "Not specified",
       City: data?.city || "Not specified",
@@ -77,7 +76,7 @@ const SECTION_CONFIG = {
       "businessEmail",
       "socialMediaHandles",
     ],
-    getContent: (data: UpdateUserProfileFormData) => ({
+    getContent: (data: ExtendedUpdateUserProfileFormData) => ({
       "Primary Phone": data?.primaryContact
         ? formatPhone(data.primaryContact)
         : "Not provided",
@@ -98,7 +97,8 @@ const SECTION_CONFIG = {
     title: "Identity Verification",
     description: "Optional identity verification",
     fields: ["idType", "idNumber"],
-    getContent: (data: UpdateUserProfileFormData) => {
+    getContent: (data: ExtendedUpdateUserProfileFormData) => {
+      // Handle the case where ID fields might not exist
       if (!data?.idType) return { Status: "No identification provided" };
 
       const idLabels = {
@@ -113,6 +113,7 @@ const SECTION_CONFIG = {
       return {
         "ID Type": idLabels[data.idType],
         "ID Number": data?.idNumber || "Not provided",
+        Status: data?.idNumber ? "ID details provided" : "Incomplete",
       };
     },
   },
@@ -130,7 +131,7 @@ const formatPhone = (phone: string): string => {
 
 const getSectionErrors = (
   section: ReviewSection,
-  errors: FieldErrors
+  errors: FieldErrors<ExtendedUpdateUserProfileFormData>
 ): string[] => {
   const fieldMap: Record<ReviewSection, string[]> = {
     [REVIEW_SECTIONS.BASIC_INFO]: ["role", "bio"],
@@ -164,10 +165,10 @@ const getSectionErrors = (
             errors
           );
       } else {
-        error = errors[field];
+        error = errors[field as keyof ExtendedUpdateUserProfileFormData];
       }
 
-      // Now narrow: we only care if it looks like a FieldError
+      // Check if it's a FieldError and has a message
       if (error && typeof error === "object" && "message" in error) {
         return (error as FieldError).message;
       }
@@ -199,8 +200,7 @@ const StatusBadge = ({ type }: { type: "complete" | "error" | "empty" }) => {
 
   return (
     <span
-      className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${variants[type]}`}
-    >
+      className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${variants[type]}`}>
       {labels[type]}
     </span>
   );
@@ -214,16 +214,45 @@ export default function ReviewFormStep({
   const {
     watch,
     formState: { errors },
-  } = useFormContext<UpdateUserProfileFormData>();
+  } = useFormContext<ExtendedUpdateUserProfileFormData>();
+
   const formData = watch();
-  const completeness = calculateUserProfileCompleteness(
-    formData || {}
-  ).percentage;
+
+  // Fixed completeness calculation - only use the profile fields, not ID-related ones
+  const completeness = React.useMemo(() => {
+    try {
+      // Extract only the profile-related fields, excluding ID details
+      const profileData = {
+        role: formData?.role,
+        bio: formData?.bio,
+        ghanaPostGPS: formData?.ghanaPostGPS,
+        nearbyLandmark: formData?.nearbyLandmark,
+        region: formData?.region,
+        city: formData?.city,
+        district: formData?.district,
+        locality: formData?.locality,
+        other: formData?.other,
+        gpsCoordinates: formData?.gpsCoordinates,
+        primaryContact: formData?.primaryContact,
+        secondaryContact: formData?.secondaryContact,
+        businessEmail: formData?.businessEmail,
+        socialMediaHandles: formData?.socialMediaHandles,
+        isActiveInMarketplace: formData?.isActiveInMarketplace,
+        profilePicture: formData?.profilePicture,
+      };
+
+      return calculateUserProfileCompleteness(profileData || {}).percentage;
+    } catch (error) {
+      console.warn("Error calculating completeness:", error);
+      return 0;
+    }
+  }, [formData]);
 
   const renderSection = (sectionKey: ReviewSection) => {
     const config = SECTION_CONFIG[sectionKey];
     const sectionErrors = getSectionErrors(sectionKey, errors);
     const content = config.getContent(formData);
+
     const hasContent = Object.values(content).some(
       (value) =>
         value &&
@@ -235,8 +264,7 @@ export default function ReviewFormStep({
     return (
       <div
         key={sectionKey}
-        className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6"
-      >
+        className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
         {/* Section Header */}
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center space-x-3">
@@ -256,8 +284,7 @@ export default function ReviewFormStep({
               type="button"
               onClick={() => onEdit?.(sectionKey)}
               className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-              disabled={isSubmitting}
-            >
+              disabled={isSubmitting}>
               Edit
             </button>
           </div>
@@ -280,11 +307,10 @@ export default function ReviewFormStep({
                         ? "font-mono"
                         : ""
                     } ${
-                      !value || value.includes("Not")
+                      !value || value.toString().includes("Not")
                         ? "text-gray-400 italic"
                         : ""
-                    }`}
-                  >
+                    }`}>
                     {value}
                   </p>
                 </div>
@@ -401,13 +427,12 @@ export default function ReviewFormStep({
               : completeness >= 50
               ? "text-yellow-600 dark:text-yellow-400"
               : "text-blue-600 dark:text-blue-400"
-          }`}
-        >
+          }`}>
           {completeness >= 80
-            ? "🎉 Profile Complete!"
+            ? "Profile Complete!"
             : completeness >= 50
-            ? "⚡ Almost There!"
-            : "🚀 Good Start!"}
+            ? "Almost There!"
+            : "Good Start!"}
         </div>
       </div>
 

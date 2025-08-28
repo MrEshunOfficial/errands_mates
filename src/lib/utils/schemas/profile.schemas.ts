@@ -32,87 +32,44 @@ const gpsCoordinatesSchema = z.object({
 export const profilePictureFormSchema = z.object({
   file: z
     .instanceof(File)
-    .refine((file) => file.size <= 5 * 1024 * 1024, "File size must be less than 5MB")
     .refine(
-      (file) => ["image/jpeg", "image/jpg", "image/png", "image/webp"].includes(file.type),
+      (file) => file.size <= 5 * 1024 * 1024,
+      "File size must be less than 5MB"
+    )
+    .refine(
+      (file) =>
+        ["image/jpeg", "image/jpg", "image/png", "image/webp"].includes(
+          file.type
+        ),
       "Only JPEG, PNG, and WebP files are allowed"
     )
-    .refine(
-      (file) => {
-        // Check if file name is reasonable length
-        return file.name.length <= 255;
-      },
-      "File name is too long"
-    )
+    .refine((file) => {
+      // Check if file name is reasonable length
+      return file.name.length <= 255;
+    }, "File name is too long")
     .optional(),
 });
 
 // Profile picture data schema (for API responses)
 export const profilePictureSchema = z.object({
   url: z.string().url("Invalid profile picture URL"),
-  fileName: z.string().min(1, "File name is required").max(255, "File name too long"),
-  fileSize: z.number().positive("File size must be positive").max(5 * 1024 * 1024, "File too large").optional(),
-  mimeType: z.enum(["image/jpeg", "image/png", "image/webp", "image/jpg"]).optional(),
+  fileName: z
+    .string()
+    .min(1, "File name is required")
+    .max(255, "File name too long"),
+  fileSize: z
+    .number()
+    .positive("File size must be positive")
+    .max(5 * 1024 * 1024, "File too large")
+    .optional(),
+  mimeType: z
+    .enum(["image/jpeg", "image/png", "image/webp", "image/jpg"])
+    .optional(),
   uploadedAt: z.date().optional(),
 });
 
 // =============================================================================
-// ID TYPE CONFIGURATIONS (Must be defined before usage)
-// =============================================================================
-
-export const idTypeConfigs = {
-  [idType.NATIONAL_ID]: {
-    label: "Ghana Card",
-    icon: "🆔",
-    description: "National identification card",
-    placeholder: "GHA-123456789-0",
-    example: "GHA-123456789-0",
-    helpText: "Your Ghana Card number",
-  },
-  [idType.VOTERS_ID]: {
-    label: "Voter's ID",
-    icon: "🗳️",
-    description: "Electoral Commission voter ID",
-    placeholder: "1234567890",
-    example: "1234567890",
-    helpText: "10-digit voter ID number",
-  },
-  [idType.PASSPORT]: {
-    label: "Ghana Passport",
-    icon: "📘",
-    description: "Ghana passport",
-    placeholder: "A1234567",
-    example: "A1234567",
-    helpText: "Passport number",
-  },
-  [idType.DRIVERS_LICENSE]: {
-    label: "Driver's License",
-    icon: "🚗",
-    description: "DVLA driving license",
-    placeholder: "DL1234567",
-    example: "DL1234567",
-    helpText: "DVLA license number",
-  },
-  [idType.NHIS]: {
-    label: "NHIS Card",
-    icon: "🏥",
-    description: "National Health Insurance card",
-    placeholder: "1234567890",
-    example: "1234567890",
-    helpText: "10-digit NHIS number",
-  },
-  [idType.OTHER]: {
-    label: "Other ID",
-    icon: "📋",
-    description: "Other government-issued ID",
-    placeholder: "Enter ID number",
-    example: "Various formats",
-    helpText: "Any valid government ID",
-  },
-} as const;
-
-// =============================================================================
-// USER-FACING FORM SCHEMAS (Only fields users should fill)
+// USER-FACING PROFILE FORM SCHEMAS (ID details removed)
 // =============================================================================
 
 // Basic personal information (Step 1) - Now includes profile picture
@@ -137,6 +94,13 @@ export const roleSelectionFormSchema = z.object({
   }),
   isActiveInMarketplace: z.boolean().default(false),
 });
+
+// In profile.schemas.ts - Fix the extended schema
+
+// Update the type export to match exactly
+export type ExtendedUpdateUserProfileFormData = z.infer<
+  typeof extendedUpdateUserProfileFormSchema
+>;
 
 // Location information (Step 3)
 export const locationFormSchema = z.object({
@@ -221,8 +185,95 @@ export const socialMediaFormSchema = z.object({
     .default([]),
 });
 
-// ID verification (Required for service providers, optional for customers)
-export const idVerificationFormSchema = z.object({
+// =============================================================================
+// SEPARATED ID DETAILS SCHEMAS
+// =============================================================================
+
+// ID type configurations (moved here for reference)
+export const idTypeConfigs = {
+  [idType.NATIONAL_ID]: {
+    label: "Ghana Card",
+    icon: "🆔",
+    description: "National identification card",
+    placeholder: "GHA-123456789-0",
+    example: "GHA-123456789-0",
+    helpText: "Your Ghana Card number",
+    validation: z.string().min(1, "Ghana Card number is required"),
+  },
+  [idType.VOTERS_ID]: {
+    label: "Voter's ID",
+    icon: "🗳️",
+    description: "Electoral Commission voter ID",
+    placeholder: "1234567890",
+    example: "1234567890",
+    helpText: "10-digit voter ID number",
+    validation: z.string().regex(/^\d{10}$/, "Voter ID must be 10 digits"),
+  },
+  [idType.PASSPORT]: {
+    label: "Ghana Passport",
+    icon: "📘",
+    description: "Ghana passport",
+    placeholder: "A1234567",
+    example: "A1234567",
+    helpText: "Passport number",
+    validation: z.string().min(1, "Passport number is required"),
+  },
+  [idType.DRIVERS_LICENSE]: {
+    label: "Driver's License",
+    icon: "🚗",
+    description: "DVLA driving license",
+    placeholder: "DL1234567",
+    example: "DL1234567",
+    helpText: "DVLA license number",
+    validation: z.string().min(1, "Driver's license number is required"),
+  },
+  [idType.NHIS]: {
+    label: "NHIS Card",
+    icon: "🏥",
+    description: "National Health Insurance card",
+    placeholder: "1234567890",
+    example: "1234567890",
+    helpText: "10-digit NHIS number",
+    validation: z.string().regex(/^\d{10}$/, "NHIS number must be 10 digits"),
+  },
+  [idType.OTHER]: {
+    label: "Other ID",
+    icon: "📋",
+    description: "Other government-issued ID",
+    placeholder: "Enter ID number",
+    example: "Various formats",
+    helpText: "Any valid government ID",
+    validation: z.string().min(1, "ID number is required"),
+  },
+} as const;
+
+// File reference schema for ID documents
+export const idFileSchema = z.object({
+  url: z.string().url("Invalid file URL"),
+  fileName: z
+    .string()
+    .min(1, "File name is required")
+    .max(255, "File name too long"),
+  fileSize: z
+    .number()
+    .positive("File size must be positive")
+    .max(10 * 1024 * 1024, "File too large")
+    .optional(),
+  mimeType: z
+    .enum([
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+      "application/pdf",
+      "image/tiff",
+    ])
+    .optional(),
+  uploadedAt: z.date().optional(),
+});
+
+// ID details form schema (completely separate from profile)
+export const idDetailsFormSchema = z.object({
   idType: z.nativeEnum(idType, {
     message: "Please select a valid ID type",
   }),
@@ -231,14 +282,59 @@ export const idVerificationFormSchema = z.object({
     .trim()
     .min(1, "ID number is required")
     .max(50, "ID number cannot exceed 50 characters"),
-  // Note: idFile will be handled separately through file upload
+  idFile: idFileSchema.optional(), // File reference after upload
+});
+
+// ID details form with file upload (for form handling)
+export const idDetailsFormWithFileSchema = z.object({
+  idType: z.nativeEnum(idType, {
+    message: "Please select a valid ID type",
+  }),
+  idNumber: z
+    .string()
+    .trim()
+    .min(1, "ID number is required")
+    .max(50, "ID number cannot exceed 50 characters"),
+  file: z
+    .instanceof(File)
+    .refine(
+      (file) => file.size <= 10 * 1024 * 1024,
+      "File size must be less than 10MB"
+    )
+    .refine(
+      (file) =>
+        [
+          "image/jpeg",
+          "image/jpg",
+          "image/png",
+          "image/webp",
+          "application/pdf",
+          "image/tiff",
+        ].includes(file.type),
+      "Only JPEG, PNG, WebP, PDF, and TIFF files are allowed"
+    )
+    .optional(),
+});
+
+// ID details complete data schema (for API responses)
+export const idDetailsCompleteSchema = z.object({
+  idType: z.nativeEnum(idType),
+  idNumber: z.string(),
+  idFile: idFileSchema,
+  verificationStatus: z
+    .enum(["pending", "verified", "rejected"])
+    .default("pending"),
+  verifiedAt: z.date().optional(),
+  rejectionReason: z.string().optional(),
+  createdAt: z.date(),
+  updatedAt: z.date(),
 });
 
 // =============================================================================
-// COMBINED USER PROFILE FORM SCHEMA
+// COMBINED USER PROFILE FORM SCHEMA (WITHOUT ID DETAILS)
 // =============================================================================
 
-// Complete user profile form - only user-editable fields
+// Complete user profile form - only profile-related fields
 export const userProfileFormSchema = z.object({
   // Basic info (including profile picture)
   bio: basicInfoFormSchema.shape.bio,
@@ -265,10 +361,6 @@ export const userProfileFormSchema = z.object({
 
   // Social media (optional)
   socialMediaHandles: socialMediaFormSchema.shape.socialMediaHandles,
-
-  // ID verification (conditional based on role)
-  idType: idVerificationFormSchema.shape.idType.optional(),
-  idNumber: idVerificationFormSchema.shape.idNumber.optional(),
 });
 
 // =============================================================================
@@ -280,48 +372,55 @@ export const updateRoleSelectionFormSchema = roleSelectionFormSchema.partial();
 export const updateLocationFormSchema = locationFormSchema.partial();
 export const updateContactFormSchema = contactFormSchema.partial();
 export const updateSocialMediaFormSchema = socialMediaFormSchema.partial();
-export const updateIdVerificationFormSchema = idVerificationFormSchema.partial();
 
-// Complete update schema
+// Complete update schema for profile
 export const updateUserProfileFormSchema = userProfileFormSchema.partial();
 
-// =============================================================================
-// CONDITIONAL VALIDATION SCHEMAS
-// =============================================================================
+// Update schema for ID details (separate)
+export const updateIdDetailsFormSchema = idDetailsFormSchema.partial();
 
-// Schema for customers (ID verification optional)
-export const customerProfileFormSchema = userProfileFormSchema.omit({
-  idType: true,
-  idNumber: true,
-});
-
-// Schema for service providers (ID verification required)
-export const serviceProviderProfileFormSchema = userProfileFormSchema.extend({
-  idType: idVerificationFormSchema.shape.idType,
-  idNumber: idVerificationFormSchema.shape.idNumber,
-});
-
+export const extendedUpdateUserProfileFormSchema =
+  updateUserProfileFormSchema.extend({
+    // Add ID verification fields for form handling - with proper enum type
+    idType: z.nativeEnum(idType).optional(),
+    idNumber: z.string().trim().max(50).optional(),
+  });
 // =============================================================================
 // FORM STEP SCHEMAS FOR MULTI-STEP FORMS
 // =============================================================================
 
+// Profile form steps (no ID verification step)
 export const profileFormSteps = {
   step1: basicInfoFormSchema,
   step2: roleSelectionFormSchema,
   step3: locationFormSchema,
   step4: contactFormSchema,
   step5: socialMediaFormSchema, // Optional
-  step6: idVerificationFormSchema, // Conditional
+} as const;
+
+// Separate ID verification form steps
+export const idVerificationFormSteps = {
+  selectIdType: z.object({ idType: idDetailsFormSchema.shape.idType }),
+  enterIdNumber: z.object({
+    idType: idDetailsFormSchema.shape.idType,
+    idNumber: idDetailsFormSchema.shape.idNumber,
+  }),
+  uploadIdFile: idDetailsFormWithFileSchema,
 } as const;
 
 // =============================================================================
 // TYPE EXPORTS
 // =============================================================================
 
+// Profile types (no ID details)
 export type UserProfileFormData = z.infer<typeof userProfileFormSchema>;
-export type UpdateUserProfileFormData = z.infer<typeof updateUserProfileFormSchema>;
+export type UpdateUserProfileFormData = z.infer<
+  typeof updateUserProfileFormSchema
+>;
 export type ProfilePictureFormData = z.infer<typeof profilePictureFormSchema>;
-export type ProfilePictureUpdateFormData = z.infer<typeof profilePictureUpdateFormSchema>;
+export type ProfilePictureUpdateFormData = z.infer<
+  typeof profilePictureUpdateFormSchema
+>;
 
 // Step-specific types
 export type BasicInfoFormData = z.infer<typeof basicInfoFormSchema>;
@@ -329,11 +428,27 @@ export type RoleSelectionFormData = z.infer<typeof roleSelectionFormSchema>;
 export type LocationFormData = z.infer<typeof locationFormSchema>;
 export type ContactFormData = z.infer<typeof contactFormSchema>;
 export type SocialMediaFormData = z.infer<typeof socialMediaFormSchema>;
-export type IdVerificationFormData = z.infer<typeof idVerificationFormSchema>;
 
-// Role-specific types
-export type CustomerProfileFormData = z.infer<typeof customerProfileFormSchema>;
-export type ServiceProviderProfileFormData = z.infer<typeof serviceProviderProfileFormSchema>;
+// ID details types (separate)
+export type IdDetailsFormData = z.infer<typeof idDetailsFormSchema>;
+export type IdDetailsFormWithFileData = z.infer<
+  typeof idDetailsFormWithFileSchema
+>;
+export type IdDetailsCompleteData = z.infer<typeof idDetailsCompleteSchema>;
+export type UpdateIdDetailsFormData = z.infer<typeof updateIdDetailsFormSchema>;
+
+// Add this to your updateUserProfileFormSchema in profile.schemas.ts
+// export const extendedUpdateUserProfileFormSchema =
+//   updateUserProfileFormSchema.extend({
+//     // Add ID verification fields for form handling
+//     idType: z.nativeEnum(idType).optional(),
+//     idNumber: z.string().trim().max(50).optional(),
+//   });
+
+// // Update the type export
+// export type ExtendedUpdateUserProfileFormData = z.infer<
+//   typeof extendedUpdateUserProfileFormSchema
+// >;
 
 // =============================================================================
 // FORM FIELD CONFIGURATIONS
@@ -345,7 +460,8 @@ export const userFormFieldConfigs = {
     acceptedTypes: ["image/jpeg", "image/jpg", "image/png", "image/webp"],
     maxSize: 5 * 1024 * 1024, // 5MB
     maxSizeLabel: "5MB",
-    helpText: "Upload a clear photo of yourself. JPEG, PNG, or WebP formats only.",
+    helpText:
+      "Upload a clear photo of yourself. JPEG, PNG, or WebP formats only.",
     optional: true,
     aspectRatio: "1:1", // Square aspect ratio recommended
     minResolution: { width: 150, height: 150 },
@@ -353,7 +469,8 @@ export const userFormFieldConfigs = {
   },
   bio: {
     label: "About You",
-    placeholder: "Tell us about yourself, your interests, and what makes you unique...",
+    placeholder:
+      "Tell us about yourself, your interests, and what makes you unique...",
     maxLength: 500,
     rows: 4,
     optional: true,
@@ -463,6 +580,10 @@ export const userFormFieldConfigs = {
       },
     },
   },
+} as const;
+
+// Separate field configurations for ID details
+export const idDetailsFieldConfigs = {
   idType: {
     label: "ID Type",
     options: Object.entries(idTypeConfigs).map(([value, config]) => ({
@@ -471,14 +592,41 @@ export const userFormFieldConfigs = {
       description: config.description,
       icon: config.icon,
     })),
-    required: false, // Conditional based on role
+    required: true,
+    helpText: "Select the type of government-issued ID you want to verify",
   },
   idNumber: {
     label: "ID Number",
     placeholder: "Enter your ID number",
     maxLength: 50,
-    required: false, // Conditional based on role
-    helpText: "Required for service providers",
+    required: true,
+    helpText: "Enter the number exactly as it appears on your ID document",
+    getDynamicPlaceholder: (idType: idType) =>
+      idTypeConfigs[idType]?.placeholder || "Enter ID number",
+    getDynamicHelpText: (idType: idType) =>
+      idTypeConfigs[idType]?.helpText || "Enter your ID number",
+  },
+  idFile: {
+    label: "ID Document",
+    acceptedTypes: [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+      "application/pdf",
+      "image/tiff",
+    ],
+    maxSize: 10 * 1024 * 1024, // 10MB
+    maxSizeLabel: "10MB",
+    helpText:
+      "Upload a clear photo or scan of your ID document. PDF, JPEG, PNG, WebP, and TIFF formats accepted.",
+    required: true,
+    recommendations: [
+      "Ensure all text is clearly readable",
+      "Avoid shadows and glare",
+      "Capture the entire document",
+      "Use good lighting",
+    ],
   },
 } as const;
 
@@ -486,17 +634,12 @@ export const userFormFieldConfigs = {
 // VALIDATION HELPERS
 // =============================================================================
 
-export const validateUserProfileForm = (
-  data: Partial<UserProfileFormData>,
-  userRole?: UserRole
-) => {
-  // Use appropriate schema based on role
-  const schema =
-    userRole === UserRole.PROVIDER
-      ? serviceProviderProfileFormSchema
-      : customerProfileFormSchema;
+export const validateUserProfileForm = (data: Partial<UserProfileFormData>) => {
+  return userProfileFormSchema.safeParse(data);
+};
 
-  return schema.safeParse(data);
+export const validateIdDetailsForm = (data: Partial<IdDetailsFormData>) => {
+  return idDetailsFormSchema.safeParse(data);
 };
 
 // Profile picture validation helper
@@ -515,9 +658,46 @@ export const validateProfilePictureFile = (
   };
 };
 
+// ID document file validation helper
+export const validateIdDocumentFile = (
+  file: File
+): { isValid: boolean; error?: string } => {
+  const result = idDetailsFormWithFileSchema.shape.file.safeParse(file);
+
+  if (result.success) {
+    return { isValid: true };
+  }
+
+  return {
+    isValid: false,
+    error: result.error.issues[0]?.message || "Invalid file",
+  };
+};
+
+// Dynamic ID number validation based on type
+export const validateIdNumber = (
+  idNumber: string,
+  idType: idType
+): { isValid: boolean; error?: string } => {
+  const config = idTypeConfigs[idType];
+  if (!config) {
+    return { isValid: false, error: "Invalid ID type" };
+  }
+
+  const result = config.validation.safeParse(idNumber);
+
+  if (result.success) {
+    return { isValid: true };
+  }
+
+  return {
+    isValid: false,
+    error: result.error.issues[0]?.message || "Invalid ID number",
+  };
+};
 
 // =============================================================================
-// PROFILE COMPLETENESS CALCULATION (User fields only)
+// PROFILE COMPLETENESS CALCULATION (Updated - no ID details)
 // =============================================================================
 
 export const calculateUserProfileCompleteness = (
@@ -533,8 +713,9 @@ export const calculateUserProfileCompleteness = (
     role: !!profile.role,
     location: !!profile.ghanaPostGPS,
     contact: !!profile.primaryContact,
-    socialMedia: !!(profile.socialMediaHandles && profile.socialMediaHandles.length > 0),
-    identification: !!(profile.idType && profile.idNumber), // For service providers
+    socialMedia: !!(
+      profile.socialMediaHandles && profile.socialMediaHandles.length > 0
+    ),
   };
 
   // Essential sections (required for basic functionality)
@@ -542,35 +723,78 @@ export const calculateUserProfileCompleteness = (
   const essentialCompleted = essentialSections.filter(
     (section) => sections[section as keyof typeof sections]
   ).length;
-  const essentialScore = (essentialCompleted / essentialSections.length) * 50; // 50% for essentials
+  const essentialScore = (essentialCompleted / essentialSections.length) * 60; // 60% for essentials
 
   // Important sections (enhance profile quality)
   const importantSections = ["basicInfo", "profilePicture"];
   const importantCompleted = importantSections.filter(
     (section) => sections[section as keyof typeof sections]
   ).length;
-  const importantScore = (importantCompleted / importantSections.length) * 35; // 35% for important
+  const importantScore = (importantCompleted / importantSections.length) * 30; // 30% for important
 
   // Optional sections (nice to have)
-  const optionalSections = ["socialMedia", "identification"];
+  const optionalSections = ["socialMedia"];
   const optionalCompleted = optionalSections.filter(
     (section) => sections[section as keyof typeof sections]
   ).length;
-  const optionalScore = (optionalCompleted / optionalSections.length) * 15; // 15% for optional
+  const optionalScore = (optionalCompleted / optionalSections.length) * 10; // 10% for optional
 
-  const percentage = Math.round(essentialScore + importantScore + optionalScore);
+  const percentage = Math.round(
+    essentialScore + importantScore + optionalScore
+  );
 
-const completedSections = Object.entries(sections)
-  .filter(([, completed]) => completed)
-  .map(([section]) => section);
+  const completedSections = Object.entries(sections)
+    .filter(([, completed]) => completed)
+    .map(([section]) => section);
 
-const missingSections = Object.entries(sections)
-  .filter(([, completed]) => !completed)
-  .map(([section]) => section);
+  const missingSections = Object.entries(sections)
+    .filter(([, completed]) => !completed)
+    .map(([section]) => section);
 
   return {
     percentage,
     completedSections,
     missingSections,
   };
+};
+
+// =============================================================================
+// ID VERIFICATION STATUS HELPERS
+// =============================================================================
+
+export const getIdVerificationStatusText = (
+  status: "pending" | "verified" | "rejected"
+): { text: string; color: string; icon: string } => {
+  const statusConfig = {
+    pending: {
+      text: "Verification Pending",
+      color: "orange",
+      icon: "⏳",
+    },
+    verified: {
+      text: "Verified",
+      color: "green",
+      icon: "✅",
+    },
+    rejected: {
+      text: "Verification Failed",
+      color: "red",
+      icon: "❌",
+    },
+  };
+
+  return statusConfig[status];
+};
+
+// Check if user needs ID verification based on role
+export const requiresIdVerification = (userRole: UserRole): boolean => {
+  return userRole === UserRole.PROVIDER;
+};
+
+// Get ID verification requirement message
+export const getIdVerificationRequirement = (userRole: UserRole): string => {
+  if (userRole === UserRole.PROVIDER) {
+    return "ID verification is required for service providers to build trust with customers.";
+  }
+  return "ID verification is optional for customers but helps build trust in the marketplace.";
 };

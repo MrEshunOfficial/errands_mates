@@ -1,8 +1,8 @@
-// LocationFormStep.tsx - Fixed Version with Proper Validation
+// LocationFormStep.tsx - Fixed Version with Working Input Fields
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useFormContext, Controller, PathValue } from "react-hook-form";
+import { useFormContext, Controller } from "react-hook-form";
 import Link from "next/link";
 import { UpdateUserProfileFormData } from "@/lib/utils/schemas/profile.schemas";
 import { getRegions } from "@/lib/api/location.api.config/get.regions";
@@ -124,8 +124,6 @@ export default function LocationFormStep({
     formState: { errors },
     watch,
     setValue,
-    trigger,
-    clearErrors,
   } = useFormContext<UpdateUserProfileFormData>();
 
   const [isGettingLocation, setIsGettingLocation] = useState(false);
@@ -135,8 +133,9 @@ export default function LocationFormStep({
   const [loading, setLoading] = useState(true);
   const [apiError, setApiError] = useState<string | null>(null);
 
-  const locationData = watch();
-  const ghanaPostGPS = locationData.ghanaPostGPS || "";
+  const formData = watch();
+  const ghanaPostGPS = formData.ghanaPostGPS || "";
+  const selectedRegionId = formData.region;
 
   // Fetch regions with improved error handling
   useEffect(() => {
@@ -188,43 +187,6 @@ export default function LocationFormStep({
     fetchRegions();
   }, []);
 
-  // Enhanced field change handler with proper validation
-  const handleFieldChange = <K extends keyof UpdateUserProfileFormData>(
-    fieldName: K,
-    value: UpdateUserProfileFormData[K]
-  ) => {
-    console.log(`Field ${String(fieldName)} changed to:`, value);
-
-    clearErrors(fieldName);
-
-    setValue(fieldName, value as PathValue<UpdateUserProfileFormData, K>, {
-      shouldValidate: true,
-      shouldDirty: true,
-      shouldTouch: true,
-    });
-
-    setTimeout(() => {
-      trigger(fieldName);
-    }, 0);
-
-    onFieldChange?.(fieldName, value);
-  };
-
-  const handleGPSChange = (value: string) => {
-    const upperValue = value.toUpperCase();
-    handleFieldChange("ghanaPostGPS", upperValue);
-  };
-
-  const handleRegionChange = (regionId: string) => {
-    // Clear city when region changes
-    handleFieldChange("region", regionId);
-    handleFieldChange("city", "");
-  };
-
-  const handleCityChange = (cityId: string) => {
-    handleFieldChange("city", cityId);
-  };
-
   // Enhanced location getter with better error handling
   const getCurrentLocation = async () => {
     if (!navigator.geolocation) {
@@ -266,8 +228,9 @@ export default function LocationFormStep({
       const { latitude, longitude } = position.coords;
       const coordinates = { latitude, longitude };
 
-      handleFieldChange("gpsCoordinates", coordinates);
+      setValue("gpsCoordinates", coordinates, { shouldDirty: true });
       setLocationError(null);
+      onFieldChange?.("gpsCoordinates", coordinates);
 
       console.log("Location retrieved successfully:", coordinates);
     } catch (error) {
@@ -291,9 +254,9 @@ export default function LocationFormStep({
   const calculateProgress = (): number => {
     const requiredFields = [
       ghanaPostGPS,
-      locationData.region,
-      locationData.city,
-      locationData.nearbyLandmark,
+      formData.region,
+      formData.city,
+      formData.nearbyLandmark,
     ];
     const completed = requiredFields.filter((field) =>
       field?.toString().trim()
@@ -301,60 +264,7 @@ export default function LocationFormStep({
     return (completed / requiredFields.length) * 100;
   };
 
-  const FormField = ({
-    name,
-    label,
-    required = false,
-    children,
-  }: {
-    name: string;
-    label: string;
-    required?: boolean;
-    children: React.ReactNode;
-  }) => (
-    <div>
-      <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
-        {label} {required && <span className="text-red-500">*</span>}
-      </label>
-      {children}
-    </div>
-  );
-
-  const TextInput = ({
-    name,
-    placeholder,
-    maxLength,
-    className: inputClassName = "",
-  }: {
-    name: keyof UpdateUserProfileFormData;
-    placeholder: string;
-    maxLength?: number;
-    className?: string;
-  }) => (
-    <Controller
-      name={name}
-      control={control}
-      render={({ field }) => (
-        <input
-          {...field}
-          type="text"
-          placeholder={placeholder}
-          maxLength={maxLength}
-          value={typeof field.value === "string" ? field.value : ""}
-          onChange={(e) => {
-            const newValue = e.target.value;
-            field.onChange(newValue);
-            handleFieldChange(name, newValue);
-          }}
-          onBlur={field.onBlur}
-          className={`w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 focus:border-blue-400 dark:focus:border-blue-500 ${inputClassName}`}
-        />
-      )}
-    />
-  );
-
   const getSelectedRegion = (): Region | undefined => {
-    const selectedRegionId = locationData.region;
     return regions.find((region) => region.id === selectedRegionId);
   };
 
@@ -373,7 +283,7 @@ export default function LocationFormStep({
           <LocationProgress
             progress={progress}
             isGpsValid={isGpsValid}
-            locationData={locationData}
+            locationData={formData}
           />
         </div>
       </div>
@@ -393,8 +303,7 @@ export default function LocationFormStep({
               <button
                 type="button"
                 onClick={() => window.location.reload()}
-                className="text-red-600 dark:text-red-400 text-xs hover:underline mt-2"
-              >
+                className="text-red-600 dark:text-red-400 text-xs hover:underline mt-2">
                 Try Again
               </button>
             </div>
@@ -405,18 +314,13 @@ export default function LocationFormStep({
       {/* Ghana Post GPS */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <FormField
-            name="ghanaPostGPS"
-            label="Ghana Post GPS Address"
-            required
-          >
-            <></>
-          </FormField>
+          <label className="block text-sm font-medium text-gray-900 dark:text-gray-100">
+            Ghana Post GPS Address <span className="text-red-500">*</span>
+          </label>
           <button
             type="button"
             onClick={() => setShowGpsHelper(!showGpsHelper)}
-            className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
-          >
+            className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
             {showGpsHelper ? "Hide" : "Show"} format guide
           </button>
         </div>
@@ -439,8 +343,7 @@ export default function LocationFormStep({
                   href="https://gpsportal.com/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 dark:text-blue-400 underline"
-                >
+                  className="text-blue-600 dark:text-blue-400 underline">
                   Get yours here
                 </Link>
               </p>
@@ -454,14 +357,13 @@ export default function LocationFormStep({
           render={({ field }) => (
             <div>
               <input
-                {...field}
                 type="text"
                 placeholder="XX-0000-0000"
                 value={field.value || ""}
                 onChange={(e) => {
-                  const newValue = e.target.value;
-                  field.onChange(newValue);
-                  handleGPSChange(newValue);
+                  const upperValue = e.target.value.toUpperCase();
+                  field.onChange(upperValue);
+                  onFieldChange?.("ghanaPostGPS", upperValue);
                 }}
                 onBlur={field.onBlur}
                 className={`w-full px-4 py-3 rounded-lg border transition-colors uppercase tracking-wider ${
@@ -470,7 +372,7 @@ export default function LocationFormStep({
                     : isGpsValid && ghanaPostGPS
                     ? "border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950"
                     : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800"
-                } text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800`}
+                } text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 focus:border-blue-400 dark:focus:border-blue-500`}
               />
 
               {ghanaPostGPS && (
@@ -481,8 +383,7 @@ export default function LocationFormStep({
                       isGpsValid
                         ? "text-green-600 dark:text-green-400"
                         : "text-orange-600 dark:text-orange-400"
-                    }
-                  >
+                    }>
                     {isGpsValid
                       ? "Valid GPS format"
                       : "Format should be XX-0000-0000"}
@@ -504,23 +405,26 @@ export default function LocationFormStep({
       {/* Region and City */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Region Field */}
-        <FormField name="region" label="Region">
+        <div>
+          <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+            Region
+          </label>
           <Controller
             name="region"
             control={control}
             render={({ field }) => (
               <select
-                {...field}
                 value={field.value || ""}
                 onChange={(e) => {
                   const newValue = e.target.value;
                   field.onChange(newValue);
-                  handleRegionChange(newValue);
+                  // Clear city when region changes
+                  setValue("city", "", { shouldDirty: true });
+                  onFieldChange?.("region", newValue);
                 }}
                 onBlur={field.onBlur}
                 disabled={loading}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 focus:border-blue-400 dark:focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
                 <option value="">
                   {loading ? "Loading regions..." : "Select a region"}
                 </option>
@@ -537,30 +441,31 @@ export default function LocationFormStep({
               {errors.region.message}
             </p>
           )}
-        </FormField>
+        </div>
 
         {/* City Field */}
-        <FormField name="city" label="City/Town">
+        <div>
+          <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+            City/Town
+          </label>
           <Controller
             name="city"
             control={control}
             render={({ field }) => {
               const availableCities = selectedRegion?.cities || [];
-              const hasRegionSelected = !!locationData.region;
+              const hasRegionSelected = !!selectedRegionId;
 
               return (
                 <select
-                  {...field}
                   value={field.value || ""}
                   onChange={(e) => {
                     const newValue = e.target.value;
                     field.onChange(newValue);
-                    handleCityChange(newValue);
+                    onFieldChange?.("city", newValue);
                   }}
                   onBlur={field.onBlur}
                   disabled={!hasRegionSelected || loading}
-                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
+                  className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 focus:border-blue-400 dark:focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed">
                   <option value="">
                     {!hasRegionSelected
                       ? "Select a region first"
@@ -582,43 +487,95 @@ export default function LocationFormStep({
               {errors.city.message}
             </p>
           )}
-        </FormField>
+        </div>
       </div>
 
       {/* District and Locality */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <FormField name="district" label="District">
-          <TextInput
+        <div>
+          <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+            District
+          </label>
+          <Controller
             name="district"
-            placeholder="e.g., Tema Metropolitan"
-            maxLength={50}
+            control={control}
+            render={({ field }) => (
+              <input
+                type="text"
+                placeholder="e.g., Tema Metropolitan"
+                maxLength={50}
+                value={field.value || ""}
+                onChange={(e) => {
+                  const newValue = e.target.value;
+                  field.onChange(newValue);
+                  onFieldChange?.("district", newValue);
+                }}
+                onBlur={field.onBlur}
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 focus:border-blue-400 dark:focus:border-blue-500"
+              />
+            )}
           />
           {errors.district && (
             <p className="mt-1 text-sm text-red-600 dark:text-red-400">
               {errors.district.message}
             </p>
           )}
-        </FormField>
-        <FormField name="locality" label="Locality/Neighborhood">
-          <TextInput
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+            Locality/Neighborhood
+          </label>
+          <Controller
             name="locality"
-            placeholder="e.g., East Legon, Osu"
-            maxLength={50}
+            control={control}
+            render={({ field }) => (
+              <input
+                type="text"
+                placeholder="e.g., East Legon, Osu"
+                maxLength={50}
+                value={field.value || ""}
+                onChange={(e) => {
+                  const newValue = e.target.value;
+                  field.onChange(newValue);
+                  onFieldChange?.("locality", newValue);
+                }}
+                onBlur={field.onBlur}
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 focus:border-blue-400 dark:focus:border-blue-500"
+              />
+            )}
           />
           {errors.locality && (
             <p className="mt-1 text-sm text-red-600 dark:text-red-400">
               {errors.locality.message}
             </p>
           )}
-        </FormField>
+        </div>
       </div>
 
       {/* Nearby Landmark */}
-      <FormField name="nearbyLandmark" label="Nearby Landmark">
-        <TextInput
+      <div>
+        <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+          Nearby Landmark
+        </label>
+        <Controller
           name="nearbyLandmark"
-          placeholder="e.g., Near Accra Mall, Behind Shell Station"
-          maxLength={100}
+          control={control}
+          render={({ field }) => (
+            <input
+              type="text"
+              placeholder="e.g., Near Accra Mall, Behind Shell Station"
+              maxLength={100}
+              value={field.value || ""}
+              onChange={(e) => {
+                const newValue = e.target.value;
+                field.onChange(newValue);
+                onFieldChange?.("nearbyLandmark", newValue);
+              }}
+              onBlur={field.onBlur}
+              className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 focus:border-blue-400 dark:focus:border-blue-500"
+            />
+          )}
         />
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
           Help others find you by mentioning a well-known landmark nearby
@@ -628,17 +585,19 @@ export default function LocationFormStep({
             {errors.nearbyLandmark.message}
           </p>
         )}
-      </FormField>
+      </div>
 
       {/* Additional Info */}
-      <FormField name="other" label="Additional Location Information">
+      <div>
+        <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+          Additional Location Information
+        </label>
         <Controller
           name="other"
           control={control}
           render={({ field }) => (
             <div>
               <textarea
-                {...field}
                 rows={3}
                 placeholder="Any other relevant location details"
                 maxLength={200}
@@ -646,10 +605,10 @@ export default function LocationFormStep({
                 onChange={(e) => {
                   const newValue = e.target.value;
                   field.onChange(newValue);
-                  handleFieldChange("other", newValue);
+                  onFieldChange?.("other", newValue);
                 }}
                 onBlur={field.onBlur}
-                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 resize-none"
+                className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-blue-200 dark:focus:ring-blue-800 focus:border-blue-400 dark:focus:border-blue-500 resize-none"
               />
               <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
                 <span>Optional: Any other relevant location details</span>
@@ -663,7 +622,7 @@ export default function LocationFormStep({
             </div>
           )}
         />
-      </FormField>
+      </div>
 
       {/* GPS Coordinates */}
       <div className="space-y-4">
@@ -680,8 +639,7 @@ export default function LocationFormStep({
             type="button"
             onClick={getCurrentLocation}
             disabled={isGettingLocation}
-            className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
-          >
+            className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg disabled:cursor-not-allowed transition-colors flex items-center space-x-2">
             <span>{isGettingLocation ? "🌍" : "📍"}</span>
             <span>
               {isGettingLocation
@@ -706,15 +664,13 @@ export default function LocationFormStep({
                   <button
                     type="button"
                     onClick={() => setLocationError(null)}
-                    className="text-red-600 dark:text-red-400 text-xs hover:underline"
-                  >
+                    className="text-red-600 dark:text-red-400 text-xs hover:underline">
                     Dismiss
                   </button>
                   <button
                     type="button"
                     onClick={getCurrentLocation}
-                    className="text-red-600 dark:text-red-400 text-xs hover:underline"
-                  >
+                    className="text-red-600 dark:text-red-400 text-xs hover:underline">
                     Try Again
                   </button>
                 </div>
@@ -723,7 +679,7 @@ export default function LocationFormStep({
           </div>
         )}
 
-        {locationData.gpsCoordinates && (
+        {formData.gpsCoordinates && (
           <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-2 text-green-800 dark:text-green-200">
@@ -733,16 +689,16 @@ export default function LocationFormStep({
               <button
                 type="button"
                 onClick={() => {
-                  handleFieldChange("gpsCoordinates", undefined);
+                  setValue("gpsCoordinates", undefined, { shouldDirty: true });
+                  onFieldChange?.("gpsCoordinates", undefined);
                 }}
-                className="text-green-600 dark:text-green-400 text-xs hover:underline"
-              >
+                className="text-green-600 dark:text-green-400 text-xs hover:underline">
                 Clear
               </button>
             </div>
             <div className="text-sm text-green-700 dark:text-green-300 mt-1">
-              Lat: {locationData.gpsCoordinates.latitude?.toFixed(6)}, Lng:{" "}
-              {locationData.gpsCoordinates.longitude?.toFixed(6)}
+              Lat: {formData.gpsCoordinates.latitude?.toFixed(6)}, Lng:{" "}
+              {formData.gpsCoordinates.longitude?.toFixed(6)}
             </div>
           </div>
         )}

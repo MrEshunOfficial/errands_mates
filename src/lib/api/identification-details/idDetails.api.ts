@@ -1,0 +1,304 @@
+import { IdDetails, FileReference, idType } from "@/types/base.types";
+
+// Custom error class for ID details API errors
+export class IdDetailsAPIError extends Error {
+  constructor(
+    message: string,
+    public statusCode: number,
+    public data?: unknown
+  ) {
+    super(message);
+    this.name = "IdDetailsAPIError";
+  }
+}
+
+// ===================================================================
+// REQUEST/RESPONSE TYPES
+// ===================================================================
+
+export interface UpdateIdDetailsData {
+  idDetails: IdDetails;
+}
+
+export interface UpdateIdTypeData {
+  idType: idType;
+}
+
+export interface UpdateIdNumberData {
+  idNumber: string;
+}
+
+export interface UpdateIdFileData {
+  idFile: FileReference;
+}
+
+export interface ValidationResult {
+  hasIdDetails: boolean;
+  isComplete: boolean;
+  missing: string[];
+  errors: string[];
+}
+
+export interface IdDetailsResponse {
+  message: string;
+  user?: {
+    _id: string;
+    email: string;
+    name: string;
+    [key: string]: unknown;
+  };
+  profile?: {
+    _id: string;
+    userId: string;
+    idDetails?: IdDetails;
+    [key: string]: unknown;
+  };
+  idDetails?: IdDetails;
+  hasIdDetails?: boolean;
+  validation?: ValidationResult;
+  error?: string;
+  idFile?: FileReference;
+}
+
+export interface IdDetailsSummaryResponse {
+  message: string;
+  idDetails?: {
+    idType: idType;
+    hasIdNumber: boolean;
+    hasIdFile: boolean;
+    fileType?: string;
+    uploadedAt?: Date;
+  };
+  hasIdDetails?: boolean;
+  error?: string;
+}
+
+type ErrorResponse = {
+  message?: string;
+  error?: string;
+  [key: string]: unknown;
+};
+
+// ===================================================================
+// ID DETAILS API CLASS
+// ===================================================================
+
+class IdDetailsAPI {
+  private baseURL: string;
+
+  constructor(baseURL: string = "/api/id-details") {
+    this.baseURL = baseURL;
+  }
+
+  private async makeRequest<T = IdDetailsResponse>(
+    endpoint: string,
+    options: RequestInit = {}
+  ): Promise<T> {
+    const url = `${this.baseURL}${endpoint}`;
+
+    const config: RequestInit = {
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
+      credentials: "include",
+      ...options,
+    };
+
+    try {
+      const response = await fetch(url, config);
+
+      const contentType = response.headers.get("content-type");
+      let data: unknown;
+
+      if (contentType && contentType.includes("application/json")) {
+        data = (await response.json()) as T;
+      } else {
+        data = { message: await response.text() } as T;
+      }
+
+      if (!response.ok) {
+        const err = data as ErrorResponse;
+        throw new IdDetailsAPIError(
+          err.message ||
+            err.error ||
+            `Request failed with status ${response.status}`,
+          response.status,
+          data
+        );
+      }
+
+      return data as T;
+    } catch (error) {
+      if (error instanceof IdDetailsAPIError) {
+        throw error;
+      }
+
+      throw new IdDetailsAPIError(
+        "Network error or server is unreachable",
+        0,
+        error
+      );
+    }
+  }
+
+  // ===== CORE ID DETAILS MANAGEMENT =====
+
+  /**
+   * Get current ID details
+   */
+  async getIdDetails(): Promise<IdDetailsResponse> {
+    return this.makeRequest("/", {
+      method: "GET",
+    });
+  }
+
+  /**
+   * Update complete ID details (type, number, and file)
+   */
+  async updateIdDetails(data: UpdateIdDetailsData): Promise<IdDetailsResponse> {
+    return this.makeRequest("/", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Update only the ID type
+   */
+  async updateIdType(data: UpdateIdTypeData): Promise<IdDetailsResponse> {
+    return this.makeRequest("/type", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Update only the ID number
+   */
+  async updateIdNumber(data: UpdateIdNumberData): Promise<IdDetailsResponse> {
+    return this.makeRequest("/number", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Update only the ID file
+   */
+  async updateIdFile(data: UpdateIdFileData): Promise<IdDetailsResponse> {
+    return this.makeRequest("/file", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Remove ID details
+   */
+  async removeIdDetails(): Promise<IdDetailsResponse> {
+    return this.makeRequest("/", {
+      method: "DELETE",
+    });
+  }
+
+  /**
+   * Validate ID details completeness and correctness
+   */
+  async validateIdDetails(): Promise<IdDetailsResponse> {
+    return this.makeRequest("/validate", {
+      method: "GET",
+    });
+  }
+
+  /**
+   * Get ID details summary (without sensitive data)
+   */
+  async getIdDetailsSummary(): Promise<IdDetailsSummaryResponse> {
+    return this.makeRequest("/summary", {
+      method: "GET",
+    });
+  }
+
+  // ===== UTILITY METHODS =====
+
+  /**
+   * Get ID type options for UI dropdowns
+   */
+  getIdTypeOptions(): { value: idType; label: string }[] {
+    return [
+      { value: idType.NATIONAL_ID, label: "National ID" },
+      { value: idType.PASSPORT, label: "Passport" },
+      { value: idType.DRIVERS_LICENSE, label: "Driver License" },
+      { value: idType.VOTERS_ID, label: "Voter ID" },
+      { value: idType.NHIS, label: "NHIS" },
+      { value: idType.OTHER, label: "OTHER" },
+    ];
+  }
+
+  /**
+   * Validate file structure before upload
+   */
+  validateFileStructure(file: FileReference): string[] {
+    const errors: string[] = [];
+
+    if (!file.url || !file.url.trim()) {
+      errors.push("ID file URL is required");
+    }
+
+    if (!file.fileName || !file.fileName.trim()) {
+      errors.push("ID file name is required");
+    }
+
+    // File size validation (10MB limit)
+    const maxFileSize = 10 * 1024 * 1024; // 10MB in bytes
+    if (file.fileSize && file.fileSize > maxFileSize) {
+      errors.push("ID file size cannot exceed 10MB");
+    }
+
+    // MIME type validation
+    const allowedMimeTypes = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/webp",
+      "application/pdf",
+      "image/tiff",
+    ];
+    if (file.mimeType && !allowedMimeTypes.includes(file.mimeType)) {
+      errors.push(
+        "Invalid file format. Only JPEG, PNG, WebP, PDF, and TIFF files are allowed"
+      );
+    }
+
+    return errors;
+  }
+
+  /**
+   * Check if ID details are complete
+   */
+  isIdDetailsComplete(idDetails: IdDetails | null): boolean {
+    if (!idDetails) return false;
+    return !!(idDetails.idType && idDetails.idNumber && idDetails.idFile);
+  }
+
+  /**
+   * Health check endpoint
+   */
+  async healthCheck(): Promise<{ message: string; timestamp: string }> {
+    return this.makeRequest("/health", {
+      method: "GET",
+    });
+  }
+}
+
+// Create and export singleton instance
+export const idDetailsAPI = new IdDetailsAPI();
+
+// Export the IdDetailsAPI class for custom instances
+export { IdDetailsAPI };
+
+// Export utility functions
+export const hasIdDetails = (idDetails: IdDetails | null): boolean => {
+  return idDetailsAPI.isIdDetailsComplete(idDetails);
+};
