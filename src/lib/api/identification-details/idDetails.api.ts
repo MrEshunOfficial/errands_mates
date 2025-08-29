@@ -13,23 +13,15 @@ export class IdDetailsAPIError extends Error {
 }
 
 // ===================================================================
-// REQUEST/RESPONSE TYPES
+// REQUEST/RESPONSE TYPES - UPDATED TO MATCH BACKEND
 // ===================================================================
 
 export interface UpdateIdDetailsData {
-  idDetails: IdDetails;
+  idDetails: Partial<IdDetails>;
 }
 
-export interface UpdateIdTypeData {
-  idType: idType;
-}
-
-export interface UpdateIdNumberData {
-  idNumber: string;
-}
-
-export interface UpdateIdFileData {
-  idFile: FileReference;
+export interface UpdateFieldData {
+  value: unknown;
 }
 
 export interface ValidationResult {
@@ -45,19 +37,19 @@ export interface IdDetailsResponse {
     _id: string;
     email: string;
     name: string;
-    [key: string]: unknown;
+    displayName?: string;
   };
   profile?: {
     _id: string;
     userId: string;
     idDetails?: IdDetails;
-    [key: string]: unknown;
+    completeness?: number;
+    lastModified?: Date;
   };
   idDetails?: IdDetails;
   hasIdDetails?: boolean;
   validation?: ValidationResult;
   error?: string;
-  idFile?: FileReference;
 }
 
 export interface IdDetailsSummaryResponse {
@@ -80,7 +72,7 @@ type ErrorResponse = {
 };
 
 // ===================================================================
-// ID DETAILS API CLASS
+// ID DETAILS API CLASS - UPDATED TO MATCH BACKEND ENDPOINTS
 // ===================================================================
 
 class IdDetailsAPI {
@@ -154,7 +146,7 @@ class IdDetailsAPI {
   }
 
   /**
-   * Update complete ID details (type, number, and file)
+   * Update complete ID details (supports partial updates)
    */
   async updateIdDetails(data: UpdateIdDetailsData): Promise<IdDetailsResponse> {
     return this.makeRequest("/", {
@@ -166,30 +158,30 @@ class IdDetailsAPI {
   /**
    * Update only the ID type
    */
-  async updateIdType(data: UpdateIdTypeData): Promise<IdDetailsResponse> {
-    return this.makeRequest("/type", {
+  async updateIdType(idType: idType): Promise<IdDetailsResponse> {
+    return this.makeRequest("/idType", {
       method: "PUT",
-      body: JSON.stringify(data),
+      body: JSON.stringify({ value: idType }),
     });
   }
 
   /**
    * Update only the ID number
    */
-  async updateIdNumber(data: UpdateIdNumberData): Promise<IdDetailsResponse> {
-    return this.makeRequest("/number", {
+  async updateIdNumber(idNumber: string): Promise<IdDetailsResponse> {
+    return this.makeRequest("/idNumber", {
       method: "PUT",
-      body: JSON.stringify(data),
+      body: JSON.stringify({ value: idNumber }),
     });
   }
 
   /**
    * Update only the ID file
    */
-  async updateIdFile(data: UpdateIdFileData): Promise<IdDetailsResponse> {
-    return this.makeRequest("/file", {
+  async updateIdFile(idFile: FileReference): Promise<IdDetailsResponse> {
+    return this.makeRequest("/idFile", {
       method: "PUT",
-      body: JSON.stringify(data),
+      body: JSON.stringify({ value: idFile }),
     });
   }
 
@@ -229,10 +221,10 @@ class IdDetailsAPI {
     return [
       { value: idType.NATIONAL_ID, label: "National ID" },
       { value: idType.PASSPORT, label: "Passport" },
-      { value: idType.DRIVERS_LICENSE, label: "Driver License" },
-      { value: idType.VOTERS_ID, label: "Voter ID" },
-      { value: idType.NHIS, label: "NHIS" },
-      { value: idType.OTHER, label: "OTHER" },
+      { value: idType.DRIVERS_LICENSE, label: "Driver's License" },
+      { value: idType.VOTERS_ID, label: "Voter's ID" },
+      { value: idType.NHIS, label: "NHIS Card" },
+      { value: idType.OTHER, label: "Other" },
     ];
   }
 
@@ -280,15 +272,6 @@ class IdDetailsAPI {
   isIdDetailsComplete(idDetails: IdDetails | null): boolean {
     if (!idDetails) return false;
     return !!(idDetails.idType && idDetails.idNumber && idDetails.idFile);
-  }
-
-  /**
-   * Health check endpoint
-   */
-  async healthCheck(): Promise<{ message: string; timestamp: string }> {
-    return this.makeRequest("/health", {
-      method: "GET",
-    });
   }
 }
 

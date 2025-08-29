@@ -97,4 +97,3 @@ export interface ProfilePictureResponse {
   profilePicture?: ProfilePicture;
   hasProfilePicture: boolean;
 }
-

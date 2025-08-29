@@ -1,4 +1,3 @@
-// hooks/useIdDetails.ts
 import {
   IdDetailsSummaryResponse,
   ValidationResult,
@@ -30,7 +29,7 @@ export interface UseIdDetailsReturn {
 
   // Actions
   fetchIdDetails: () => Promise<void>;
-  updateComplete: (idDetails: IdDetails) => Promise<void>;
+  updateComplete: (idDetails: Partial<IdDetails>) => Promise<void>;
   updateType: (idType: idType) => Promise<void>;
   updateNumber: (idNumber: string) => Promise<void>;
   updateFile: (idFile: FileReference) => Promise<void>;
@@ -101,39 +100,48 @@ export const useIdDetails = (autoFetch: boolean = true): UseIdDetailsReturn => {
     }
   }, []);
 
-  // Update complete ID details
-  const updateComplete = useCallback(async (newIdDetails: IdDetails) => {
-    try {
-      setUpdating(true);
-      setError(null);
-      const response = await idDetailsAPI.updateIdDetails({
-        idDetails: newIdDetails,
-      });
+  // Update complete ID details (supports partial updates)
+  const updateComplete = useCallback(
+    async (newIdDetails: Partial<IdDetails>) => {
+      try {
+        setUpdating(true);
+        setError(null);
+        const response = await idDetailsAPI.updateIdDetails({
+          idDetails: newIdDetails,
+        });
 
-      if (response.idDetails) {
-        setIdDetails(response.idDetails);
-        setHasIdDetails(true);
+        if (response.idDetails) {
+          setIdDetails(response.idDetails);
+          setHasIdDetails(true);
+        } else if (response.profile?.idDetails) {
+          setIdDetails(response.profile.idDetails);
+          setHasIdDetails(true);
+        }
+      } catch (err: unknown) {
+        if (err instanceof Error) {
+          setError(err.message);
+        } else {
+          setError("An unexpected error occurred");
+        }
+      } finally {
+        setUpdating(false);
       }
-    } catch (err: unknown) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError("An unexpected error occurred");
-      }
-    } finally {
-      setUpdating(false);
-    }
-  }, []);
+    },
+    []
+  );
 
   // Update ID type only
   const updateType = useCallback(async (idType: idType) => {
     try {
       setUpdating(true);
       setError(null);
-      const response = await idDetailsAPI.updateIdType({ idType });
+      const response = await idDetailsAPI.updateIdType(idType);
 
       if (response.profile?.idDetails) {
         setIdDetails(response.profile.idDetails);
+        setHasIdDetails(true);
+      } else if (response.idDetails) {
+        setIdDetails(response.idDetails);
         setHasIdDetails(true);
       }
     } catch (err: unknown) {
@@ -152,10 +160,13 @@ export const useIdDetails = (autoFetch: boolean = true): UseIdDetailsReturn => {
     try {
       setUpdating(true);
       setError(null);
-      const response = await idDetailsAPI.updateIdNumber({ idNumber });
+      const response = await idDetailsAPI.updateIdNumber(idNumber);
 
       if (response.profile?.idDetails) {
         setIdDetails(response.profile.idDetails);
+        setHasIdDetails(true);
+      } else if (response.idDetails) {
+        setIdDetails(response.idDetails);
         setHasIdDetails(true);
       }
     } catch (err: unknown) {
@@ -174,10 +185,13 @@ export const useIdDetails = (autoFetch: boolean = true): UseIdDetailsReturn => {
     try {
       setUpdating(true);
       setError(null);
-      const response = await idDetailsAPI.updateIdFile({ idFile });
+      const response = await idDetailsAPI.updateIdFile(idFile);
 
       if (response.profile?.idDetails) {
         setIdDetails(response.profile.idDetails);
+        setHasIdDetails(true);
+      } else if (response.idDetails) {
+        setIdDetails(response.idDetails);
         setHasIdDetails(true);
       }
     } catch (err: unknown) {
@@ -226,9 +240,9 @@ export const useIdDetails = (autoFetch: boolean = true): UseIdDetailsReturn => {
       }
     } catch (err: unknown) {
       if (err instanceof Error) {
-        setError(err.message);
+        setValidationError(err.message);
       } else {
-        setError("An unexpected error occurred");
+        setValidationError("An unexpected error occurred");
       }
     } finally {
       setValidating(false);

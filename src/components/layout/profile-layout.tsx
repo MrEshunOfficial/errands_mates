@@ -1,6 +1,7 @@
 "use client";
-import React from "react";
+import React, { useCallback, useMemo } from "react";
 import { useRouter, usePathname } from "next/navigation";
+
 import {
   User,
   Settings,
@@ -9,38 +10,65 @@ import {
   LogOut,
   Shield,
   Activity,
-  Heart,
   MessageCircle,
   Bell,
-  FileText,
-  Camera,
-  MapPin,
   UserCheck,
   Lock,
   Store,
   BarChart3,
   Users,
-  Flag,
 } from "lucide-react";
+
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useProfile } from "@/hooks/profiles/useProfile";
 import { useAuth } from "@/hooks/auth/useAuth";
 import { UserRole, SystemRole } from "@/types/base.types";
+import { getAvatarUrl } from "@/lib/utils/getAvatarUrl";
+import * as AvatarPrimitive from "@radix-ui/react-avatar";
+
+// Add type definitions for better type safety
+type VerificationStatus = "pending" | "verified" | "rejected";
+type ModerationStatus = "pending" | "approved" | "flagged" | "suspended";
+
+interface ActivitySummary {
+  userId: string;
+  profileId: string;
+  lastModified?: Date;
+  lastModeratedAt?: Date;
+  verificationStatus: VerificationStatus;
+  moderationStatus: ModerationStatus;
+  warningsCount: number;
+  completeness: number;
+  isActiveInMarketplace: boolean;
+  accountAge: number;
+  preferencesLastUpdated?: Date;
+}
 
 interface NavigationItem {
   href: string;
   label: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
-  systemRoles?: SystemRole[]; // For system-level permissions (admin, super_admin)
-  userRoles?: UserRole[]; // For user profile roles (customer, service_provider)
-  requiresVerification?: boolean; // Requires verified status
-  requiresMarketplaceActive?: boolean; // Requires marketplace participation
+  systemRoles?: SystemRole[];
+  userRoles?: UserRole[];
+  requiresVerification?: boolean;
+  requiresMarketplaceActive?: boolean;
   separator?: boolean;
   description?: string;
 }
 
+interface QuickAction {
+  label: string;
+  action: () => void;
+  priority: "high" | "normal";
+  icon: React.ComponentType<{ size?: number; className?: string }>;
+}
+
+interface RoleIndicator {
+  label: string;
+  className: string;
+}
+
 const navigationItems: NavigationItem[] = [
-  // Core Profile Management - Available to all authenticated users
   {
     href: "/profile",
     label: "My Profile",
@@ -59,26 +87,12 @@ const navigationItems: NavigationItem[] = [
     icon: Settings,
     description: "Manage your account preferences",
   },
-
-  // User Activity & Social Features
   {
     href: "/profile/activity",
-    label: "Activity",
+    label: "Dashboard",
     icon: Activity,
     description: "View your recent activity",
     separator: true,
-  },
-  {
-    href: "/profile/favorites",
-    label: "Favorites",
-    icon: Heart,
-    description: "Items you've favorited",
-  },
-  {
-    href: "/profile/messages",
-    label: "Messages",
-    icon: MessageCircle,
-    description: "Your conversations",
   },
   {
     href: "/profile/notifications",
@@ -86,29 +100,6 @@ const navigationItems: NavigationItem[] = [
     icon: Bell,
     description: "Your notifications",
   },
-
-  // Content & Media Management
-  {
-    href: "/profile/posts",
-    label: "My Posts",
-    icon: FileText,
-    description: "Content you've created",
-    separator: true,
-  },
-  {
-    href: "/profile/photos",
-    label: "Photos",
-    icon: Camera,
-    description: "Your photo gallery",
-  },
-  {
-    href: "/profile/locations",
-    label: "Saved Places",
-    icon: MapPin,
-    description: "Places you've saved",
-  },
-
-  // Service Provider Specific Features
   {
     href: "/provider/dashboard",
     label: "Provider Dashboard",
@@ -126,29 +117,18 @@ const navigationItems: NavigationItem[] = [
     description: "Manage your services",
   },
   {
-    href: "/provider/bookings",
-    label: "Bookings",
+    href: "/provider/requests",
+    label: "Requests",
     icon: Users,
     userRoles: [UserRole.PROVIDER],
-    description: "View and manage bookings",
+    description: "View and manage requests",
   },
-
-  // Customer Specific Features
   {
-    href: "/customer/bookings",
-    label: "My Bookings",
+    href: "/customer/requests",
+    label: "My Requests",
     icon: Users,
     userRoles: [UserRole.CUSTOMER],
-    description: "Your service bookings",
-    separator: true,
-  },
-
-  // Account Management
-  {
-    href: "/profile/verification",
-    label: "Verification",
-    icon: UserCheck,
-    description: "Account verification status",
+    description: "Manage Requested Services",
     separator: true,
   },
   {
@@ -163,8 +143,6 @@ const navigationItems: NavigationItem[] = [
     icon: HelpCircle,
     description: "Get help and support",
   },
-
-  // Admin Dashboard - System role based
   {
     href: "/admin",
     label: "Admin Dashboard",
@@ -173,24 +151,10 @@ const navigationItems: NavigationItem[] = [
     separator: true,
     description: "Administrative functions",
   },
-  {
-    href: "/admin/users",
-    label: "User Management",
-    icon: Users,
-    systemRoles: [SystemRole.ADMIN, SystemRole.SUPER_ADMIN],
-    description: "Manage users",
-  },
-  {
-    href: "/admin/moderation",
-    label: "Content Moderation",
-    icon: Flag,
-    systemRoles: [SystemRole.ADMIN, SystemRole.SUPER_ADMIN],
-    description: "Moderate content",
-  },
 ];
 
 // Utility function for safe storage operations
-const safeStorageOperation = (operation: () => void) => {
+const safeStorageOperation = (operation: () => void): void => {
   try {
     if (
       typeof window !== "undefined" &&
@@ -210,120 +174,144 @@ const ProfileNavigation: React.FC = () => {
   const { user } = useAuth();
   const router = useRouter();
 
-  const handleLogout = async () => {
+  const displayName = user?.name || "Unknown User";
+  const displayAvatar = user?.avatar || profile?.profilePicture?.url;
+
+  // Move all hooks before any conditional returns
+  const handleLogout = useCallback(async () => {
     try {
       safeStorageOperation(() => {
         localStorage.removeItem("authToken");
         sessionStorage.clear();
       });
-
-      router.push("/login");
+      await router.push("/login");
     } catch (error) {
       console.error("Logout failed:", error);
       router.push("/login");
     }
-  };
+  }, [router]);
 
-  const isActiveRoute = (href: string) => {
-    return pathname === href || pathname.startsWith(href + "/");
-  };
+  const isActiveRoute = useCallback(
+    (href: string): boolean => {
+      return pathname === href || pathname.startsWith(href + "/");
+    },
+    [pathname]
+  );
 
-  const canAccessRoute = (item: NavigationItem) => {
-    // Always allow access if no restrictions are specified
-    if (
-      !item.systemRoles &&
-      !item.userRoles &&
-      !item.requiresVerification &&
-      !item.requiresMarketplaceActive
-    ) {
+  const canAccessRoute = useCallback(
+    (item: NavigationItem): boolean => {
+      // Always allow access if no restrictions are specified
+      if (
+        !item.systemRoles &&
+        !item.userRoles &&
+        !item.requiresVerification &&
+        !item.requiresMarketplaceActive
+      ) {
+        return true;
+      }
+
+      // Check system role permissions (admin, super_admin)
+      if (item.systemRoles && item.systemRoles.length > 0) {
+        const userSystemRole = user?.systemRole as SystemRole;
+        if (!userSystemRole || !item.systemRoles.includes(userSystemRole)) {
+          return false;
+        }
+      }
+
+      // Check user profile role permissions (customer, service_provider)
+      if (item.userRoles && item.userRoles.length > 0) {
+        const userProfileRole = profile?.role as UserRole;
+        if (!userProfileRole || !item.userRoles.includes(userProfileRole)) {
+          return false;
+        }
+      }
+
+      // Check verification requirement
+      if (
+        item.requiresVerification &&
+        profile?.verificationStatus !== "verified"
+      ) {
+        return false;
+      }
+
+      // Check marketplace active requirement
+      if (item.requiresMarketplaceActive && !profile?.isActiveInMarketplace) {
+        return false;
+      }
+
       return true;
-    }
+    },
+    [
+      user?.systemRole,
+      profile?.role,
+      profile?.verificationStatus,
+      profile?.isActiveInMarketplace,
+    ]
+  );
 
-    // Check system role permissions (admin, super_admin)
-    if (item.systemRoles && item.systemRoles.length > 0) {
-      const userSystemRole = user?.systemRole as SystemRole;
-      if (!userSystemRole || !item.systemRoles.includes(userSystemRole)) {
-        return false;
+  const getRoleIndicator = useCallback(
+    (item: NavigationItem): RoleIndicator | null => {
+      if (item.systemRoles && item.systemRoles.length > 0) {
+        const hasAdmin = item.systemRoles.includes(SystemRole.ADMIN);
+        const hasSuperAdmin = item.systemRoles.includes(SystemRole.SUPER_ADMIN);
+
+        if (hasSuperAdmin && hasAdmin) {
+          return {
+            label: "Admin+",
+            className:
+              "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+          };
+        } else if (hasSuperAdmin) {
+          return {
+            label: "Super Admin",
+            className:
+              "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+          };
+        } else {
+          return {
+            label: "Admin",
+            className:
+              "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+          };
+        }
       }
-    }
 
-    // Check user profile role permissions (customer, service_provider)
-    if (item.userRoles && item.userRoles.length > 0) {
-      const userProfileRole = profile?.role as UserRole;
-      if (!userProfileRole || !item.userRoles.includes(userProfileRole)) {
-        return false;
+      if (item.userRoles && item.userRoles.length > 0) {
+        if (item.userRoles.includes(UserRole.PROVIDER)) {
+          return {
+            label: "Provider",
+            className:
+              "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+          };
+        }
+        if (item.userRoles.includes(UserRole.CUSTOMER)) {
+          return {
+            label: "Customer",
+            className:
+              "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+          };
+        }
       }
-    }
 
-    // Check verification requirement
-    if (
-      item.requiresVerification &&
-      profile?.verificationStatus !== "verified"
-    ) {
-      return false;
-    }
+      return null;
+    },
+    []
+  );
 
-    // Check marketplace active requirement
-    if (item.requiresMarketplaceActive && !profile?.isActiveInMarketplace) {
-      return false;
-    }
+  const handleNavigation = useCallback(
+    (item: NavigationItem) => {
+      const href = user && canAccessRoute(item) ? item.href : "/login";
+      router.push(href);
+    },
+    [user, canAccessRoute, router]
+  );
 
-    return true;
-  };
+  const filteredItems = useMemo(
+    () => navigationItems.filter((item) => canAccessRoute(item)),
+    [canAccessRoute]
+  );
 
-  const getFilteredNavigationItems = () => {
-    return navigationItems.filter((item) => canAccessRoute(item));
-  };
-
-  const getRoleIndicator = (item: NavigationItem) => {
-    if (item.systemRoles && item.systemRoles.length > 0) {
-      const hasAdmin = item.systemRoles.includes(SystemRole.ADMIN);
-      const hasSuperAdmin = item.systemRoles.includes(SystemRole.SUPER_ADMIN);
-
-      if (hasSuperAdmin && hasAdmin) {
-        return {
-          label: "Admin+",
-          className:
-            "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
-        };
-      } else if (hasSuperAdmin) {
-        return {
-          label: "Super Admin",
-          className:
-            "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-        };
-      } else {
-        return {
-          label: "Admin",
-          className:
-            "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-        };
-      }
-    }
-
-    if (item.userRoles && item.userRoles.length > 0) {
-      if (item.userRoles.includes(UserRole.PROVIDER)) {
-        return {
-          label: "Provider",
-          className:
-            "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-        };
-      }
-      if (item.userRoles.includes(UserRole.CUSTOMER)) {
-        return {
-          label: "Customer",
-          className:
-            "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
-        };
-      }
-    }
-
-    return null;
-  };
-
-  const filteredItems = getFilteredNavigationItems();
-
-  // Show loading state if profile is still loading
+  // Show loading state if profile is still loading - moved after all hooks
   if (isLoading && !user) {
     return (
       <div className="flex flex-col h-full min-h-0 animate-pulse">
@@ -342,15 +330,21 @@ const ProfileNavigation: React.FC = () => {
   return (
     <div
       className="flex flex-col h-full min-h-0"
-      data-testid="dashboard-navigation"
-    >
+      data-testid="dashboard-navigation">
       {/* User Info Header */}
       {user && profile && (
         <div className="flex-shrink-0 p-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-              <User size={18} className="text-blue-600 dark:text-blue-400" />
-            </div>
+          <div className="flex flex-col items-center gap-3">
+            <AvatarPrimitive.Root className="inline-flex h-20 w-20 select-none items-center justify-center overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800 ring-2 ring-offset-1 ring-gray-200/50 dark:ring-gray-700/50">
+              <AvatarPrimitive.Image
+                className="h-full w-full rounded-lg object-cover"
+                src={getAvatarUrl(displayAvatar)}
+                alt={`${displayName} avatar`}
+              />
+              <AvatarPrimitive.Fallback className="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-500 to-purple-600 text-sm font-medium text-white rounded-lg">
+                {displayName.charAt(0)?.toUpperCase() || "U"}
+              </AvatarPrimitive.Fallback>
+            </AvatarPrimitive.Root>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
                 {user.name || "User"}
@@ -376,12 +370,11 @@ const ProfileNavigation: React.FC = () => {
 
       {/* Scrollable Navigation Area */}
       <div className="flex-1 min-h-0 overflow-hidden">
-        <ScrollArea className="h-[650px] overflow-scroll hide-scrollbar ">
+        <ScrollArea className="h-[750px] overflow-scroll hide-scrollbar">
           <nav
             className="space-y-1 p-1"
             role="navigation"
-            aria-label="Dashboard navigation"
-          >
+            aria-label="Dashboard navigation">
             {filteredItems.map((item, index) => {
               const Icon = item.icon;
               const isActive = isActiveRoute(item.href);
@@ -393,16 +386,15 @@ const ProfileNavigation: React.FC = () => {
                   {showSeparator && (
                     <div className="border-t border-gray-200 dark:border-gray-700 my-3 mx-2" />
                   )}
-                  <a
-                    href={user && canAccessRoute(item) ? item.href : "/login"}
-                    className={`flex items-center gap-3 px-3 py-2.5 mx-1 rounded-lg transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
+                  <button
+                    onClick={() => handleNavigation(item)}
+                    className={`w-full flex items-center gap-3 px-3 py-2.5 mx-1 rounded-lg transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
                       isActive
                         ? "bg-blue-100 text-blue-900 dark:bg-blue-900/30 dark:text-blue-100 shadow-sm"
                         : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100"
                     }`}
                     title={item.description}
-                    aria-current={isActive ? "page" : undefined}
-                  >
+                    aria-current={isActive ? "page" : undefined}>
                     <Icon
                       size={18}
                       className={`flex-shrink-0 transition-colors ${
@@ -410,7 +402,7 @@ const ProfileNavigation: React.FC = () => {
                       }`}
                       aria-hidden="true"
                     />
-                    <span className="truncate font-medium text-sm">
+                    <span className="truncate font-medium text-sm text-left">
                       {item.label}
                     </span>
 
@@ -418,12 +410,11 @@ const ProfileNavigation: React.FC = () => {
                     {roleIndicator && (
                       <span
                         className={`ml-auto flex-shrink-0 text-xs px-2 py-1 rounded-full font-medium ${roleIndicator.className}`}
-                        aria-label={`Requires ${roleIndicator.label} role`}
-                      >
+                        aria-label={`Requires ${roleIndicator.label} role`}>
                         {roleIndicator.label}
                       </span>
                     )}
-                  </a>
+                  </button>
                 </React.Fragment>
               );
             })}
@@ -437,8 +428,7 @@ const ProfileNavigation: React.FC = () => {
           onClick={handleLogout}
           className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 transition-all duration-200 font-medium text-sm group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1"
           title="Sign out of your account"
-          aria-label="Sign out of your account"
-        >
+          aria-label="Sign out of your account">
           <LogOut size={18} className="flex-shrink-0" aria-hidden="true" />
           <span>Logout</span>
         </button>
@@ -452,93 +442,107 @@ export const QuickActions: React.FC = () => {
   const { profile, completeness, activitySummary } = useProfile();
   const { user } = useAuth();
 
-  if (!user || !profile) return null;
+  const generateQuickActions = useCallback((): QuickAction[] => {
+    const actions: QuickAction[] = [];
 
-  const actions = [];
+    if (!user || !profile) return actions;
 
-  // Add complete profile action if profile is incomplete
-  if (completeness !== undefined && completeness < 100) {
-    actions.push({
-      label: `Complete Profile (${completeness}%)`,
-      action: () => router.push("/profile/edit"),
-      priority: "high" as const,
-      icon: Edit,
-    });
-  }
-
-  // Add verification action if not verified
-  if (profile.verificationStatus !== "verified") {
-    actions.push({
-      label: "Verify Account",
-      action: () => router.push("/profile/verification"),
-      priority: "high" as const,
-      icon: UserCheck,
-    });
-  }
-
-  // Add marketplace activation for providers
-  if (profile.role === UserRole.PROVIDER && !profile.isActiveInMarketplace) {
-    actions.push({
-      label: "Activate Marketplace",
-      action: () => router.push("/provider/activate"),
-      priority: "high" as const,
-      icon: Store,
-    });
-  }
-
-  // Add activity-based quick actions
-  if (activitySummary) {
-    if (activitySummary.completeness > 0) {
+    // Add complete profile action if profile is incomplete
+    if (completeness !== undefined && completeness < 100) {
       actions.push({
-        label: `${activitySummary.accountAge} Unread Message${activitySummary.moderationStatus}`,
-        action: () => router.push("/profile/messages"),
-        priority: "normal" as const,
-        icon: MessageCircle,
+        label: `Complete Profile (${completeness}%)`,
+        action: () => router.push("/profile/edit"),
+        priority: "high",
+        icon: Edit,
       });
     }
 
-    if (activitySummary.isActiveInMarketplace) {
+    // Add verification action if not verified
+    if (profile.verificationStatus !== "verified") {
       actions.push({
-        label: `${activitySummary.moderationStatus} Notification${
-          activitySummary.preferencesLastUpdated ? "" : "s"
-        }`,
-        action: () => router.push("/profile/notifications"),
-        priority: "normal" as const,
-        icon: Bell,
+        label: "Verify Account",
+        action: () => router.push("/profile/verification"),
+        priority: "high",
+        icon: UserCheck,
       });
     }
-  }
 
-  // Add role-specific quick actions
-  if (profile.role === UserRole.PROVIDER) {
+    // Add marketplace activation for providers
+    if (profile.role === UserRole.PROVIDER && !profile.isActiveInMarketplace) {
+      actions.push({
+        label: "Activate Marketplace",
+        action: () => router.push("/provider/activate"),
+        priority: "high",
+        icon: Store,
+      });
+    }
+
+    // Add activity-based quick actions
+    if (activitySummary) {
+      // Fix the type comparison and provide meaningful message count
+      const messageCount = activitySummary.accountAge || 0;
+      if (messageCount > 0) {
+        actions.push({
+          label: `${messageCount} Unread Message${
+            messageCount !== 1 ? "s" : ""
+          }`,
+          action: () => router.push("/profile/messages"),
+          priority: "normal",
+          icon: MessageCircle,
+        });
+      }
+
+      // Fix notification count logic
+      if (activitySummary.isActiveInMarketplace) {
+        const notificationCount = activitySummary.warningsCount || 0;
+        if (notificationCount > 0) {
+          actions.push({
+            label: `${notificationCount} Notification${
+              notificationCount !== 1 ? "s" : ""
+            }`,
+            action: () => router.push("/profile/notifications"),
+            priority: "normal",
+            icon: Bell,
+          });
+        }
+      }
+    }
+
+    // Add role-specific quick actions
+    if (profile.role === UserRole.PROVIDER) {
+      actions.push({
+        label: "Provider Dashboard",
+        action: () => router.push("/provider/dashboard"),
+        priority: "normal",
+        icon: BarChart3,
+      });
+    }
+
+    // Add admin quick actions
+    if (
+      user.systemRole === SystemRole.ADMIN ||
+      user.systemRole === SystemRole.SUPER_ADMIN
+    ) {
+      actions.push({
+        label: "Admin Dashboard",
+        action: () => router.push("/admin"),
+        priority: "normal",
+        icon: Shield,
+      });
+    }
+
+    // Add privacy settings action
     actions.push({
-      label: "Provider Dashboard",
-      action: () => router.push("/provider/dashboard"),
-      priority: "normal" as const,
-      icon: BarChart3,
+      label: "Privacy Settings",
+      action: () => router.push("/profile/privacy"),
+      priority: "normal",
+      icon: Lock,
     });
-  }
 
-  // Add admin quick actions
-  if (
-    user.systemRole === SystemRole.ADMIN ||
-    user.systemRole === SystemRole.SUPER_ADMIN
-  ) {
-    actions.push({
-      label: "Admin Dashboard",
-      action: () => router.push("/admin"),
-      priority: "normal" as const,
-      icon: Shield,
-    });
-  }
+    return actions;
+  }, [user, profile, completeness, activitySummary, router]);
 
-  // Add privacy settings action
-  actions.push({
-    label: "Privacy Settings",
-    action: () => router.push("/profile/privacy"),
-    priority: "normal" as const,
-    icon: Lock,
-  });
+  const actions = useMemo(() => generateQuickActions(), [generateQuickActions]);
 
   if (actions.length === 0) return null;
 
@@ -554,7 +558,7 @@ export const QuickActions: React.FC = () => {
               const Icon = action.icon;
               return (
                 <button
-                  key={index}
+                  key={`${action.label}-${index}`}
                   onClick={action.action}
                   className={`w-full text-left px-3 py-2.5 mx-1 text-sm rounded-lg transition-all duration-200 flex items-center gap-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
                     action.priority === "high"
@@ -562,15 +566,12 @@ export const QuickActions: React.FC = () => {
                       : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100"
                   }`}
                   role="listitem"
-                  aria-label={action.label}
-                >
-                  {Icon && (
-                    <Icon
-                      size={16}
-                      className="flex-shrink-0"
-                      aria-hidden="true"
-                    />
-                  )}
+                  aria-label={action.label}>
+                  <Icon
+                    size={16}
+                    className="flex-shrink-0"
+                    aria-hidden="true"
+                  />
                   <span className="truncate">{action.label}</span>
                 </button>
               );

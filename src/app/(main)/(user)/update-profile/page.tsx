@@ -138,8 +138,7 @@ const ProgressiveStep: React.FC<ProgressiveStepProps> = ({
                 className="w-5 h-5"
                 fill="none"
                 stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
+                viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -159,8 +158,7 @@ const ProgressiveStep: React.FC<ProgressiveStepProps> = ({
           </div>
           <button
             onClick={onActivate}
-            className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 underline transition-colors"
-          >
+            className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 underline transition-colors">
             Edit
           </button>
         </div>
@@ -196,8 +194,7 @@ const SkipWarningModal: React.FC<SkipWarningModalProps> = ({
               className="w-8 h-8 text-white"
               fill="none"
               stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
+              viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -235,14 +232,12 @@ const SkipWarningModal: React.FC<SkipWarningModalProps> = ({
         <div className="flex space-x-3">
           <button
             onClick={onClose}
-            className="flex-1 px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl transition-colors"
-          >
+            className="flex-1 px-4 py-3 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-xl transition-colors">
             Continue Filling
           </button>
           <button
             onClick={onConfirm}
-            className="flex-1 px-4 py-3 text-sm font-medium text-white bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 rounded-xl transition-all"
-          >
+            className="flex-1 px-4 py-3 text-sm font-medium text-white bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700 rounded-xl transition-all">
             Skip for Now
           </button>
         </div>
@@ -643,8 +638,7 @@ export default function ProgressiveProfileForm({
           </div>
           <button
             onClick={() => window.location.reload()}
-            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-medium transition-all transform hover:scale-105 shadow-lg"
-          >
+            className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl font-medium transition-all transform hover:scale-105 shadow-lg">
             Try Again
           </button>
         </div>
@@ -657,7 +651,7 @@ export default function ProgressiveProfileForm({
 
   return (
     <>
-      <div className="bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900 min-h-screen py-8">
+      <div className="bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-900 dark:to-blue-900 max-h-[920px] p-4 overflow-auto hide-scrollbar">
         <div className="container max-w-4xl mx-auto p-4">
           {/* Header Section */}
           <ProfileCard
@@ -769,8 +763,7 @@ export default function ProgressiveProfileForm({
                             isSubmitting ||
                             getStepCompleteness(currentStep) === 0
                           }
-                          className="flex-1 flex items-center justify-center px-6 py-4 text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 rounded-xl font-semibold transition-all shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                        >
+                          className="flex-1 flex items-center justify-center px-6 py-4 text-white bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 rounded-xl font-semibold transition-all shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
                           {isSaving ? (
                             <>
                               <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-3"></div>
@@ -782,8 +775,7 @@ export default function ProgressiveProfileForm({
                                 className="w-5 h-5 mr-2"
                                 fill="none"
                                 stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
+                                viewBox="0 0 24 24">
                                 <path
                                   strokeLinecap="round"
                                   strokeLinejoin="round"
@@ -800,8 +792,7 @@ export default function ProgressiveProfileForm({
                           type="button"
                           onClick={handleSkip}
                           disabled={isSaving || isSubmitting}
-                          className="px-6 py-4 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 font-medium transition-colors disabled:opacity-50"
-                        >
+                          className="px-6 py-4 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 font-medium transition-colors disabled:opacity-50">
                           Skip for now
                         </button>
                       </div>
@@ -810,8 +801,7 @@ export default function ProgressiveProfileForm({
                         <button
                           type="submit"
                           disabled={isSubmitting}
-                          className="flex-1 flex items-center justify-center px-8 py-4 text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 rounded-xl font-semibold transition-all shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                        >
+                          className="flex-1 flex items-center justify-center px-8 py-4 text-white bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 rounded-xl font-semibold transition-all shadow-lg transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none">
                           {isSubmitting ? (
                             <>
                               <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-3"></div>
@@ -823,8 +813,7 @@ export default function ProgressiveProfileForm({
                                 className="w-5 h-5 mr-2"
                                 fill="none"
                                 stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
+                                viewBox="0 0 24 24">
                                 <path
                                   strokeLinecap="round"
                                   strokeLinejoin="round"
@@ -846,8 +835,7 @@ export default function ProgressiveProfileForm({
                             router.push(redirectOnSuccess);
                           }}
                           disabled={isSubmitting}
-                          className="px-6 py-4 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 font-medium transition-colors disabled:opacity-50"
-                        >
+                          className="px-6 py-4 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 font-medium transition-colors disabled:opacity-50">
                           Go to Dashboard
                         </button>
                       </div>
@@ -878,8 +866,7 @@ export default function ProgressiveProfileForm({
                             <svg
                               fill="none"
                               stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
+                              viewBox="0 0 24 24">
                               <path
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
@@ -914,8 +901,7 @@ export default function ProgressiveProfileForm({
                   className="w-5 h-5 mr-2 text-blue-500"
                   fill="none"
                   stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
+                  viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -937,16 +923,14 @@ export default function ProgressiveProfileForm({
                         isCompleted
                           ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-700"
                           : "bg-gray-50 dark:bg-gray-700 border-gray-200 dark:border-gray-600"
-                      }`}
-                    >
+                      }`}>
                       <div className="flex items-center space-x-3">
                         <div
                           className={`w-8 h-8 rounded-lg flex items-center justify-center text-lg ${
                             isCompleted
                               ? "bg-green-100 dark:bg-green-800"
                               : "bg-gray-100 dark:bg-gray-600"
-                          }`}
-                        >
+                          }`}>
                           {isCompleted ? "✅" : step.icon}
                         </div>
                         <div className="flex-1">
@@ -955,8 +939,7 @@ export default function ProgressiveProfileForm({
                               isCompleted
                                 ? "text-green-800 dark:text-green-200"
                                 : "text-gray-900 dark:text-gray-100"
-                            }`}
-                          >
+                            }`}>
                             {step.title}
                           </h4>
                           <p
@@ -964,8 +947,7 @@ export default function ProgressiveProfileForm({
                               isCompleted
                                 ? "text-green-600 dark:text-green-400"
                                 : "text-gray-500 dark:text-gray-400"
-                            }`}
-                          >
+                            }`}>
                             {step.shortDescription}
                           </p>
                         </div>
