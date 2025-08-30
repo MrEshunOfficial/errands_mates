@@ -7,7 +7,7 @@ export default function MainLayout({ children }: { children: ReactNode }) {
   return (
     <BaseLayout maxWidth="container">
       {/* Main container with full height and minimal spacing */}
-      <div className="flex flex-col p-2">
+      <div className="min-h-screen flex flex-col p-2">
         {/* Header - positioned at the top */}
         <MainHeader />
 

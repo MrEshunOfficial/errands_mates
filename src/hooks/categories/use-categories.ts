@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from "react";
 
-import { Category } from '@/types/category.types';
+import { Category } from "@/types/category.types";
 import {
   categoryAPI,
   CategoryAPIError,
@@ -9,8 +9,8 @@ import {
   UpdateDisplayOrderData,
   CategorySearchParams,
   CategorySearchQuery,
-  ModerateCategoryData
-} from '@/lib/api/categories/category.api';
+  ModerateCategoryData,
+} from "@/lib/api/categories/category.api";
 
 // Hook state interfaces
 interface CategoryState {
@@ -38,74 +38,85 @@ interface CategoryMutationState {
 }
 
 // Main category hook for single category operations
-export const useCategory = (categoryId?: string, options?: { 
-  includeSubcategories?: boolean;
-  autoFetch?: boolean;
-}) => {
+export const useCategory = (
+  categoryId?: string,
+  options?: {
+    includeSubcategories?: boolean;
+    autoFetch?: boolean;
+  }
+) => {
   const [state, setState] = useState<CategoryState>({
     data: null,
     loading: false,
     error: null,
   });
 
-  const fetchCategory = useCallback(async (id?: string) => {
-    if (!id && !categoryId) {
-      setState(prev => ({ ...prev, error: 'Category ID is required' }));
-      return;
-    }
+  const fetchCategory = useCallback(
+    async (id?: string) => {
+      if (!id && !categoryId) {
+        setState((prev) => ({ ...prev, error: "Category ID is required" }));
+        return;
+      }
 
-    const targetId = id || categoryId!;
-    setState(prev => ({ ...prev, loading: true, error: null }));
+      const targetId = id || categoryId!;
+      setState((prev) => ({ ...prev, loading: true, error: null }));
 
-    try {
-      const response = await categoryAPI.getCategoryById(
-        targetId, 
-        options?.includeSubcategories
-      );
-      setState({
-        data: response.data?.category || null,
-        loading: false,
-        error: null,
-      });
-    } catch (error) {
-      const errorMessage = error instanceof CategoryAPIError 
-        ? error.message 
-        : 'Failed to fetch category';
-      setState({
-        data: null,
-        loading: false,
-        error: errorMessage,
-      });
-    }
-  }, [categoryId, options?.includeSubcategories]);
+      try {
+        const response = await categoryAPI.getCategoryById(
+          targetId,
+          options?.includeSubcategories
+        );
+        setState({
+          data: response.data?.category || null,
+          loading: false,
+          error: null,
+        });
+      } catch (error) {
+        const errorMessage =
+          error instanceof CategoryAPIError
+            ? error.message
+            : "Failed to fetch category";
+        setState({
+          data: null,
+          loading: false,
+          error: errorMessage,
+        });
+      }
+    },
+    [categoryId, options?.includeSubcategories]
+  );
 
-  const fetchCategoryBySlug = useCallback(async (slug: string) => {
-    setState(prev => ({ ...prev, loading: true, error: null }));
+  const fetchCategoryBySlug = useCallback(
+    async (slug: string) => {
+      setState((prev) => ({ ...prev, loading: true, error: null }));
 
-    try {
-      const response = await categoryAPI.getCategoryBySlug(
-        slug, 
-        options?.includeSubcategories
-      );
-      setState({
-        data: response.data?.category || null,
-        loading: false,
-        error: null,
-      });
-    } catch (error) {
-      const errorMessage = error instanceof CategoryAPIError 
-        ? error.message 
-        : 'Failed to fetch category';
-      setState({
-        data: null,
-        loading: false,
-        error: errorMessage,
-      });
-    }
-  }, [options?.includeSubcategories]);
+      try {
+        const response = await categoryAPI.getCategoryBySlug(
+          slug,
+          options?.includeSubcategories
+        );
+        setState({
+          data: response.data?.category || null,
+          loading: false,
+          error: null,
+        });
+      } catch (error) {
+        const errorMessage =
+          error instanceof CategoryAPIError
+            ? error.message
+            : "Failed to fetch category";
+        setState({
+          data: null,
+          loading: false,
+          error: errorMessage,
+        });
+      }
+    },
+    [options?.includeSubcategories]
+  );
 
   const clearError = useCallback(() => {
-    setState(prev => ({ ...prev, error: null }));
+    setState((prev) => ({ ...prev, error: null }));
   }, []);
 
   const clearData = useCallback(() => {
@@ -144,64 +155,81 @@ export const useCategories = (initialParams?: CategorySearchParams) => {
     pagination: undefined,
   });
 
-  const [params, setParams] = useState<CategorySearchParams>(initialParams || {});
+  // Use useRef to store params to avoid recreating fetchCategories on every param change
+  const paramsRef = useRef<CategorySearchParams>(initialParams || {});
+  const [, forceUpdate] = useState({});
 
-  const fetchCategories = useCallback(async (searchParams?: CategorySearchParams) => {
-    setState(prev => ({ ...prev, loading: true, error: null }));
+  // Function to update params without causing fetchCategories to recreate
+  const updateParams = useCallback(
+    (newParams: Partial<CategorySearchParams>) => {
+      paramsRef.current = { ...paramsRef.current, ...newParams };
+      forceUpdate({}); // Force a re-render if needed
+    },
+    []
+  );
 
-    const queryParams = searchParams || params;
+  const fetchCategories = useCallback(
+    async (searchParams?: CategorySearchParams) => {
+      setState((prev) => ({ ...prev, loading: true, error: null }));
 
-    try {
-      const response = await categoryAPI.getCategories(queryParams);
-      setState({
-        data: response.data.categories,
-        loading: false,
-        error: null,
-        pagination: response.data.pagination,
-      });
-    } catch (error) {
-      const errorMessage = error instanceof CategoryAPIError 
-        ? error.message 
-        : 'Failed to fetch categories';
-      setState(prev => ({
-        ...prev,
-        loading: false,
-        error: errorMessage,
-      }));
-    }
-  }, [params]);
+      // Use provided params or current params from ref
+      const queryParams = searchParams || paramsRef.current;
 
-  const fetchParentCategories = useCallback(async (
-    includeSubcategories?: boolean,
-    includeServicesCount?: boolean
-  ) => {
-    setState(prev => ({ ...prev, loading: true, error: null }));
+      try {
+        const response = await categoryAPI.getCategories(queryParams);
+        setState({
+          data: response.data.categories,
+          loading: false,
+          error: null,
+          pagination: response.data.pagination,
+        });
+      } catch (error) {
+        const errorMessage =
+          error instanceof CategoryAPIError
+            ? error.message
+            : "Failed to fetch categories";
+        setState((prev) => ({
+          ...prev,
+          loading: false,
+          error: errorMessage,
+        }));
+      }
+    },
+    []
+  ); // No dependencies - params come from function argument or ref
 
-    try {
-      const response = await categoryAPI.getParentCategories(
-        includeSubcategories,
-        includeServicesCount
-      );
-      setState({
-        data: response.data.categories,
-        loading: false,
-        error: null,
-        pagination: undefined,
-      });
-    } catch (error) {
-      const errorMessage = error instanceof CategoryAPIError 
-        ? error.message 
-        : 'Failed to fetch parent categories';
-      setState(prev => ({
-        ...prev,
-        loading: false,
-        error: errorMessage,
-      }));
-    }
-  }, []);
+  const fetchParentCategories = useCallback(
+    async (includeSubcategories?: boolean, includeServicesCount?: boolean) => {
+      setState((prev) => ({ ...prev, loading: true, error: null }));
+
+      try {
+        const response = await categoryAPI.getParentCategories(
+          includeSubcategories,
+          includeServicesCount
+        );
+        setState({
+          data: response.data.categories,
+          loading: false,
+          error: null,
+          pagination: undefined,
+        });
+      } catch (error) {
+        const errorMessage =
+          error instanceof CategoryAPIError
+            ? error.message
+            : "Failed to fetch parent categories";
+        setState((prev) => ({
+          ...prev,
+          loading: false,
+          error: errorMessage,
+        }));
+      }
+    },
+    []
+  ); // No dependencies - this function is stable
 
   const fetchSubcategories = useCallback(async (parentId: string) => {
-    setState(prev => ({ ...prev, loading: true, error: null }));
+    setState((prev) => ({ ...prev, loading: true, error: null }));
 
     try {
       const response = await categoryAPI.getSubcategories(parentId);
@@ -212,20 +240,17 @@ export const useCategories = (initialParams?: CategorySearchParams) => {
         pagination: undefined,
       });
     } catch (error) {
-      const errorMessage = error instanceof CategoryAPIError 
-        ? error.message 
-        : 'Failed to fetch subcategories';
-      setState(prev => ({
+      const errorMessage =
+        error instanceof CategoryAPIError
+          ? error.message
+          : "Failed to fetch subcategories";
+      setState((prev) => ({
         ...prev,
         loading: false,
         error: errorMessage,
       }));
     }
-  }, []);
-
-  const updateParams = useCallback((newParams: Partial<CategorySearchParams>) => {
-    setParams(prev => ({ ...prev, ...newParams }));
-  }, []);
+  }, []); // No dependencies - parentId comes as parameter
 
   const clearData = useCallback(() => {
     setState({
@@ -237,7 +262,7 @@ export const useCategories = (initialParams?: CategorySearchParams) => {
   }, []);
 
   const clearError = useCallback(() => {
-    setState(prev => ({ ...prev, error: null }));
+    setState((prev) => ({ ...prev, error: null }));
   }, []);
 
   return {
@@ -245,7 +270,7 @@ export const useCategories = (initialParams?: CategorySearchParams) => {
     loading: state.loading,
     error: state.error,
     pagination: state.pagination,
-    params,
+    params: paramsRef.current,
     fetchCategories,
     fetchParentCategories,
     fetchSubcategories,
@@ -264,41 +289,45 @@ export const useCategorySearch = () => {
     error: null,
   });
 
-  const [query, setQuery] = useState<string>('');
+  const [query, setQuery] = useState<string>("");
 
-  const searchCategories = useCallback(async (searchParams: CategorySearchQuery) => {
-    if (!searchParams.q.trim()) {
-      setState({
-        data: [],
-        loading: false,
-        error: null,
-      });
-      return;
-    }
+  const searchCategories = useCallback(
+    async (searchParams: CategorySearchQuery) => {
+      if (!searchParams.q.trim()) {
+        setState({
+          data: [],
+          loading: false,
+          error: null,
+        });
+        return;
+      }
 
-    setState(prev => ({ ...prev, loading: true, error: null }));
+      setState((prev) => ({ ...prev, loading: true, error: null }));
 
-    try {
-      const response = await categoryAPI.searchCategories(searchParams);
-      setState({
-        data: response.data.categories,
-        loading: false,
-        error: null,
-      });
-    } catch (error) {
-      const errorMessage = error instanceof CategoryAPIError 
-        ? error.message 
-        : 'Failed to search categories';
-      setState(prev => ({
-        ...prev,
-        loading: false,
-        error: errorMessage,
-      }));
-    }
-  }, []);
+      try {
+        const response = await categoryAPI.searchCategories(searchParams);
+        setState({
+          data: response.data.categories,
+          loading: false,
+          error: null,
+        });
+      } catch (error) {
+        const errorMessage =
+          error instanceof CategoryAPIError
+            ? error.message
+            : "Failed to search categories";
+        setState((prev) => ({
+          ...prev,
+          loading: false,
+          error: errorMessage,
+        }));
+      }
+    },
+    []
+  );
 
   const clearSearch = useCallback(() => {
-    setQuery('');
+    setQuery("");
     setState({
       data: [],
       loading: false,
@@ -337,120 +366,148 @@ export const useCategoryMutations = () => {
     success: false,
   });
 
-  const createCategory = useCallback(async (data: CreateCategoryData): Promise<Category | null> => {
-    setCreateState({ loading: true, error: null, success: false });
+  const createCategory = useCallback(
+    async (data: CreateCategoryData): Promise<Category | null> => {
+      setCreateState({ loading: true, error: null, success: false });
 
-    try {
-      const response = await categoryAPI.createCategory(data);
-      setCreateState({ loading: false, error: null, success: true });
-      return response.data?.category || null;
-    } catch (error) {
-      const errorMessage = error instanceof CategoryAPIError 
-        ? error.message 
-        : 'Failed to create category';
-      setCreateState({ loading: false, error: errorMessage, success: false });
-      return null;
-    }
-  }, []);
+      try {
+        const response = await categoryAPI.createCategory(data);
+        setCreateState({ loading: false, error: null, success: true });
+        return response.data?.category || null;
+      } catch (error) {
+        const errorMessage =
+          error instanceof CategoryAPIError
+            ? error.message
+            : "Failed to create category";
+        setCreateState({ loading: false, error: errorMessage, success: false });
+        return null;
+      }
+    },
+    []
+  );
 
-  const updateCategory = useCallback(async (
-    categoryId: string, 
-    data: UpdateCategoryData
-  ): Promise<Category | null> => {
-    setUpdateState({ loading: true, error: null, success: false });
+  const updateCategory = useCallback(
+    async (
+      categoryId: string,
+      data: UpdateCategoryData
+    ): Promise<Category | null> => {
+      setUpdateState({ loading: true, error: null, success: false });
 
-    try {
-      const response = await categoryAPI.updateCategory(categoryId, data);
-      setUpdateState({ loading: false, error: null, success: true });
-      return response.data?.category || null;
-    } catch (error) {
-      const errorMessage = error instanceof CategoryAPIError 
-        ? error.message 
-        : 'Failed to update category';
-      setUpdateState({ loading: false, error: errorMessage, success: false });
-      return null;
-    }
-  }, []);
+      try {
+        const response = await categoryAPI.updateCategory(categoryId, data);
+        setUpdateState({ loading: false, error: null, success: true });
+        return response.data?.category || null;
+      } catch (error) {
+        const errorMessage =
+          error instanceof CategoryAPIError
+            ? error.message
+            : "Failed to update category";
+        setUpdateState({ loading: false, error: errorMessage, success: false });
+        return null;
+      }
+    },
+    []
+  );
 
-  const deleteCategory = useCallback(async (categoryId: string): Promise<boolean> => {
-    setDeleteState({ loading: true, error: null, success: false });
+  const deleteCategory = useCallback(
+    async (categoryId: string): Promise<boolean> => {
+      setDeleteState({ loading: true, error: null, success: false });
 
-    try {
-      await categoryAPI.deleteCategory(categoryId);
-      setDeleteState({ loading: false, error: null, success: true });
-      return true;
-    } catch (error) {
-      const errorMessage = error instanceof CategoryAPIError 
-        ? error.message 
-        : 'Failed to delete category';
-      setDeleteState({ loading: false, error: errorMessage, success: false });
-      return false;
-    }
-  }, []);
+      try {
+        await categoryAPI.deleteCategory(categoryId);
+        setDeleteState({ loading: false, error: null, success: true });
+        return true;
+      } catch (error) {
+        const errorMessage =
+          error instanceof CategoryAPIError
+            ? error.message
+            : "Failed to delete category";
+        setDeleteState({ loading: false, error: errorMessage, success: false });
+        return false;
+      }
+    },
+    []
+  );
 
-  const restoreCategory = useCallback(async (categoryId: string): Promise<Category | null> => {
-    setUpdateState({ loading: true, error: null, success: false });
+  const restoreCategory = useCallback(
+    async (categoryId: string): Promise<Category | null> => {
+      setUpdateState({ loading: true, error: null, success: false });
 
-    try {
-      const response = await categoryAPI.restoreCategory(categoryId);
-      setUpdateState({ loading: false, error: null, success: true });
-      return response.data?.category || null;
-    } catch (error) {
-      const errorMessage = error instanceof CategoryAPIError 
-        ? error.message 
-        : 'Failed to restore category';
-      setUpdateState({ loading: false, error: errorMessage, success: false });
-      return null;
-    }
-  }, []);
+      try {
+        const response = await categoryAPI.restoreCategory(categoryId);
+        setUpdateState({ loading: false, error: null, success: true });
+        return response.data?.category || null;
+      } catch (error) {
+        const errorMessage =
+          error instanceof CategoryAPIError
+            ? error.message
+            : "Failed to restore category";
+        setUpdateState({ loading: false, error: errorMessage, success: false });
+        return null;
+      }
+    },
+    []
+  );
 
-  const toggleCategoryStatus = useCallback(async (categoryId: string): Promise<Category | null> => {
-    setUpdateState({ loading: true, error: null, success: false });
+  const toggleCategoryStatus = useCallback(
+    async (categoryId: string): Promise<Category | null> => {
+      setUpdateState({ loading: true, error: null, success: false });
 
-    try {
-      const response = await categoryAPI.toggleCategoryStatus(categoryId);
-      setUpdateState({ loading: false, error: null, success: true });
-      return response.data?.category || null;
-    } catch (error) {
-      const errorMessage = error instanceof CategoryAPIError 
-        ? error.message 
-        : 'Failed to toggle category status';
-      setUpdateState({ loading: false, error: errorMessage, success: false });
-      return null;
-    }
-  }, []);
+      try {
+        const response = await categoryAPI.toggleCategoryStatus(categoryId);
+        setUpdateState({ loading: false, error: null, success: true });
+        return response.data?.category || null;
+      } catch (error) {
+        const errorMessage =
+          error instanceof CategoryAPIError
+            ? error.message
+            : "Failed to toggle category status";
+        setUpdateState({ loading: false, error: errorMessage, success: false });
+        return null;
+      }
+    },
+    []
+  );
 
-  const updateDisplayOrder = useCallback(async (data: UpdateDisplayOrderData): Promise<boolean> => {
-    setUpdateState({ loading: true, error: null, success: false });
+  const updateDisplayOrder = useCallback(
+    async (data: UpdateDisplayOrderData): Promise<boolean> => {
+      setUpdateState({ loading: true, error: null, success: false });
 
-    try {
-      await categoryAPI.updateDisplayOrder(data);
-      setUpdateState({ loading: false, error: null, success: true });
-      return true;
-    } catch (error) {
-      const errorMessage = error instanceof CategoryAPIError 
-        ? error.message 
-        : 'Failed to update display order';
-      setUpdateState({ loading: false, error: errorMessage, success: false });
-      return false;
-    }
-  }, []);
+      try {
+        await categoryAPI.updateDisplayOrder(data);
+        setUpdateState({ loading: false, error: null, success: true });
+        return true;
+      } catch (error) {
+        const errorMessage =
+          error instanceof CategoryAPIError
+            ? error.message
+            : "Failed to update display order";
+        setUpdateState({ loading: false, error: errorMessage, success: false });
+        return false;
+      }
+    },
+    []
+  );
 
-  const moderateCategory = useCallback(async (data: ModerateCategoryData): Promise<Category | null> => {
-    setUpdateState({ loading: true, error: null, success: false });
+  const moderateCategory = useCallback(
+    async (data: ModerateCategoryData): Promise<Category | null> => {
+      setUpdateState({ loading: true, error: null, success: false });
 
-    try {
-      const response = await categoryAPI.moderateCategory(data);
-      setUpdateState({ loading: false, error: null, success: true });
-      return response.data?.category || null;
-    } catch (error) {
-      const errorMessage = error instanceof CategoryAPIError 
-        ? error.message 
-        : 'Failed to moderate category';
-      setUpdateState({ loading: false, error: errorMessage, success: false });
-      return null;
-    }
-  }, []);
+      try {
+        const response = await categoryAPI.moderateCategory(data);
+        setUpdateState({ loading: false, error: null, success: true });
+        return response.data?.category || null;
+      } catch (error) {
+        const errorMessage =
+          error instanceof CategoryAPIError
+            ? error.message
+            : "Failed to moderate category";
+        setUpdateState({ loading: false, error: errorMessage, success: false });
+        return null;
+      }
+    },
+    []
+  );
 
   const clearCreateState = useCallback(() => {
     setCreateState({ loading: false, error: null, success: false });
@@ -506,22 +563,22 @@ export const useCategoryManager = (options?: {
     if (options?.autoFetchOnMount !== false) {
       categoriesHook.fetchCategories();
     }
-  }, [categoriesHook, options?.autoFetchOnMount]);
+  }, [categoriesHook, options?.autoFetchOnMount]); // Remove categoriesHook dependency to prevent infinite loop
 
   const refreshCategories = useCallback(async () => {
     await categoriesHook.refetch();
-  }, [categoriesHook]);
+  }, [categoriesHook]); // Only depend on refetch function
 
   return {
     // Categories state and operations
     ...categoriesHook,
-    
+
     // Mutations
     ...mutationsHook,
-    
+
     // Search
     search: searchHook,
-    
+
     // Utility functions
     refreshCategories,
   };

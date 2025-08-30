@@ -348,8 +348,7 @@ const ProfileNavigation: React.FC = () => {
                     <svg
                       className="w-3 h-3 animate-pulse"
                       fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
+                      viewBox="0 0 20 20">
                       <path
                         fillRule="evenodd"
                         d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
@@ -394,8 +393,7 @@ const ProfileNavigation: React.FC = () => {
           <nav
             className="space-y-1 p-2"
             role="navigation"
-            aria-label="Dashboard navigation"
-          >
+            aria-label="Dashboard navigation">
             {filteredItems.map((item, index) => {
               const Icon = item.icon;
               const isActive = isActiveRoute(item.href);
@@ -415,8 +413,7 @@ const ProfileNavigation: React.FC = () => {
                         : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100"
                     }`}
                     title={item.description}
-                    aria-current={isActive ? "page" : undefined}
-                  >
+                    aria-current={isActive ? "page" : undefined}>
                     <Icon
                       size={18}
                       className={`flex-shrink-0 transition-colors ${
@@ -432,8 +429,7 @@ const ProfileNavigation: React.FC = () => {
                     {roleIndicator && (
                       <span
                         className={`ml-auto flex-shrink-0 text-xs px-2 py-1 rounded-full font-medium ${roleIndicator.className}`}
-                        aria-label={`Requires ${roleIndicator.label} role`}
-                      >
+                        aria-label={`Requires ${roleIndicator.label} role`}>
                         {roleIndicator.label}
                       </span>
                     )}
@@ -456,8 +452,7 @@ const ProfileNavigation: React.FC = () => {
           variant={"outline"}
           className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 transition-all duration-200 font-medium text-sm group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1"
           title="Sign out of your account"
-          aria-label="Sign out of your account"
-        >
+          aria-label="Sign out of your account">
           <LogOut size={18} className="flex-shrink-0" aria-hidden="true" />
           <span>Logout</span>
         </Button>
@@ -572,8 +567,7 @@ export const QuickActions: React.FC = () => {
                       : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100"
                   }`}
                   role="listitem"
-                  aria-label={action.label}
-                >
+                  aria-label={action.label}>
                   <Icon
                     size={16}
                     className="flex-shrink-0"

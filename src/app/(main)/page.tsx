@@ -1,4 +1,5 @@
 "use client";
+import LoadingOverlay from "@/components/ui/LoadingOverlay";
 import { useAuth } from "@/hooks/auth/useAuth";
 import React from "react";
 
@@ -7,7 +8,7 @@ export default function HomePage() {
   const { user, isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return <LoadingOverlay message="loading ..." />;
   }
   return (
     <div>

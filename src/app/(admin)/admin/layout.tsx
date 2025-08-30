@@ -8,11 +8,13 @@ export default function AdminDashboardLayout({
   children: ReactNode;
 }) {
   return (
-    <div className="min-h-full flex">
+    <div className="flex gap-2">
       {/* Sidebar */}
       <AdminNavigation />
       {/* Main Content */}
-      <main className="flex-1 p-2">{children}</main>
+      <main className="flex-1 p-2 min-h-screen border rounded-md flex items-center justify-center">
+        {children}
+      </main>
     </div>
   );
 }

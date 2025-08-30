@@ -133,7 +133,7 @@ export interface UpdateProfileRequestBody {
   profile?: Partial<IUserProfile>;
 }
 
-export type UpdateProfilePreferencesRequestBody = IUserPreferences
+export type UpdateProfilePreferencesRequestBody = IUserPreferences;
 
 export interface LinkProviderRequestBody {
   provider: "google" | "apple";

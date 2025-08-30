@@ -219,4 +219,3 @@ export interface ServiceMarketplaceDashboard {
     categories: number;
   };
 }
-
