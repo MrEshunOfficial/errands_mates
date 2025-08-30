@@ -1,5 +1,4 @@
 "use client";
-import IdDetailsUpdateForm from "@/components/profile/form/Id-details";
 import { useAuth } from "@/hooks/auth/useAuth";
 import React from "react";
 
@@ -13,9 +12,7 @@ export default function HomePage() {
   return (
     <div>
       {isAuthenticated ? (
-        <div>
-          Welcome, {user?.name}! <br /> <IdDetailsUpdateForm />
-        </div>
+        <div>Welcome, {user?.name}!</div>
       ) : (
         <div>Please log in</div>
       )}
