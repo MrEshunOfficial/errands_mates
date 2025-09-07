@@ -1,14 +1,5 @@
 // schemas/service.category.schema.ts
 import { z } from "zod";
-import { Types } from "mongoose";
-
-// Base ObjectId schema
-const objectIdSchema = z
-  .string()
-  .refine((val) => Types.ObjectId.isValid(val), {
-    message: "Invalid ObjectId format",
-  })
-  .transform((val) => new Types.ObjectId(val));
 
 // File reference schema for category image
 const fileReferenceSchema = z.object({
@@ -34,5 +25,4 @@ export const createCategorySchema = z.object({
     .default([]),
   isActive: z.boolean().default(true),
   parentCategoryId: z.string().optional(),
-  createdBy: objectIdSchema.optional(),
 });

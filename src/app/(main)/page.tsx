@@ -1,4 +1,5 @@
 "use client";
+import AppDownload from "@/components/homepage/AppDownload";
 import LoadingOverlay from "@/components/ui/LoadingOverlay";
 import { useAuth } from "@/hooks/auth/useAuth";
 import React from "react";
@@ -10,13 +11,14 @@ export default function HomePage() {
   if (isLoading) {
     return <LoadingOverlay message="loading ..." />;
   }
-  return (
+
+  const renderData = isAuthenticated ? (
+    <div>Welcome, {user?.name}!</div>
+  ) : (
     <div>
-      {isAuthenticated ? (
-        <div>Welcome, {user?.name}!</div>
-      ) : (
-        <div>Please log in</div>
-      )}
+      <AppDownload />
     </div>
   );
+
+  return <>{renderData}</>;
 }

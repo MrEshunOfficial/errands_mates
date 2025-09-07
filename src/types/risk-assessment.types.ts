@@ -28,3 +28,4 @@ export interface ProviderRiskAssessment extends BaseEntity {
   nextAssessmentDate: Date;
   notes?: string;
 }
+

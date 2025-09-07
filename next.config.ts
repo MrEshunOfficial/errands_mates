@@ -1,12 +1,9 @@
 import type { NextConfig } from "next";
-// next.config.js
-/** @type {import('next').NextConfig} */
 
 const nextConfig: NextConfig = {
   images: {
-    domains: ["lh3.googleusercontent.com"],
+    domains: ["lh3.googleusercontent.com", "images.pexels.com"],
   },
-  // API proxy for development
   async rewrites() {
     return [
       {
@@ -15,8 +12,6 @@ const nextConfig: NextConfig = {
       },
     ];
   },
-
-  // OR use this for environment-based configuration
   env: {
     NEXT_PUBLIC_BACKEND_URL:
       process.env.NODE_ENV === "development"

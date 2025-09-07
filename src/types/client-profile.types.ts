@@ -4,8 +4,8 @@ import {
   BaseEntity,
   SoftDeletable,
   RiskLevel,
-  NotificationPreferences,
-  PrivacySettings,
+  ContactDetails,
+  UserLocation,
 } from "./base.types";
 
 export interface ClientProfile extends BaseEntity, SoftDeletable {
@@ -112,8 +112,8 @@ export interface ClientProfileWithReferences
     userId: Types.ObjectId;
     role?: string;
     bio?: string;
-    location?: any;
-    contactDetails?: any;
+    location?: UserLocation;
+    contactDetails?: ContactDetails;
   };
   preferredServices: Array<{
     _id: Types.ObjectId;
@@ -125,7 +125,7 @@ export interface ClientProfileWithReferences
     _id: Types.ObjectId;
     userId: Types.ObjectId;
     businessName?: string;
-    contactInfo?: any;
+    contactInfo?: ContactDetails;
   }>;
 }
 
@@ -151,3 +151,4 @@ export interface ClientAnalytics {
   topSpenders: ClientProfile[];
   recentlyJoined: ClientProfile[];
 }
+

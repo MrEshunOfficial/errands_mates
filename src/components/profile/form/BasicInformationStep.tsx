@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/popover";
 import { ProfileRoleTips } from "./extras/show-tips";
 import { toast } from "sonner";
-import ProfilePictureUpdate from "./avatar-upload";
+import ProfilePictureUpdate from "./ProfilePictureUpdate";
 
 interface BasicInfoFormStepProps {
   className?: string;

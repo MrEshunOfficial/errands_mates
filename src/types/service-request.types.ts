@@ -120,3 +120,4 @@ export interface ServiceRequestWithDetails extends ServiceRequest {
   reviews?: Review[];
   incidents?: SafetyIncident[];
 }
+

@@ -83,6 +83,25 @@ const navigationItems: NavigationItem[] = [
     separator: true,
   },
   {
+    href: "/admin/moderation",
+    label: "Moderation",
+    icon: List,
+    description: "Moderation Management",
+    systemRoles: [SystemRole.ADMIN, SystemRole.SUPER_ADMIN],
+    adminLevel: "both",
+    isParent: true,
+    children: [
+      {
+        href: "/admin/moderation/services/categories",
+        label: "Moderate Services",
+        icon: Plus,
+        description: "moderate service Categories",
+        systemRoles: [SystemRole.ADMIN, SystemRole.SUPER_ADMIN],
+        adminLevel: "both",
+      },
+    ],
+  },
+  {
     href: "/admin/users",
     label: "User Management",
     icon: Users,
@@ -135,6 +154,14 @@ const navigationItems: NavigationItem[] = [
     isParent: true,
     children: [
       {
+        href: "/admin/services",
+        label: "Service List",
+        icon: List,
+        description: "View all services",
+        systemRoles: [SystemRole.ADMIN, SystemRole.SUPER_ADMIN],
+        adminLevel: "both",
+      },
+      {
         href: "/admin/services/categories",
         label: "Categories",
         icon: Tag,
@@ -150,14 +177,7 @@ const navigationItems: NavigationItem[] = [
         systemRoles: [SystemRole.ADMIN, SystemRole.SUPER_ADMIN],
         adminLevel: "both",
       },
-      {
-        href: "/admin/services/service-list",
-        label: "Service List",
-        icon: List,
-        description: "View all services",
-        systemRoles: [SystemRole.ADMIN, SystemRole.SUPER_ADMIN],
-        adminLevel: "both",
-      },
+
       {
         href: "/admin/services/create",
         label: "Create Service",
@@ -469,14 +489,15 @@ const AdminNavigation: React.FC = () => {
           <div className={level > 0 ? "ml-4" : ""}>
             <button
               onClick={() => handleNavigation(item)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 my-1 mx-1 rounded-lg transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
+              className={`w-full flex items-center gap-3 p-2 my-1 rounded-md transition-all duration-200 group focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
                 isActive || (item.isParent && parentIsActive)
                   ? "bg-blue-100 text-blue-900 dark:bg-blue-900/30 dark:text-blue-100 shadow-sm border border-blue-200 dark:border-blue-800"
                   : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100"
               }`}
               title={item.description}
               aria-current={isActive ? "page" : undefined}
-              aria-expanded={item.isParent ? isExpanded : undefined}>
+              aria-expanded={item.isParent ? isExpanded : undefined}
+            >
               <Icon
                 size={18}
                 className={`flex-shrink-0 transition-colors ${
@@ -506,7 +527,8 @@ const AdminNavigation: React.FC = () => {
               {roleIndicator && !item.isParent && (
                 <span
                   className={`ml-auto flex-shrink-0 ${roleIndicator.className}`}
-                  aria-label={`Requires ${roleIndicator.label} privileges`}>
+                  aria-label={`Requires ${roleIndicator.label} privileges`}
+                >
                   {roleIndicator.label}
                 </span>
               )}
@@ -573,7 +595,7 @@ const AdminNavigation: React.FC = () => {
   }
 
   return (
-    <div className="max-h-screen overflow-auto w-80 flex flex-col border rounded-md p-2 hide-scrollbar">
+    <div className="max-h-screen overflow-auto w-80 flex flex-col border rounded-md hide-scrollbar p-3">
       {/* Admin Profile Section */}
       <div className="flex-shrink-0 mb-4 px-2">
         <div className="relative">
@@ -610,7 +632,8 @@ const AdminNavigation: React.FC = () => {
                           user.systemRole === SystemRole.SUPER_ADMIN
                             ? "bg-red-500/90 text-white border-red-300/50"
                             : "bg-blue-500/90 text-white border-blue-300/50"
-                        }`}>
+                        }`}
+                      >
                         <Shield size={10} className="mr-1" />
                         {user.systemRole === SystemRole.SUPER_ADMIN
                           ? "Super Admin"
@@ -644,7 +667,8 @@ const AdminNavigation: React.FC = () => {
         <nav
           className="space-y-1 p-2"
           role="navigation"
-          aria-label="Admin navigation">
+          aria-label="Admin navigation"
+        >
           {filteredItems.map((item, index) => (
             <NavigationItemRenderer key={item.href} item={item} index={index} />
           ))}
@@ -663,7 +687,8 @@ const AdminNavigation: React.FC = () => {
           variant="outline"
           className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 transition-all duration-200 font-medium text-sm group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1"
           title="Sign out of admin account"
-          aria-label="Sign out of admin account">
+          aria-label="Sign out of admin account"
+        >
           <LogOut size={18} className="flex-shrink-0" aria-hidden="true" />
           <span>Logout</span>
         </Button>
@@ -756,7 +781,8 @@ export const AdminQuickActions: React.FC = () => {
         <div
           className="space-y-1 p-1"
           role="list"
-          aria-label="Admin quick actions">
+          aria-label="Admin quick actions"
+        >
           {actions.map((action, index) => {
             const Icon = action.icon;
             return (
@@ -771,7 +797,8 @@ export const AdminQuickActions: React.FC = () => {
                     : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100"
                 }`}
                 role="listitem"
-                aria-label={action.label}>
+                aria-label={action.label}
+              >
                 <Icon
                   size={16}
                   className={`flex-shrink-0 ${

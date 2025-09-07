@@ -38,16 +38,15 @@ export interface UserVerification extends BaseEntity {
 }
 
 // Request/Response types for verification operations
-export interface CreateVerificationRequestBody
-  extends Omit<UserVerification, "_id" | "createdAt" | "updatedAt"> {}
+export type CreateVerificationRequestBody = Omit<UserVerification, "_id" | "createdAt" | "updatedAt">
 
-export interface UpdateVerificationRequestBody
-  extends Partial<
+export type UpdateVerificationRequestBody = Partial<
     Omit<UserVerification, "_id" | "createdAt" | "updatedAt" | "userId">
-  > {}
+  >
 
 export interface VerificationResponse {
   message: string;
   verification?: Partial<UserVerification>;
   error?: string;
 }
+

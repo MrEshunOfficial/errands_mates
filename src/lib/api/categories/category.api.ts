@@ -5,7 +5,6 @@ import {
 } from "@/types/base.types";
 import { AuthResponse } from "@/types/user.types";
 
-// Custom error class for category API errors
 export class CategoryAPIError extends Error {
   constructor(
     message: string,
@@ -17,7 +16,6 @@ export class CategoryAPIError extends Error {
   }
 }
 
-// Category-specific request/response types
 export interface CreateCategoryData {
   name: string;
   description?: string;
@@ -46,13 +44,40 @@ export interface UpdateDisplayOrderData {
   }>;
 }
 
-// Admin-specific types
+// Updated moderation interfaces
 export interface ModerateCategoryData {
-  categoryId: string;
-  status: ModerationStatus;
-  moderatedBy: string;
-  reason?: string;
-  notes?: string;
+  moderationStatus: ModerationStatus;
+  moderationNotes?: string;
+}
+
+export interface BulkModerateCategoriesData {
+  categoryIds: string[];
+  moderationStatus: ModerationStatus;
+  moderationNotes?: string;
+}
+
+export interface ModerationResponse {
+  success: boolean;
+  message?: string;
+  data: {
+    category: Category;
+  };
+}
+
+export interface BulkModerationResponse {
+  success: boolean;
+  message?: string;
+  data: {
+    moderated: number;
+    categories: Category[];
+    notFound?: string[];
+  };
+}
+
+export interface PendingCategoriesParams {
+  page?: number;
+  limit?: number;
+  includeUserData?: boolean;
 }
 
 export interface CategorySearchParams {
@@ -60,7 +85,11 @@ export interface CategorySearchParams {
   parentId?: string;
   includeSubcategories?: boolean;
   includeServicesCount?: boolean;
+  includeUserData?: boolean;
   includeInactive?: boolean;
+  includeServices?: boolean;
+  servicesLimit?: number;
+  popularOnly?: boolean;
   sortBy?: "displayOrder" | "name" | "createdAt" | "updatedAt";
   sortOrder?: "asc" | "desc";
   page?: number;
@@ -71,7 +100,36 @@ export interface CategorySearchQuery {
   q: string;
   limit?: number;
   includeInactive?: boolean;
+  includeUserData?: boolean;
   parentId?: string;
+  includeServices?: boolean;
+  servicesLimit?: number;
+  popularOnly?: boolean;
+}
+
+export interface CategoryFetchOptions {
+  includeSubcategories?: boolean;
+  includeUserData?: boolean;
+  includeServices?: boolean;
+  servicesLimit?: number;
+  popularOnly?: boolean;
+}
+
+export interface ParentCategoriesFetchOptions {
+  includeSubcategories?: boolean;
+  includeServicesCount?: boolean;
+  includeUserData?: boolean;
+  includeInactive?: boolean;
+  includeServices?: boolean;
+  servicesLimit?: number;
+  popularOnly?: boolean;
+}
+
+export interface SubcategoriesFetchOptions {
+  includeUserData?: boolean;
+  includeServices?: boolean;
+  servicesLimit?: number;
+  popularOnly?: boolean;
 }
 
 export interface PaginatedCategoryResponse {
@@ -119,7 +177,6 @@ type ErrorResponse = {
   [key: string]: unknown;
 };
 
-// Category API class
 class CategoryAPI {
   private baseURL: string;
 
@@ -177,7 +234,45 @@ class CategoryAPI {
     }
   }
 
-  // CRUD Operations
+  private buildQueryParams<T extends object>(params: T): URLSearchParams {
+    const queryParams = new URLSearchParams();
+
+    Object.entries(params).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        queryParams.append(key, String(value));
+      }
+    });
+
+    return queryParams;
+  }
+
+  // ==================== MODERATION METHODS ====================
+
+  async getPendingCategories(params: PendingCategoriesParams = {}): Promise<PaginatedCategoryResponse> {
+    const queryParams = this.buildQueryParams(params);
+    const endpoint = queryParams.toString() ? `/moderation/pending?${queryParams}` : "/moderation/pending";
+    return this.makeRequest<PaginatedCategoryResponse>(endpoint);
+  }
+
+  async moderateCategory(
+    categoryId: string, 
+    data: ModerateCategoryData
+  ): Promise<ModerationResponse> {
+    return this.makeRequest<ModerationResponse>(`/${categoryId}/moderate`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  async bulkModerateCategories(data: BulkModerateCategoriesData): Promise<BulkModerationResponse> {
+    return this.makeRequest<BulkModerationResponse>("/moderate/bulk", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  // ==================== EXISTING METHODS ====================
+
   async createCategory(data: CreateCategoryData): Promise<CategoryResponse> {
     return this.makeRequest<CategoryResponse>("/", {
       method: "POST",
@@ -185,18 +280,20 @@ class CategoryAPI {
     });
   }
 
-  async getCategoryById(categoryId: string, includeSubcategories?: boolean): Promise<CategoryResponse> {
-    const params = new URLSearchParams();
-    if (includeSubcategories) params.append("includeSubcategories", "true");
-    
+  async getCategoryById(
+    categoryId: string, 
+    options: CategoryFetchOptions = {}
+  ): Promise<CategoryResponse> {
+    const params = this.buildQueryParams(options);
     const endpoint = params.toString() ? `/${categoryId}?${params}` : `/${categoryId}`;
     return this.makeRequest<CategoryResponse>(endpoint);
   }
 
-  async getCategoryBySlug(slug: string, includeSubcategories?: boolean): Promise<CategoryResponse> {
-    const params = new URLSearchParams();
-    if (includeSubcategories) params.append("includeSubcategories", "true");
-    
+  async getCategoryBySlug(
+    slug: string, 
+    options: CategoryFetchOptions = {}
+  ): Promise<CategoryResponse> {
+    const params = this.buildQueryParams(options);
     const endpoint = params.toString() ? `/slug/${slug}?${params}` : `/slug/${slug}`;
     return this.makeRequest<CategoryResponse>(endpoint);
   }
@@ -223,57 +320,43 @@ class CategoryAPI {
     });
   }
 
-  // Category Listing Operations
   async getCategories(params: CategorySearchParams = {}): Promise<PaginatedCategoryResponse> {
-    const queryString = new URLSearchParams();
-    
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        queryString.append(key, value.toString());
-      }
-    });
-
-    const endpoint = queryString.toString() ? `/?${queryString}` : "/";
+    const queryParams = this.buildQueryParams(params);
+    const endpoint = queryParams.toString() ? `/?${queryParams}` : "/";
     return this.makeRequest<PaginatedCategoryResponse>(endpoint);
   }
 
   async getParentCategories(
-    includeSubcategories?: boolean,
-    includeServicesCount?: boolean
+    options: ParentCategoriesFetchOptions = {}
   ): Promise<CategoriesResponse> {
-    const params = new URLSearchParams();
-    if (includeSubcategories) params.append("includeSubcategories", "true");
-    if (includeServicesCount) params.append("includeServicesCount", "true");
-
+    const params = this.buildQueryParams(options);
     const endpoint = params.toString() ? `/parents?${params}` : "/parents";
     return this.makeRequest<CategoriesResponse>(endpoint);
   }
 
-  async getSubcategories(parentId: string): Promise<CategoriesResponse> {
-    return this.makeRequest<CategoriesResponse>(`/${parentId}/subcategories`);
+  async getSubcategories(
+    parentId: string, 
+    options: SubcategoriesFetchOptions = {}
+  ): Promise<CategoriesResponse> {
+    const params = this.buildQueryParams(options);
+    const endpoint = params.toString() 
+      ? `/parents/${parentId}/subcategories?${params}` 
+      : `/parents/${parentId}/subcategories`;
+      
+    return this.makeRequest<CategoriesResponse>(endpoint);
   }
 
-  // Search Operations
   async searchCategories(params: CategorySearchQuery): Promise<CategorySearchResponse> {
-    const queryString = new URLSearchParams();
-    
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        queryString.append(key, value.toString());
-      }
-    });
-
-    return this.makeRequest<CategorySearchResponse>(`/search?${queryString}`);
+    const queryParams = this.buildQueryParams(params);
+    return this.makeRequest<CategorySearchResponse>(`/search?${queryParams}`);
   }
 
-  // Category Status Operations
   async toggleCategoryStatus(categoryId: string): Promise<CategoryResponse> {
     return this.makeRequest<CategoryResponse>(`/${categoryId}/toggle-status`, {
       method: "PATCH",
     });
   }
 
-  // Display Order Operations
   async updateDisplayOrder(data: UpdateDisplayOrderData): Promise<AuthResponse> {
     return this.makeRequest<AuthResponse>("/display-order", {
       method: "PATCH",
@@ -281,15 +364,261 @@ class CategoryAPI {
     });
   }
 
-  // Admin Operations
-  async moderateCategory(data: ModerateCategoryData): Promise<CategoryResponse> {
-    return this.makeRequest<CategoryResponse>("/admin/moderate", {
-      method: "POST",
-      body: JSON.stringify(data),
+  // ==================== ADMIN HELPER METHODS ====================
+
+  async getCategoryWithFullDetails(
+    categoryId: string, 
+    includeServices = true,
+    servicesLimit = 10
+  ): Promise<CategoryResponse> {
+    return this.getCategoryById(categoryId, {
+      includeSubcategories: true,
+      includeUserData: true,
+      includeServices,
+      servicesLimit
+    });
+  }
+
+  async getCategoriesForAdmin(
+    params: Omit<CategorySearchParams, 'includeUserData'> & { 
+      includeInactive?: boolean;
+      includeServices?: boolean;
+      servicesLimit?: number;
+    } = {}
+  ): Promise<PaginatedCategoryResponse> {
+    return this.getCategories({
+      ...params,
+      includeUserData: true,
+      includeServicesCount: true,
+      servicesLimit: params.servicesLimit || 5
+    });
+  }
+
+  async getParentCategoriesForAdmin(
+    includeInactive = false,
+    includeServices = false,
+    servicesLimit = 5
+  ): Promise<CategoriesResponse> {
+    return this.getParentCategories({
+      includeSubcategories: true,
+      includeServicesCount: true,
+      includeUserData: true,
+      includeInactive,
+      includeServices,
+      servicesLimit
+    });
+  }
+
+  async searchCategoriesForAdmin(
+    query: string, 
+    limit?: number, 
+    includeInactive = false,
+    includeServices = false,
+    servicesLimit = 5
+  ): Promise<CategorySearchResponse> {
+    return this.searchCategories({
+      q: query,
+      limit,
+      includeUserData: true,
+      includeInactive,
+      includeServices,
+      servicesLimit
+    });
+  }
+
+  // ==================== MODERATION HELPER METHODS ====================
+
+  async approveCategoriesBulk(
+    categoryIds: string[], 
+    notes?: string
+  ): Promise<BulkModerationResponse> {
+    return this.bulkModerateCategories({
+      categoryIds,
+      moderationStatus: ModerationStatus.APPROVED,
+      moderationNotes: notes
+    });
+  }
+
+  async rejectCategoriesBulk(
+    categoryIds: string[], 
+    notes?: string
+  ): Promise<BulkModerationResponse> {
+    return this.bulkModerateCategories({
+      categoryIds,
+      moderationStatus: ModerationStatus.REJECTED,
+      moderationNotes: notes
+    });
+  }
+
+  async approveCategory(
+    categoryId: string, 
+    notes?: string
+  ): Promise<ModerationResponse> {
+    return this.moderateCategory(categoryId, {
+      moderationStatus: ModerationStatus.APPROVED,
+      moderationNotes: notes
+    });
+  }
+
+  async rejectCategory(
+    categoryId: string, 
+    notes?: string
+  ): Promise<ModerationResponse> {
+    return this.moderateCategory(categoryId, {
+      moderationStatus: ModerationStatus.REJECTED,
+      moderationNotes: notes
+    });
+  }
+
+  async flagCategory(
+    categoryId: string, 
+    notes?: string
+  ): Promise<ModerationResponse> {
+    return this.moderateCategory(categoryId, {
+      moderationStatus: ModerationStatus.FLAGGED,
+      moderationNotes: notes
+    });
+  }
+
+  async hideCategory(
+    categoryId: string, 
+    notes?: string
+  ): Promise<ModerationResponse> {
+    return this.moderateCategory(categoryId, {
+      moderationStatus: ModerationStatus.HIDDEN,
+      moderationNotes: notes
+    });
+  }
+
+  // ==================== PUBLIC FACING METHODS ====================
+
+  async getCategoriesWithPopularServices(
+    params: Omit<CategorySearchParams, 'popularOnly' | 'includeServices'> = {}
+  ): Promise<PaginatedCategoryResponse> {
+    return this.getCategories({
+      ...params,
+      includeServices: true,
+      popularOnly: true,
+      servicesLimit: params.servicesLimit || 3
+    });
+  }
+
+  async getParentCategoriesWithServices(
+    servicesLimit = 5,
+    popularOnly = false
+  ): Promise<CategoriesResponse> {
+    return this.getParentCategories({
+      includeServices: true,
+      servicesLimit,
+      popularOnly,
+      includeServicesCount: true
+    });
+  }
+
+  async getCategoryWithAllServices(
+    categoryId: string,
+    servicesLimit = 20
+  ): Promise<CategoryResponse> {
+    return this.getCategoryById(categoryId, {
+      includeServices: true,
+      includeSubcategories: true,
+      servicesLimit
+    });
+  }
+
+  async getSubcategoriesWithServices(
+    parentId: string,
+    servicesLimit = 3,
+    popularOnly = true
+  ): Promise<CategoriesResponse> {
+    return this.getSubcategories(parentId, {
+      includeServices: true,
+      servicesLimit,
+      popularOnly
+    });
+  }
+
+  async getAllCategoriesForAdmin(
+    params: CategorySearchParams = {},
+    includeServices = false
+  ): Promise<PaginatedCategoryResponse> {
+    return this.getCategoriesForAdmin({
+      ...params,
+      includeInactive: true,
+      includeServices,
+      servicesLimit: 5
+    });
+  }
+
+  async getAllParentCategoriesForAdmin(
+    includeServices = false
+  ): Promise<CategoriesResponse> {
+    return this.getParentCategoriesForAdmin(true, includeServices, 5);
+  }
+
+  async searchAllCategoriesForAdmin(
+    query: string, 
+    limit?: number,
+    includeServices = false
+  ): Promise<CategorySearchResponse> {
+    return this.searchCategoriesForAdmin(query, limit, true, includeServices, 5);
+  }
+
+  async getInactiveCategoriesForAdmin(
+    params: CategorySearchParams = {}
+  ): Promise<PaginatedCategoryResponse> {
+    const response = await this.getCategoriesForAdmin({
+      ...params,
+      includeInactive: true
+    });
+
+    const inactiveCategories = response.data.categories.filter(cat => !cat.isActive);
+    
+    return {
+      ...response,
+      data: {
+        ...response.data,
+        categories: inactiveCategories,
+        pagination: {
+          ...response.data.pagination,
+          total: inactiveCategories.length
+        }
+      }
+    };
+  }
+
+  async getFeaturedCategories(limit = 8): Promise<CategoriesResponse> {
+    const response = await this.getParentCategories({
+      includeServices: true,
+      servicesLimit: 3,
+      popularOnly: true
+    });
+
+    const featuredCategories = response.data.categories.slice(0, limit);
+
+    return {
+      ...response,
+      data: {
+        categories: featuredCategories
+      }
+    };
+  }
+
+  async getCategoriesForNavigation(): Promise<CategoriesResponse> {
+    return this.getParentCategories({
+      includeSubcategories: true,
+      includeServicesCount: true
+    });
+  }
+
+  async getCategoryBreadcrumb(categoryId: string): Promise<CategoryResponse> {
+    return this.getCategoryById(categoryId, {
+      includeUserData: false,
+      includeSubcategories: false,
+      includeServices: false
     });
   }
 }
 
-// Export singleton instance
 export const categoryAPI = new CategoryAPI();
 export default CategoryAPI;

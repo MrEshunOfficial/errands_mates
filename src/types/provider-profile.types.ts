@@ -69,16 +69,15 @@ export interface ProviderProfile extends BaseEntity, SoftDeletable {
 }
 
 // Request/Response types for provider profile operations
-export interface CreateProviderProfileRequestBody
-  extends Omit<ProviderProfile, "_id" | "createdAt" | "updatedAt"> {}
+export type CreateProviderProfileRequestBody = Omit<ProviderProfile, "_id" | "createdAt" | "updatedAt">
 
-export interface UpdateProviderProfileRequestBody
-  extends Partial<
+export type UpdateProviderProfileRequestBody = Partial<
     Omit<ProviderProfile, "_id" | "createdAt" | "updatedAt" | "profileId">
-  > {}
+  >
 
 export interface ProviderProfileResponse {
   message: string;
   providerProfile?: Partial<ProviderProfile>;
   error?: string;
 }
+

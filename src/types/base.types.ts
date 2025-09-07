@@ -16,7 +16,7 @@ export interface SoftDeletable {
 export interface FileReference {
   url: string;
   fileName: string;
-  fileSize?: number;
+  fileSize: number;
   mimeType?: string;
   uploadedAt?: Date;
 }

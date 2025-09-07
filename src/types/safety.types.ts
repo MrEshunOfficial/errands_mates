@@ -38,3 +38,4 @@ export interface SafetyIncident extends BaseEntity {
   followUpRequired: boolean;
   followUpDate?: Date;
 }
+

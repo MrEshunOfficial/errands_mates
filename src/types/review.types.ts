@@ -246,3 +246,4 @@ export interface ReviewAnalytics {
     reviewCount: number;
   }>;
 }
+

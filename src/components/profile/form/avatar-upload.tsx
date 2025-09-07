@@ -9,18 +9,40 @@ import {
   Edit3,
   Trash2,
 } from "lucide-react";
-import type { ProfilePicture } from "@/types/base.types";
-import { useProfile } from "@/hooks/profiles/useProfile";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 
-interface ProfilePictureUpdateProps {
+export interface ImageUploadData {
+  url: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  uploadedAt: Date;
+}
+
+interface ImageUploadProps {
   className?: string;
   size?: "sm" | "md" | "lg" | "xl";
+  shape?: "circle" | "square" | "rounded";
   showLabel?: boolean;
+  label?: string;
+  description?: string;
   allowRemove?: boolean;
-  onSuccess?: (profilePicture: ProfilePicture) => void;
+  currentImageUrl?: string;
+  placeholder?: string;
+  maxSize?: number; // in bytes, default 5MB
+  allowedTypes?: string[];
+  isLoading?: boolean;
+  onFileSelect?: (file: File) => Promise<void> | void;
+  onRemove?: () => Promise<void> | void;
+  onSuccess?: (data: ImageUploadData) => void;
   onError?: (error: string) => void;
+  disabled?: boolean;
+  uploadButtonText?: string;
+  removeButtonText?: string;
+  dragAndDropText?: string;
+  emptyStateIcon?: React.ReactNode;
+  customValidation?: (file: File) => string | null | Promise<string | null>;
 }
 
 const sizeClasses = {
@@ -30,6 +52,12 @@ const sizeClasses = {
   xl: "w-44 h-44",
 };
 
+const shapeClasses = {
+  circle: "rounded-full",
+  square: "rounded-none",
+  rounded: "rounded-xl",
+};
+
 const iconSizes = {
   sm: 18,
   md: 22,
@@ -37,22 +65,36 @@ const iconSizes = {
   xl: 30,
 };
 
-export default function ProfilePictureUpdate({
+export default function ImageUpload({
   className = "",
   size = "lg",
+  shape = "circle",
   showLabel = true,
+  label = "Upload Image",
+  description = "Add an image to enhance your content",
   allowRemove = true,
+  currentImageUrl,
+  placeholder = "Click or drag & drop to upload",
+  maxSize = 5 * 1024 * 1024, // 5MB default
+  allowedTypes = [
+    "image/jpeg",
+    "image/jpg",
+    "image/png",
+    "image/gif",
+    "image/webp",
+  ],
+  isLoading = false,
+  onFileSelect,
+  onRemove,
   onSuccess,
   onError,
-}: ProfilePictureUpdateProps) {
-  const {
-    profile,
-    updateProfilePicture,
-    removeProfilePicture,
-    isLoading,
-    error,
-  } = useProfile();
-
+  disabled = false,
+  uploadButtonText = "Change Image",
+  removeButtonText = "Remove Image",
+  dragAndDropText = "Drop here",
+  emptyStateIcon,
+  customValidation,
+}: ImageUploadProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -62,36 +104,42 @@ export default function ProfilePictureUpdate({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Get current profile picture URL
-  const currentProfilePicture = profile?.profilePicture?.url;
-  const displayUrl = previewUrl || currentProfilePicture;
+  // Get display URL - preview takes precedence over current image
+  const displayUrl = previewUrl || currentImageUrl;
   const hasImage = !!displayUrl;
-  const hasError = uploadError || error;
+  const hasError = uploadError;
+  const isProcessing = isUploading || isLoading;
 
-  const validateFile = useCallback((file: File): string | null => {
-    const maxSize = 5 * 1024 * 1024; // 5MB
-    const allowedTypes = [
-      "image/jpeg",
-      "image/jpg",
-      "image/png",
-      "image/gif",
-      "image/webp",
-    ];
+  const validateFile = useCallback(
+    async (file: File): Promise<string | null> => {
+      // Custom validation first (sync or async)
+      if (customValidation) {
+        const customError = await customValidation(file);
+        if (customError) return customError;
+      }
 
-    if (!allowedTypes.includes(file.type)) {
-      return "Please select a valid image file (JPEG, PNG, GIF, or WebP)";
-    }
+      if (!allowedTypes.includes(file.type)) {
+        const typesList = allowedTypes
+          .map((type) => type.replace("image/", "").toUpperCase())
+          .join(", ");
+        return `Please select a valid image file (${typesList})`;
+      }
 
-    if (file.size > maxSize) {
-      return "File size must be less than 5MB";
-    }
+      if (file.size > maxSize) {
+        const sizeMB = Math.round(maxSize / (1024 * 1024));
+        return `File size must be less than ${sizeMB}MB`;
+      }
 
-    return null;
-  }, []);
+      return null;
+    },
+    [allowedTypes, maxSize, customValidation]
+  );
 
   const handleFileSelect = useCallback(
     async (file: File) => {
-      const validationError = validateFile(file);
+      if (disabled) return;
+
+      const validationError = await validateFile(file); // ✅ await it
       if (validationError) {
         setUploadError(validationError);
         onError?.(validationError);
@@ -108,46 +156,39 @@ export default function ProfilePictureUpdate({
       };
       reader.readAsDataURL(file);
 
-      // Upload file
-      setIsUploading(true);
+      // Handle file upload
+      if (onFileSelect) {
+        setIsUploading(true);
 
-      try {
-        // Convert file to base64 or handle upload logic based on your API requirements
-        const base64 = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.readAsDataURL(file);
-        });
+        try {
+          await onFileSelect(file);
 
-        const profilePictureData: ProfilePicture = {
-          url: base64,
-          fileName: file.name,
-          fileSize: file.size,
-          mimeType: file.type,
-          uploadedAt: new Date(),
-        };
+          const imageData: ImageUploadData = {
+            url: previewUrl || URL.createObjectURL(file),
+            fileName: file.name,
+            fileSize: file.size,
+            mimeType: file.type,
+            uploadedAt: new Date(),
+          };
 
-        await updateProfilePicture(profilePictureData);
+          setUploadSuccess(true);
+          setPreviewUrl(null); // Clear preview since upload is complete
+          onSuccess?.(imageData);
 
-        setUploadSuccess(true);
-        setPreviewUrl(null); // Clear preview since it's now the actual profile picture
-        onSuccess?.(profilePictureData);
-
-        // Clear success message after 3 seconds
-        setTimeout(() => setUploadSuccess(false), 3000);
-      } catch (error) {
-        const errorMessage =
-          error instanceof Error
-            ? error.message
-            : "Failed to update profile picture";
-        setUploadError(errorMessage);
-        setPreviewUrl(null);
-        onError?.(errorMessage);
-      } finally {
-        setIsUploading(false);
+          // Clear success message after 3 seconds
+          setTimeout(() => setUploadSuccess(false), 3000);
+        } catch (error) {
+          const errorMessage =
+            error instanceof Error ? error.message : "Failed to upload image";
+          setUploadError(errorMessage);
+          setPreviewUrl(null);
+          onError?.(errorMessage);
+        } finally {
+          setIsUploading(false);
+        }
       }
     },
-    [validateFile, updateProfilePicture, onSuccess, onError]
+    [disabled, validateFile, onFileSelect, onSuccess, onError, previewUrl]
   );
 
   const handleFileInputChange = useCallback(
@@ -166,6 +207,8 @@ export default function ProfilePictureUpdate({
 
   const handleDrop = useCallback(
     (e: React.DragEvent<HTMLDivElement>) => {
+      if (disabled) return;
+
       e.preventDefault();
       e.stopPropagation();
       setDragOver(false);
@@ -175,26 +218,33 @@ export default function ProfilePictureUpdate({
         handleFileSelect(files[0]);
       }
     },
-    [handleFileSelect]
+    [handleFileSelect, disabled]
   );
 
-  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragOver(true);
-  }, []);
+  const handleDragOver = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      if (disabled) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setDragOver(true);
+    },
+    [disabled]
+  );
 
-  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    // Only set dragOver to false if we're actually leaving the drop zone
-    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-      setDragOver(false);
-    }
-  }, []);
+  const handleDragLeave = useCallback(
+    (e: React.DragEvent<HTMLDivElement>) => {
+      if (disabled) return;
+      e.preventDefault();
+      e.stopPropagation();
+      if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+        setDragOver(false);
+      }
+    },
+    [disabled]
+  );
 
-  const handleRemovePicture = useCallback(async () => {
-    if (!allowRemove) return;
+  const handleRemoveImage = useCallback(async () => {
+    if (!allowRemove || disabled) return;
 
     // If it's a preview (not yet saved), just clear the preview
     if (previewUrl) {
@@ -204,31 +254,32 @@ export default function ProfilePictureUpdate({
       return;
     }
 
-    // If it's a saved profile picture, remove it from the server
-    setIsUploading(true);
-    setUploadError(null);
+    // If there's a remove handler, call it
+    if (onRemove) {
+      setIsUploading(true);
+      setUploadError(null);
 
-    try {
-      await removeProfilePicture();
-      setUploadSuccess(true);
+      try {
+        await onRemove();
+        setUploadSuccess(true);
 
-      // Clear success message after 3 seconds
-      setTimeout(() => setUploadSuccess(false), 3000);
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : "Failed to remove profile picture";
-      setUploadError(errorMessage);
-      onError?.(errorMessage);
-    } finally {
-      setIsUploading(false);
+        // Clear success message after 3 seconds
+        setTimeout(() => setUploadSuccess(false), 3000);
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error ? error.message : "Failed to remove image";
+        setUploadError(errorMessage);
+        onError?.(errorMessage);
+      } finally {
+        setIsUploading(false);
+      }
     }
-  }, [allowRemove, removeProfilePicture, onError, previewUrl]);
+  }, [allowRemove, disabled, previewUrl, onRemove, onError]);
 
   const handleUploadClick = useCallback(() => {
+    if (disabled) return;
     fileInputRef.current?.click();
-  }, []);
+  }, [disabled]);
 
   return (
     <div className={`w-full ${className}`}>
@@ -236,34 +287,40 @@ export default function ProfilePictureUpdate({
         <div className="mb-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-2">
             <Camera className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            Profile Picture
+            {label}
           </h3>
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            Add a photo to help others recognize you. Your photo will be visible
-            to other users.
+            {description}
           </p>
         </div>
       )}
 
       <div className="flex flex-col items-center space-y-4">
-        {/* Profile Picture Container */}
+        {/* Image Upload Container */}
         <div
           className="relative group"
-          onMouseEnter={() => setShowActions(true)}
+          onMouseEnter={() => !disabled && setShowActions(true)}
           onMouseLeave={() => setShowActions(false)}
         >
           <div
             onDrop={handleDrop}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
-            onClick={!hasImage ? handleUploadClick : undefined}
+            onClick={!hasImage && !disabled ? handleUploadClick : undefined}
             className={`
+              ${sizeClasses[size]} ${
+              shapeClasses[shape]
+            } overflow-hidden border-4 transition-all duration-300 relative
               ${
-                sizeClasses[size]
-              } rounded-full overflow-hidden border-4 transition-all duration-300 relative
-              ${hasImage ? "cursor-default" : "cursor-pointer"}
+                hasImage
+                  ? "cursor-default"
+                  : disabled
+                  ? "cursor-not-allowed"
+                  : "cursor-pointer"
+              }
+              ${disabled ? "opacity-50" : ""}
               ${
-                dragOver
+                dragOver && !disabled
                   ? "border-blue-500 dark:border-blue-400 shadow-lg shadow-blue-200 dark:shadow-blue-900/50 scale-105"
                   : hasError
                   ? "border-red-400 dark:border-red-500 shadow-lg shadow-red-200 dark:shadow-red-900/50"
@@ -283,14 +340,14 @@ export default function ProfilePictureUpdate({
               <>
                 <Image
                   src={displayUrl}
-                  alt="Profile"
+                  alt="Uploaded image"
                   className="w-full h-full object-cover"
                   fill
                 />
 
                 {/* Hover Overlay */}
                 <AnimatePresence>
-                  {showActions && !isUploading && !isLoading && (
+                  {showActions && !isProcessing && !disabled && (
                     <motion.div
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
@@ -299,17 +356,19 @@ export default function ProfilePictureUpdate({
                     >
                       <div className="flex space-x-2">
                         <button
+                          type="button"
                           onClick={handleUploadClick}
                           className="p-2 bg-white/90 hover:bg-white text-gray-700 rounded-full shadow-md transition-all duration-200 hover:scale-110"
-                          title="Change picture"
+                          title={uploadButtonText}
                         >
                           <Edit3 size={16} />
                         </button>
                         {allowRemove && (
                           <button
-                            onClick={handleRemovePicture}
+                            type="button"
+                            onClick={handleRemoveImage}
                             className="p-2 bg-red-500/90 hover:bg-red-500 text-white rounded-full shadow-md transition-all duration-200 hover:scale-110"
-                            title="Remove picture"
+                            title={removeButtonText}
                           >
                             <Trash2 size={16} />
                           </button>
@@ -326,37 +385,38 @@ export default function ProfilePictureUpdate({
                   className={`
                   p-3 rounded-full mb-2 transition-all duration-200
                   ${
-                    dragOver
+                    dragOver && !disabled
                       ? "bg-blue-100 dark:bg-blue-900/50 scale-110"
                       : "bg-gray-200 dark:bg-gray-600 group-hover:bg-blue-100 dark:group-hover:bg-blue-900/50"
                   }
                 `}
                 >
-                  {dragOver ? (
-                    <Camera
-                      size={iconSizes[size]}
-                      className="text-blue-600 dark:text-blue-400"
-                    />
-                  ) : (
-                    <Upload
-                      size={iconSizes[size]}
-                      className="text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400"
-                    />
-                  )}
+                  {emptyStateIcon ||
+                    (dragOver ? (
+                      <Camera
+                        size={iconSizes[size]}
+                        className="text-blue-600 dark:text-blue-400"
+                      />
+                    ) : (
+                      <Upload
+                        size={iconSizes[size]}
+                        className="text-gray-500 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400"
+                      />
+                    ))}
                 </div>
                 <div className="space-y-1">
                   <p
                     className={`text-sm font-medium transition-colors ${
-                      dragOver
+                      dragOver && !disabled
                         ? "text-blue-600 dark:text-blue-400"
                         : "text-gray-600 dark:text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400"
                     }`}
                   >
-                    {dragOver ? "Drop here" : "Add Photo"}
+                    {dragOver ? dragAndDropText : "Add Image"}
                   </p>
                   {!dragOver && (
                     <p className="text-xs text-gray-400 dark:text-gray-500">
-                      Click or drag & drop
+                      {placeholder}
                     </p>
                   )}
                 </div>
@@ -365,7 +425,7 @@ export default function ProfilePictureUpdate({
 
             {/* Loading Overlay */}
             <AnimatePresence>
-              {(isUploading || isLoading) && (
+              {isProcessing && (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -406,11 +466,12 @@ export default function ProfilePictureUpdate({
           </div>
 
           {/* Quick Remove Button (for mobile/touch devices) */}
-          {hasImage && allowRemove && !isUploading && !isLoading && (
+          {hasImage && allowRemove && !isProcessing && !disabled && (
             <button
-              onClick={handleRemovePicture}
+              type="button"
+              onClick={handleRemoveImage}
               className="absolute -top-1 -right-1 p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-full shadow-lg transition-all duration-200 hover:scale-110 lg:opacity-0 lg:group-hover:opacity-100"
-              title="Remove picture"
+              title={removeButtonText}
             >
               <X size={12} />
             </button>
@@ -419,7 +480,11 @@ export default function ProfilePictureUpdate({
 
         {/* File Format Info */}
         <p className="text-xs text-gray-500 dark:text-gray-400 text-center max-w-xs">
-          Supported formats: JPEG, PNG, GIF, WebP • Max size: 5MB
+          Supported formats:{" "}
+          {allowedTypes
+            .map((type) => type.replace("image/", "").toUpperCase())
+            .join(", ")}{" "}
+          • Max size: {Math.round(maxSize / (1024 * 1024))}MB
         </p>
 
         {/* Error Message */}
@@ -436,7 +501,7 @@ export default function ProfilePictureUpdate({
                 className="text-red-500 dark:text-red-400 flex-shrink-0"
               />
               <p className="text-sm text-red-700 dark:text-red-300">
-                {uploadError || error}
+                {uploadError}
               </p>
             </motion.div>
           )}
@@ -447,9 +512,10 @@ export default function ProfilePictureUpdate({
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+        accept={allowedTypes.join(",")}
         onChange={handleFileInputChange}
         className="hidden"
+        disabled={disabled}
       />
     </div>
   );

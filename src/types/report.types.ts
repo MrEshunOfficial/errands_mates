@@ -203,3 +203,4 @@ export interface ReportQuery {
   isOverdue?: boolean;
   sortBy?: "newest" | "oldest" | "priority" | "severity" | "days_open";
 }
+

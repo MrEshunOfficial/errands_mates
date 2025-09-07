@@ -29,7 +29,6 @@ export interface Service extends BaseEntity, SoftDeletable {
   };
 
   slug: string;
-  metaDescription?: string;
 
   submittedBy?: Types.ObjectId;
   approvedBy?: Types.ObjectId;

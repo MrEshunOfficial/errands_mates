@@ -2,15 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  Menu,
-  X,
-  Search,
-  Settings,
-  UserIcon,
-  LogOut,
-  AlertCircle,
-} from "lucide-react";
+import { Menu, X, Search, Settings, UserIcon, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -23,7 +15,6 @@ import {
   NavigationMenuList,
   NavigationMenuTrigger,
 } from "@/components/ui/navigation-menu";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
@@ -455,22 +446,11 @@ export const MainHeader: React.FC = () => {
   const pathname = usePathname();
 
   // Using both auth and profile hooks
-  const {
-    user,
-    isAuthenticated,
-    isLoading: authLoading,
-    error: authError,
-  } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
 
-  const {
-    profile,
-    completeness,
-    isLoading: profileLoading,
-    error: profileError,
-  } = useProfile();
+  const { profile, completeness, isLoading: profileLoading } = useProfile();
 
   // Determine if we have any errors to show
-  const hasError = authError || profileError;
   const isLoading = authLoading || (isAuthenticated && profileLoading);
 
   // Memoize navigation items
@@ -505,36 +485,6 @@ export const MainHeader: React.FC = () => {
     return pathname?.startsWith(path) || false;
   };
 
-  // Get proper role display
-  const getUserRoleDisplay = (): string => {
-    if (profile?.role) {
-      switch (profile.role) {
-        case UserRole.CUSTOMER:
-          return "Customer";
-        case UserRole.PROVIDER:
-          return "Service Provider";
-        default:
-          return "User";
-      }
-    }
-
-    if (user?.systemRole) {
-      switch (user.systemRole) {
-        case SystemRole.SUPER_ADMIN:
-          return "Super Admin";
-        case SystemRole.ADMIN:
-          return "Admin";
-        case SystemRole.USER:
-        default:
-          return "User";
-      }
-    }
-
-    return "User";
-  };
-
-  const userRoleDisplay = getUserRoleDisplay();
-
   // Check admin permissions using proper system role checks
   const isAdmin =
     user?.systemRole === SystemRole.ADMIN ||
@@ -544,14 +494,6 @@ export const MainHeader: React.FC = () => {
 
   return (
     <>
-      {/* Error Alert */}
-      {hasError && (
-        <Alert className="mx-4 my-2 border-red-200 bg-red-50 text-red-800 dark:border-red-800 dark:bg-red-950/20 dark:text-red-200">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{authError || profileError}</AlertDescription>
-        </Alert>
-      )}
-
       <motion.header
         initial={{ y: -100 }}
         animate={{ y: 0 }}
@@ -646,8 +588,6 @@ export const MainHeader: React.FC = () => {
                   <UserMenu
                     user={user || {}}
                     profile={profile as IUserProfile}
-                    completeness={completeness}
-                    userRoleDisplay={userRoleDisplay}
                     isAdmin={isAdmin}
                     isSuperAdmin={isSuperAdmin}
                     onLogout={handleLogout}

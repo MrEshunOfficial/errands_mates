@@ -15,11 +15,11 @@ export interface DomainEvent extends BaseEntity {
 }
 
 // Request/Response types for domain event operations
-export interface CreateDomainEventRequestBody
-  extends Omit<DomainEvent, "_id" | "createdAt" | "updatedAt"> {}
+export type CreateDomainEventRequestBody = Omit<DomainEvent, "_id" | "createdAt" | "updatedAt">
 
 export interface DomainEventResponse {
   message: string;
   event?: Partial<DomainEvent>;
   error?: string;
 }
+
