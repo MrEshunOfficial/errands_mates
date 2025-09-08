@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
+import { Input } from "@/components/ui/input";
 
 export interface ImageUploadData {
   url: string;
@@ -509,7 +510,7 @@ export default function ImageUpload({
       </div>
 
       {/* Hidden File Input */}
-      <input
+      <Input
         ref={fileInputRef}
         type="file"
         accept={allowedTypes.join(",")}

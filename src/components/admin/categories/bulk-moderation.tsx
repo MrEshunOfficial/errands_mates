@@ -1,4 +1,5 @@
 "use client";
+import { Input } from "@/components/ui/input";
 import {
   useAdminCategoryManager,
   useCategoryModeration,
@@ -91,7 +92,7 @@ export function CategoryModerationBulk() {
   };
 
   return (
-    <div className="space-y-6 dark:bg-gray-900 dark:text-gray-100">
+    <div className="h-full space-y-6 dark:bg-gray-900 dark:text-gray-100">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold dark:text-white">
           Category Moderation Queue
@@ -119,8 +120,7 @@ export function CategoryModerationBulk() {
             </span>
             <button
               onClick={() => setShowModerationPanel(!showModerationPanel)}
-              className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-600"
-            >
+              className="px-4 py-2 bg-blue-600 dark:bg-blue-500 text-white rounded-md hover:bg-blue-700 dark:hover:bg-blue-600">
               Moderate Selected
             </button>
           </div>
@@ -136,8 +136,7 @@ export function CategoryModerationBulk() {
                   onChange={(e) =>
                     setBulkAction(e.target.value as ModerationStatus)
                   }
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                >
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
                   <option value={ModerationStatus.APPROVED}>Approve All</option>
                   <option value={ModerationStatus.REJECTED}>Reject All</option>
                   <option value={ModerationStatus.HIDDEN}>Hide All</option>
@@ -161,14 +160,12 @@ export function CategoryModerationBulk() {
                 <button
                   onClick={handleBulkModeration}
                   disabled={moderateLoading}
-                  className="px-4 py-2 bg-green-600 dark:bg-green-500 text-white rounded-md hover:bg-green-700 dark:hover:bg-green-600 disabled:opacity-50"
-                >
+                  className="px-4 py-2 bg-green-600 dark:bg-green-500 text-white rounded-md hover:bg-green-700 dark:hover:bg-green-600 disabled:opacity-50">
                   {moderateLoading ? "Processing..." : "Apply to All"}
                 </button>
                 <button
                   onClick={() => setShowModerationPanel(false)}
-                  className="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-400 dark:hover:bg-gray-500"
-                >
+                  className="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-md hover:bg-gray-400 dark:hover:bg-gray-500">
                   Cancel
                 </button>
               </div>
@@ -204,10 +201,9 @@ export function CategoryModerationBulk() {
             categoriesToModerate.map((category) => (
               <div
                 key={category._id.toString()}
-                className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700"
-              >
+                className="p-4 hover:bg-gray-50 dark:hover:bg-gray-700">
                 <div className="flex items-center space-x-4">
-                  <input
+                  <Input
                     type="checkbox"
                     checked={selectedCategories.has(category._id.toString())}
                     onChange={(e) =>
@@ -229,8 +225,7 @@ export function CategoryModerationBulk() {
                           category.moderationStatus === ModerationStatus.PENDING
                             ? "bg-yellow-100 dark:bg-yellow-800/50 text-yellow-800 dark:text-yellow-200"
                             : "bg-orange-100 dark:bg-orange-800/50 text-orange-800 dark:text-orange-200"
-                        }`}
-                      >
+                        }`}>
                         {category.moderationStatus}
                       </span>
                     </div>
@@ -256,8 +251,7 @@ export function CategoryModerationBulk() {
                           "_blank"
                         )
                       }
-                      className="px-3 py-1 text-sm bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-200 rounded hover:bg-blue-200 dark:hover:bg-blue-800"
-                    >
+                      className="px-3 py-1 text-sm bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-200 rounded hover:bg-blue-200 dark:hover:bg-blue-800">
                       Review
                     </button>
                   </div>

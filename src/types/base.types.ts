@@ -18,7 +18,7 @@ export interface FileReference {
   fileName: string;
   fileSize: number;
   mimeType?: string;
-  uploadedAt?: Date;
+  uploadedAt?: Date | string;
 }
 
 export interface UserLocation {
@@ -240,4 +240,3 @@ export interface ServiceUser extends BaseEntity, SoftDeletable {
   moderationNotes?: string;
   warningsCount: number;
 }
-

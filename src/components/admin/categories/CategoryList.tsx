@@ -358,8 +358,7 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
             ? "text-destructive"
             : "text-green-600"
           : `px-2 ${category.isActive ? "text-destructive" : "text-green-600"}`
-      )}
-    >
+      )}>
       {category.isActive ? (
         <Trash2 className="w-4 h-4" />
       ) : (
@@ -403,13 +402,12 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
         "transition-all cursor-pointer",
         isGrid ? "h-full hover:shadow-lg" : "hover:shadow-md",
         !category.isActive && "bg-orange-50/50 border-orange-200"
-      )}
-    >
+      )}>
       <CardContent className="px-2">
         {isGrid ? (
           <div className="space-y-3">
             <div className="flex justify-between">
-              <input
+              <Input
                 type="checkbox"
                 checked={isSelected(category)}
                 onChange={() => onToggleSelection(category)}
@@ -428,8 +426,7 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
             />
             <div
               onClick={() => onCategoryView(category)}
-              className="cursor-pointer"
-            >
+              className="cursor-pointer">
               <h3 className="font-medium text-sm truncate mb-1">
                 {category.name}
               </h3>
@@ -449,8 +446,7 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
                 onClick={(e) => {
                   e.stopPropagation();
                   onCategoryView(category);
-                }}
-              >
+                }}>
                 <ExternalLink className="w-4 h-4 mr-1" />
                 View
               </Button>
@@ -464,7 +460,7 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
           </div>
         ) : (
           <div className="flex items-center gap-3">
-            <input
+            <Input
               type="checkbox"
               checked={isSelected(category)}
               onChange={() => onToggleSelection(category)}
@@ -477,8 +473,7 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
             />
             <div
               className="flex-1 min-w-0 cursor-pointer"
-              onClick={() => onCategoryView(category)}
-            >
+              onClick={() => onCategoryView(category)}>
               <div className="flex items-center gap-2 mb-1">
                 <h3 className="font-medium text-sm truncate">
                   {category.name}
@@ -506,8 +501,7 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
                   e.stopPropagation();
                   onCategoryView(category);
                 }}
-                className="px-2"
-              >
+                className="px-2">
                 <ExternalLink className="w-4 h-4" />
               </Button>
               <ActionBtn
@@ -579,8 +573,7 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
                 "Failed to refresh"
               )
             }
-            disabled={isLoading}
-          >
+            disabled={isLoading}>
             <RefreshCw className={cn("w-4 h-4", isLoading && "animate-spin")} />
           </Button>
           <div className="flex border rounded-lg p-1">
@@ -590,8 +583,7 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
                 variant={viewMode === mode ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setViewMode(mode)}
-                className="px-3"
-              >
+                className="px-3">
                 {mode === "list" ? (
                   <List className="w-4 h-4" />
                 ) : (
@@ -602,8 +594,7 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
           </div>
 
           <Button
-            onClick={() => router.push("/admin/services/categories/create")}
-          >
+            onClick={() => router.push("/admin/services/categories/create")}>
             <Plus className="w-4 h-4 mr-2" />
             Create
           </Button>
@@ -624,8 +615,7 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
                   onClick={createBulkHandler(
                     bulkRestore,
                     "categories restored"
-                  )}
-                >
+                  )}>
                   <RotateCcw className="w-4 h-4 mr-1" />
                   Restore
                 </Button>
@@ -636,8 +626,7 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
                 onClick={createBulkHandler(
                   bulkToggleStatus,
                   "categories status updated"
-                )}
-              >
+                )}>
                 Toggle Status
               </Button>
               <AlertDialog>
@@ -661,8 +650,7 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
                       onClick={createBulkHandler(
                         bulkDelete,
                         "categories deleted"
-                      )}
-                    >
+                      )}>
                       Delete
                     </AlertDialogAction>
                   </AlertDialogFooter>
@@ -671,8 +659,7 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setSelectedCategories([])}
-              >
+                onClick={() => setSelectedCategories([])}>
                 Clear
               </Button>
             </div>
@@ -698,8 +685,7 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
               </Button>
             )}
             <Button
-              onClick={() => router.push("/admin/services/categories/create")}
-            >
+              onClick={() => router.push("/admin/services/categories/create")}>
               <Plus className="w-4 h-4 mr-2" />
               Create Category
             </Button>
@@ -711,8 +697,7 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
             viewMode === "list"
               ? "space-y-2"
               : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
-          }
-        >
+          }>
           {displayCategories.map((category) => (
             <CategoryCard
               key={category._id.toString()}
@@ -732,8 +717,7 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
 
       <AlertDialog
         open={!!categoryToDelete}
-        onOpenChange={() => setCategoryToDelete(null)}
-      >
+        onOpenChange={() => setCategoryToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Category</AlertDialogTitle>
@@ -758,8 +742,7 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
                 setSelectedCategories((prev) =>
                   prev.filter((c) => c._id !== categoryToDelete._id)
                 );
-              }}
-            >
+              }}>
               Delete
             </AlertDialogAction>
           </AlertDialogFooter>

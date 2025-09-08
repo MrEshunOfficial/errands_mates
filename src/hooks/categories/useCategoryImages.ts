@@ -1,6 +1,10 @@
 // Custom hooks for React applications
-import { CategoryImageService, FileReference, UploadImageRequest } from '@/lib/api/categories/categoryImage.api';
-import { useState, useCallback } from 'react';
+import {
+  CategoryImageService,
+  FileReference,
+  UploadImageRequest,
+} from "@/lib/api/categories/categoryImage.api";
+import { useState, useCallback } from "react";
 
 /**
  * Custom hook for managing category image operations
@@ -19,61 +23,82 @@ export function useCategoryImage(categoryId: string) {
       setImageData(result.data?.image || null);
       setHasImage(result.data?.hasImage || false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      setError(err instanceof Error ? err.message : "Unknown error");
     } finally {
       setLoading(false);
     }
   }, [categoryId]);
 
-  const uploadImage = useCallback(async (imageData: UploadImageRequest) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await CategoryImageService.uploadCategoryImage(categoryId, imageData);
-      setImageData(result.data?.image || null);
-      setHasImage(true);
-      return result;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      setError(errorMessage);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [categoryId]);
+  const uploadImage = useCallback(
+    async (imageData: UploadImageRequest) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await CategoryImageService.uploadCategoryImage(
+          categoryId,
+          imageData
+        );
+        setImageData(result.data?.image || null);
+        setHasImage(true);
+        return result;
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Unknown error";
+        setError(errorMessage);
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [categoryId]
+  );
 
-  const updateImage = useCallback(async (imageData: UploadImageRequest) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await CategoryImageService.updateCategoryImage(categoryId, imageData);
-      setImageData(result.data?.image || null);
-      return result;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      setError(errorMessage);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [categoryId]);
+  const updateImage = useCallback(
+    async (imageData: UploadImageRequest) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await CategoryImageService.updateCategoryImage(
+          categoryId,
+          imageData
+        );
+        setImageData(result.data?.image || null);
+        return result;
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Unknown error";
+        setError(errorMessage);
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [categoryId]
+  );
 
-  const replaceImage = useCallback(async (imageData: UploadImageRequest) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await CategoryImageService.replaceCategoryImage(categoryId, imageData);
-      setImageData(result.data?.newImage || null);
-      setHasImage(true);
-      return result;
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      setError(errorMessage);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [categoryId]);
+  const replaceImage = useCallback(
+    async (imageData: UploadImageRequest) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await CategoryImageService.replaceCategoryImage(
+          categoryId,
+          imageData
+        );
+        setImageData(result.data?.newImage || null);
+        setHasImage(true);
+        return result;
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Unknown error";
+        setError(errorMessage);
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [categoryId]
+  );
 
   const deleteImage = useCallback(async () => {
     setLoading(true);
@@ -84,7 +109,7 @@ export function useCategoryImage(categoryId: string) {
       setHasImage(false);
       return result;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
       setError(errorMessage);
       throw err;
     } finally {
@@ -101,7 +126,7 @@ export function useCategoryImage(categoryId: string) {
     uploadImage,
     updateImage,
     replaceImage,
-    deleteImage
+    deleteImage,
   };
 }
 
@@ -116,10 +141,12 @@ export function useBatchCategoryImages() {
     setLoading(true);
     setError(null);
     try {
-      const result = await CategoryImageService.getBatchCategoryImages(categoryIds);
+      const result = await CategoryImageService.getBatchCategoryImages(
+        categoryIds
+      );
       return result;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
       setError(errorMessage);
       throw err;
     } finally {
@@ -131,10 +158,12 @@ export function useBatchCategoryImages() {
     setLoading(true);
     setError(null);
     try {
-      const result = await CategoryImageService.getCategoriesWithImages(categoryIds);
+      const result = await CategoryImageService.getCategoriesWithImages(
+        categoryIds
+      );
       return result;
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
       setError(errorMessage);
       throw err;
     } finally {
@@ -146,6 +175,6 @@ export function useBatchCategoryImages() {
     loading,
     error,
     fetchBatchImages,
-    getCategoriesWithImages
+    getCategoriesWithImages,
   };
 }
