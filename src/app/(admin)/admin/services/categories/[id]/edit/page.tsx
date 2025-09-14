@@ -7,7 +7,7 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import CategoryForm from "@/components/admin/categories/category-form";
-import { useAdminCategory } from "@/hooks/categories/adminCategory.hook";
+import { useAdminCategory } from "@/hooks/admin/admin.category.hook";
 import { Category } from "@/types";
 import LoadingOverlay from "@/components/ui/LoadingOverlay";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -111,25 +111,29 @@ const EditCategoryPage: React.FC = () => {
         <nav className="flex items-center space-x-2 text-sm text-muted-foreground">
           <Link
             href="/admin"
-            className="hover:text-foreground transition-colors">
+            className="hover:text-foreground transition-colors"
+          >
             Admin
           </Link>
           <span>/</span>
           <Link
             href="/admin/services"
-            className="hover:text-foreground transition-colors">
+            className="hover:text-foreground transition-colors"
+          >
             Services
           </Link>
           <span>/</span>
           <Link
             href="/admin/services/categories"
-            className="hover:text-foreground transition-colors">
+            className="hover:text-foreground transition-colors"
+          >
             Categories
           </Link>
           <span>/</span>
           <Link
             href={`/admin/services/categories/${categoryId}`}
-            className="hover:text-foreground transition-colors">
+            className="hover:text-foreground transition-colors"
+          >
             {categoryId}
           </Link>
           <span>/</span>
@@ -142,10 +146,12 @@ const EditCategoryPage: React.FC = () => {
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center gap-4 mb-8">
+          className="flex items-center gap-4 mb-8"
+        >
           <Button
             onClick={() => router.back()}
-            className="bg-white/80 dark:bg-gray-700/80 text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 shadow-sm transition-all duration-300 hover:shadow-md">
+            className="bg-white/80 dark:bg-gray-700/80 text-gray-600 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-xl p-3 shadow-sm transition-all duration-300 hover:shadow-md"
+          >
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div>
@@ -164,7 +170,8 @@ const EditCategoryPage: React.FC = () => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}>
+          transition={{ delay: 0.1 }}
+        >
           {category && (
             <CategoryForm
               mode="edit"

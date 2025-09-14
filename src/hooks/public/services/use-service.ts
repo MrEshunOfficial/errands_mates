@@ -1,4 +1,4 @@
-// hooks/useService.ts - Updated service management hook with corrected API methods
+// hooks/useUserService.ts - User-focused service management hook
 
 import { useState, useEffect, useCallback } from "react";
 import type { Service } from "@/types/service.types";
@@ -20,18 +20,15 @@ import {
   type ServiceImageUploadData,
   type ServiceImageResponse,
   type ServiceImagesResponse,
-  type BatchFileOperationResponse,
 } from "@/lib/api/services/services.api";
 
-interface ServiceState {
+interface UserServiceState {
   // Current service data
   currentService?: Service | null;
 
-  // Collections
-  services: Service[];
+  // User collections
   userServices: Service[];
   popularServices: Service[];
-  pendingServices: Service[];
 
   // User service summary
   userServicesSummary: {
@@ -39,7 +36,8 @@ interface ServiceState {
     totalServices: number;
   } | null;
 
-  // Pagination info
+  // Public services with pagination
+  services: Service[];
   pagination: {
     currentPage: number;
     totalPages: number;
@@ -58,7 +56,7 @@ interface ServiceState {
   lastSearchParams: ServiceSearchParams | null;
 }
 
-interface ServiceActions {
+interface UserServiceActions {
   // Core service management
   createService: (data: CreateServiceData) => Promise<Service>;
   getServiceById: (
@@ -71,7 +69,6 @@ interface ServiceActions {
     data: UpdateServiceData
   ) => Promise<Service>;
   deleteService: (serviceId: string) => Promise<void>;
-  restoreService: (serviceId: string) => Promise<Service>;
 
   // Service file management
   uploadServiceImages: (
@@ -81,69 +78,13 @@ interface ServiceActions {
   getServiceImages: (serviceId: string) => Promise<ServiceImagesResponse>;
   deleteServiceImages: (serviceId: string) => Promise<ServiceImagesResponse>;
 
-  // Batch file operations (admin only)
-  batchGetServiceImages: (
-    serviceIds: string[]
-  ) => Promise<BatchFileOperationResponse>;
-  batchDeleteServiceImages: (
-    serviceIds: string[]
-  ) => Promise<BatchFileOperationResponse>;
-
-  // Service listing operations
-  getAllServices: (
-    params?: ServiceSearchParams
-  ) => Promise<PaginatedServiceResponse>;
+  // User service operations
   getUserServices: (
     params?: UserServiceSearchParams
   ) => Promise<UserServiceResponse>;
   refreshUserServices: () => Promise<void>;
 
-  // Category-based operations
-  getServicesByCategory: (
-    categoryId: string,
-    params?: Omit<ServiceSearchParams, "category">
-  ) => Promise<PaginatedServiceResponse>;
-
-  // Popular services
-  getPopularServices: (limit?: number) => Promise<Service[]>;
-  togglePopular: (serviceId: string) => Promise<Service>;
-  refreshPopularServices: () => Promise<void>;
-
-  // Pricing-based operations (matching backend routes)
-  getServicesWithPricing: (
-    params?: ServiceSearchParams
-  ) => Promise<PaginatedServiceResponse>;
-
-  // Admin operations
-  getPendingServices: (
-    params?: Pick<ServiceSearchParams, "page" | "limit">
-  ) => Promise<PaginatedServiceResponse>;
-  approveService: (serviceId: string) => Promise<Service>;
-  rejectService: (serviceId: string, reason?: string) => Promise<Service>;
-  refreshPendingServices: () => Promise<void>;
-
-  // Convenience methods for common use cases
-  getServiceWithFullDetails: (serviceId: string) => Promise<Service>;
-  getApprovedServices: (
-    params?: ServiceSearchParams
-  ) => Promise<PaginatedServiceResponse>;
-  getServicesByStatus: (
-    status: ServiceStatus,
-    params?: Omit<ServiceSearchParams, "status">
-  ) => Promise<PaginatedServiceResponse>;
-  getServicesInPriceRange: (
-    minPrice: number,
-    maxPrice: number,
-    params?: Omit<ServiceSearchParams, "minPrice" | "maxPrice">
-  ) => Promise<PaginatedServiceResponse>;
-  getServicesWithFixedPricing: (
-    params?: ServiceSearchParams
-  ) => Promise<PaginatedServiceResponse>;
-  getServicesWithServiceTypePricing: (
-    params?: ServiceSearchParams
-  ) => Promise<PaginatedServiceResponse>;
-
-  // User-specific methods
+  // User-specific status methods
   getUserServicesByStatus: (
     status: ServiceStatus,
     params?: Omit<UserServiceSearchParams, "status">
@@ -164,6 +105,39 @@ interface ServiceActions {
     params?: UserServiceSearchParams
   ) => Promise<UserServiceResponse>;
 
+  // Public service listing operations
+  getAllServices: (
+    params?: ServiceSearchParams
+  ) => Promise<PaginatedServiceResponse>;
+  getPopularServices: (limit?: number) => Promise<Service[]>;
+  getApprovedServices: (
+    params?: ServiceSearchParams
+  ) => Promise<PaginatedServiceResponse>;
+
+  // Category and filtering operations
+  getServicesByCategory: (
+    categoryId: string,
+    params?: Omit<ServiceSearchParams, "category">
+  ) => Promise<PaginatedServiceResponse>;
+  getServicesWithPricing: (
+    params?: ServiceSearchParams
+  ) => Promise<PaginatedServiceResponse>;
+  getServicesByStatus: (
+    status: ServiceStatus,
+    params?: Omit<ServiceSearchParams, "status">
+  ) => Promise<PaginatedServiceResponse>;
+  getServicesInPriceRange: (
+    minPrice: number,
+    maxPrice: number,
+    params?: Omit<ServiceSearchParams, "minPrice" | "maxPrice">
+  ) => Promise<PaginatedServiceResponse>;
+  getServicesWithFixedPricing: (
+    params?: ServiceSearchParams
+  ) => Promise<PaginatedServiceResponse>;
+  getServicesWithServiceTypePricing: (
+    params?: ServiceSearchParams
+  ) => Promise<PaginatedServiceResponse>;
+
   // Sorting and filtering
   getServicesByTags: (
     tags: string[],
@@ -181,25 +155,28 @@ interface ServiceActions {
   ) => Promise<PaginatedServiceResponse>;
   getTopPopularServices: (limit?: number) => Promise<Service[]>;
 
+  // Convenience methods
+  getServiceWithFullDetails: (serviceId: string) => Promise<Service>;
+  refreshPopularServices: () => Promise<void>;
+
   // State management
   setCurrentService: (service: Service | null) => void;
   clearServices: () => void;
   clearError: () => void;
   clearSearch: () => void;
 
-  // Utility
+  // Utility functions
   isServiceOwner: (service: Service, userId: string) => boolean;
   canEditService: (service: Service, userId: string) => boolean;
   getServiceStatusColor: (status: ServiceStatus) => string;
   getServiceStatusLabel: (status: ServiceStatus) => string;
 }
 
-const initialState: ServiceState = {
+const initialState: UserServiceState = {
   currentService: null,
-  services: [],
   userServices: [],
   popularServices: [],
-  pendingServices: [],
+  services: [],
   userServicesSummary: null,
   pagination: null,
   isLoading: false,
@@ -209,10 +186,10 @@ const initialState: ServiceState = {
   lastSearchParams: null,
 };
 
-export const useService = (): ServiceState & ServiceActions => {
-  const [state, setState] = useState<ServiceState>(initialState);
+export const useUserService = (): UserServiceState & UserServiceActions => {
+  const [state, setState] = useState<UserServiceState>(initialState);
 
-  const updateState = useCallback((updates: Partial<ServiceState>) => {
+  const updateState = useCallback((updates: Partial<UserServiceState>) => {
     setState((prev) => ({ ...prev, ...updates }));
   }, []);
 
@@ -290,6 +267,10 @@ export const useService = (): ServiceState & ServiceActions => {
     [updateState]
   );
 
+  // ====================================================================
+  // USER SERVICE OPERATIONS
+  // ====================================================================
+
   const getUserServices = useCallback(
     async (params?: UserServiceSearchParams): Promise<UserServiceResponse> => {
       const response = await handleServiceAction(
@@ -312,7 +293,7 @@ export const useService = (): ServiceState & ServiceActions => {
   );
 
   // ====================================================================
-  // CORE SERVICE MANAGEMENT - Matching backend authenticated routes
+  // CORE SERVICE MANAGEMENT
   // ====================================================================
 
   const createService = useCallback(
@@ -397,7 +378,7 @@ export const useService = (): ServiceState & ServiceActions => {
   );
 
   // ====================================================================
-  // SERVICE FILE MANAGEMENT - New file management methods
+  // SERVICE FILE MANAGEMENT
   // ====================================================================
 
   const uploadServiceImages = useCallback(
@@ -447,57 +428,23 @@ export const useService = (): ServiceState & ServiceActions => {
     [handleServiceAction, state.currentService?._id, getServiceById]
   );
 
-  const batchGetServiceImages = useCallback(
-    async (serviceIds: string[]): Promise<BatchFileOperationResponse> => {
-      return handleServiceAction(
-        () => serviceAPI.batchGetServiceImages(serviceIds),
-        { showLoading: false }
-      ) as Promise<BatchFileOperationResponse>;
-    },
-    [handleServiceAction]
-  );
-
-  const batchDeleteServiceImages = useCallback(
-    async (serviceIds: string[]): Promise<BatchFileOperationResponse> => {
-      return handleServiceAction(
-        () => serviceAPI.batchDeleteServiceImages(serviceIds),
-        { showLoading: false }
-      ) as Promise<BatchFileOperationResponse>;
-    },
-    [handleServiceAction]
-  );
-
   // ====================================================================
-  // ADMIN SERVICE ROUTES - Matching backend admin routes
+  // PUBLIC SERVICE ROUTES
   // ====================================================================
 
-  const restoreService = useCallback(
-    async (serviceId: string): Promise<Service> => {
+  const getAllServices = useCallback(
+    async (params?: ServiceSearchParams): Promise<PaginatedServiceResponse> => {
       const response = await handleServiceAction(
-        () => serviceAPI.restoreService(serviceId),
-        {
-          onSuccess: () => {
-            // Refresh user services
-            getUserServices().catch(console.error);
-          },
-        }
-      );
-      return (response as ServiceResponse).data!;
-    },
-    [getUserServices, handleServiceAction]
-  );
-
-  const getPendingServices = useCallback(
-    async (
-      params?: Pick<ServiceSearchParams, "page" | "limit">
-    ): Promise<PaginatedServiceResponse> => {
-      const response = await handleServiceAction(
-        () => serviceAPI.getPendingServices(params),
+        () => serviceAPI.getAllServices(params),
         {
           showLoading: false,
           onSuccess: (res) => {
             const paginatedResponse = res as PaginatedServiceResponse;
-            updateState({ pendingServices: paginatedResponse.data });
+            updateState({
+              services: paginatedResponse.data,
+              pagination: paginatedResponse.pagination,
+              lastSearchParams: params || null,
+            });
           },
         }
       );
@@ -523,77 +470,13 @@ export const useService = (): ServiceState & ServiceActions => {
     [handleServiceAction, updateState]
   );
 
-  const togglePopular = useCallback(
-    async (serviceId: string): Promise<Service> => {
-      const response = await handleServiceAction(
-        () => serviceAPI.togglePopular(serviceId),
-        {
-          onSuccess: () => {
-            // Refresh popular services
-            getPopularServices().catch(console.error);
-          },
-        }
-      );
-      return (response as ServiceResponse).data!;
-    },
-    [getPopularServices, handleServiceAction]
-  );
-
-  const approveService = useCallback(
-    async (serviceId: string): Promise<Service> => {
-      const response = await handleServiceAction(
-        () => serviceAPI.approveService({ serviceId }),
-        {
-          onSuccess: () => {
-            // Refresh pending services
-            getPendingServices().catch(console.error);
-          },
-        }
-      );
-      return (response as ServiceResponse).data!;
-    },
-    [getPendingServices, handleServiceAction]
-  );
-
-  const rejectService = useCallback(
-    async (serviceId: string, reason?: string): Promise<Service> => {
-      const response = await handleServiceAction(
-        () => serviceAPI.rejectService({ serviceId, reason }),
-        {
-          onSuccess: () => {
-            // Refresh pending services
-            getPendingServices().catch(console.error);
-          },
-        }
-      );
-      return (response as ServiceResponse).data!;
-    },
-    [getPendingServices, handleServiceAction]
-  );
-
-  // ====================================================================
-  // PUBLIC SERVICE ROUTES - Matching backend public routes exactly
-  // ====================================================================
-
-  const getAllServices = useCallback(
+  const getApprovedServices = useCallback(
     async (params?: ServiceSearchParams): Promise<PaginatedServiceResponse> => {
-      const response = await handleServiceAction(
-        () => serviceAPI.getAllServices(params),
-        {
-          showLoading: false,
-          onSuccess: (res) => {
-            const paginatedResponse = res as PaginatedServiceResponse;
-            updateState({
-              services: paginatedResponse.data,
-              pagination: paginatedResponse.pagination,
-              lastSearchParams: params || null,
-            });
-          },
-        }
-      );
-      return response as PaginatedServiceResponse;
+      return handleServiceAction(() => serviceAPI.getApprovedServices(params), {
+        showLoading: false,
+      }) as Promise<PaginatedServiceResponse>;
     },
-    [handleServiceAction, updateState]
+    [handleServiceAction]
   );
 
   const getServicesWithPricing = useCallback(
@@ -620,7 +503,7 @@ export const useService = (): ServiceState & ServiceActions => {
   );
 
   // ====================================================================
-  // CONVENIENCE METHODS FOR COMMON USE CASES
+  // CONVENIENCE METHODS
   // ====================================================================
 
   const getServiceWithFullDetails = useCallback(
@@ -629,15 +512,6 @@ export const useService = (): ServiceState & ServiceActions => {
         () => serviceAPI.getServiceWithFullDetails(serviceId),
         { updateCurrentService: true }
       ).then((res) => (res as ServiceResponse).data!);
-    },
-    [handleServiceAction]
-  );
-
-  const getApprovedServices = useCallback(
-    async (params?: ServiceSearchParams): Promise<PaginatedServiceResponse> => {
-      return handleServiceAction(() => serviceAPI.getApprovedServices(params), {
-        showLoading: false,
-      }) as Promise<PaginatedServiceResponse>;
     },
     [handleServiceAction]
   );
@@ -690,7 +564,7 @@ export const useService = (): ServiceState & ServiceActions => {
   );
 
   // ====================================================================
-  // USER-SPECIFIC METHODS
+  // USER-SPECIFIC STATUS METHODS
   // ====================================================================
 
   const getUserServicesByStatus = useCallback(
@@ -829,10 +703,6 @@ export const useService = (): ServiceState & ServiceActions => {
     await getPopularServices();
   }, [getPopularServices]);
 
-  const refreshPendingServices = useCallback(async (): Promise<void> => {
-    await getPendingServices();
-  }, [getPendingServices]);
-
   // ====================================================================
   // STATE MANAGEMENT
   // ====================================================================
@@ -849,7 +719,6 @@ export const useService = (): ServiceState & ServiceActions => {
       services: [],
       userServices: [],
       popularServices: [],
-      pendingServices: [],
       pagination: null,
       userServicesSummary: null,
     });
@@ -918,7 +787,7 @@ export const useService = (): ServiceState & ServiceActions => {
 
     const initializeServices = async () => {
       try {
-        // Fetch popular services on initialization (matches backend route)
+        // Fetch popular services on initialization
         const popularResponse = await serviceAPI.getPopularServices(10);
 
         if (!mounted) return;
@@ -962,20 +831,12 @@ export const useService = (): ServiceState & ServiceActions => {
     uploadServiceImages,
     getServiceImages,
     deleteServiceImages,
-    batchGetServiceImages,
-    batchDeleteServiceImages,
-
-    // Admin operations
-    restoreService,
-    togglePopular,
-    approveService,
-    rejectService,
 
     // Public listing operations
     getAllServices,
     getPopularServices,
+    getApprovedServices,
     getServicesWithPricing,
-    getPendingServices,
     getServicesByCategory,
 
     // User-specific operations
@@ -984,7 +845,6 @@ export const useService = (): ServiceState & ServiceActions => {
 
     // Convenience methods
     getServiceWithFullDetails,
-    getApprovedServices,
     getServicesByStatus,
     getServicesInPriceRange,
     getServicesWithFixedPricing,
@@ -1007,7 +867,6 @@ export const useService = (): ServiceState & ServiceActions => {
 
     // Refresh methods
     refreshPopularServices,
-    refreshPendingServices,
 
     // State management
     setCurrentService,

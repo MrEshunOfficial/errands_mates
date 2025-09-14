@@ -5,13 +5,13 @@ import {
   SoftDeletable,
   RequestStatus,
   UserLocation,
-  FileReference,
   ServiceUser,
 } from "./base.types";
 import { Category } from "./category.types";
 import { Service } from "./service.types";
 import { SafetyIncident } from "./safety.types";
 import { Review } from "./review.types";
+import { FileReference } from "@/lib/api/categories/categoryImage.api";
 
 export interface ServiceRequest extends BaseEntity, SoftDeletable {
   requestNumber: string;

@@ -8,6 +8,8 @@ import {
   UpdateDisplayOrderData,
   CategorySearchParams,
   ModerateCategoryData,
+  DeletedCategoriesParams,
+  DeletedCategoryFetchOptions,
 } from "@/lib/api/categories/category.api";
 
 // Admin-specific category state interface
@@ -16,6 +18,7 @@ interface AdminCategoryState {
   categories: Category[];
   allCategories: Category[];
   inactiveCategories: Category[];
+  deletedCategories: Category[];
   searchResults: Category[];
   pagination?: {
     page: number;
@@ -49,6 +52,8 @@ interface AdminCategoryActions {
   fetchAllCategories: (searchParams?: CategorySearchParams) => Promise<void>;
   fetchInactiveCategories: (searchParams?: CategorySearchParams) => Promise<void>;
   fetchAllParentCategories: () => Promise<void>;
+  fetchDeletedCategories: (params?: DeletedCategoriesParams) => Promise<void>;
+  fetchDeletedCategoryById: (id: string, options?: DeletedCategoryFetchOptions) => Promise<void>;
   
   // Admin search operations
   searchAllCategories: (query: string, limit?: number) => Promise<void>;
@@ -86,14 +91,15 @@ interface AdminCategoryActions {
 
 type CategoryResult =
   | { type: "category"; data: Category | null }
-  | { type: "categories"; data: { categories: Category[] } };
-
+  | { type: "categories"; data: { categories: Category[] } }
+  | { type: "paginatedCategories"; data: { categories: Category[], pagination: AdminCategoryState['pagination'] } };
 
 export const useAdminCategory = (
   categoryId?: string,
   options?: {
     autoFetch?: boolean;
     autoFetchCategories?: boolean;
+    autoFetchDeleted?: boolean;
     defaultParams?: CategorySearchParams;
     includeInactive?: boolean;
   }
@@ -103,11 +109,18 @@ export const useAdminCategory = (
     categories: [],
     allCategories: [],
     inactiveCategories: [],
+    deletedCategories: [],
     searchResults: [],
     pagination: undefined,
     searchQuery: "",
     params: { ...options?.defaultParams, includeUserData: true, includeInactive: options?.includeInactive },
-    isLoading: !!(categoryId && options?.autoFetch !== false),
+    
+    isLoading: !!(
+      (categoryId && options?.autoFetch !== false) ||
+      options?.autoFetchCategories ||
+      options?.autoFetchDeleted
+    ),
+    
     error: null,
     isInitialized: false,
     createLoading: false,
@@ -190,7 +203,7 @@ export const useAdminCategory = (
   }, [handleAdminAction, updateState]);
 
   const fetchAllCategories = useCallback(async (searchParams?: CategorySearchParams) => {
-    const queryParams = { ...state.params, ...searchParams, includeUserData: true, includeInactive: true };
+    const queryParams = { ...state.params, ...searchParams, includeUserData: true, includeInactive: true, includeDeleted: true };
     
     await handleAdminAction(
       () => categoryAPI.getAllCategoriesForAdmin(queryParams),
@@ -237,6 +250,32 @@ export const useAdminCategory = (
     );
   }, [handleAdminAction, updateState]);
 
+  const fetchDeletedCategories = useCallback(async (params?: DeletedCategoriesParams) => {
+    await handleAdminAction(
+      () => categoryAPI.getDeletedCategories(params),
+      {
+        onSuccess: (response) => {
+          updateState({
+            deletedCategories: response.data.categories,
+            categories: response.data.categories,
+            pagination: response.data.pagination,
+          });
+        }
+      }
+    );
+  }, [handleAdminAction, updateState]);
+
+  const fetchDeletedCategoryById = useCallback(async (id: string, options?: DeletedCategoryFetchOptions) => {
+    await handleAdminAction(
+      () => categoryAPI.getDeletedCategoryById(id, options),
+      {
+        onSuccess: (response) => {
+          updateState({ category: response.data?.category || null });
+        }
+      }
+    );
+  }, [handleAdminAction, updateState]);
+
   // Admin search operations
   const searchAllCategories = useCallback(async (query: string, limit?: number) => {
     if (!query.trim()) {
@@ -273,7 +312,6 @@ export const useAdminCategory = (
       () => categoryAPI.searchAllCategoriesForAdmin(query, limit),
       {
         onSuccess: (response) => {
-          // Filter to only inactive categories
           const inactiveResults = response.data.categories.filter(cat => !cat.isActive);
           updateState({
             searchResults: inactiveResults,
@@ -304,7 +342,6 @@ export const useAdminCategory = (
         errorKey: 'createError',
         successKey: 'createSuccess',
         onSuccess: () => {
-          // Refresh categories list
           if (state.categories.length > 0) {
             fetchAllCategories();
           }
@@ -326,11 +363,9 @@ export const useAdminCategory = (
         onSuccess: (response) => {
           const updatedCategory = response.data?.category;
           if (updatedCategory) {
-            // Update single category if it matches
             if (state.category?._id.toString() === categoryId) {
               updateState({ category: updatedCategory });
             }
-            // Update in all category arrays
             const updateInArray = (categories: Category[]) =>
               categories.map(cat => 
                 cat._id.toString() === categoryId ? updatedCategory : cat
@@ -340,12 +375,13 @@ export const useAdminCategory = (
               categories: updateInArray(state.categories),
               allCategories: updateInArray(state.allCategories),
               inactiveCategories: updateInArray(state.inactiveCategories),
+              deletedCategories: state.deletedCategories.filter(cat => cat._id.toString() !== categoryId),
             });
           }
         }
       }
     ).then(response => response.data?.category || null).catch(() => null);
-  }, [handleAdminAction, state.category, state.categories, state.allCategories, state.inactiveCategories, updateState]);
+  }, [handleAdminAction, state.category, state.categories, state.allCategories, state.inactiveCategories, state.deletedCategories, updateState]);
 
   const deleteCategory = useCallback(async (categoryId: string): Promise<boolean> => {
     return await handleAdminAction(
@@ -355,16 +391,15 @@ export const useAdminCategory = (
         errorKey: 'deleteError',
         successKey: 'deleteSuccess',
         onSuccess: () => {
-          // Update category if it matches
           if (state.category?._id.toString() === categoryId) {
             updateState({ category: null });
           }
-          // Refresh to get updated status
           fetchAllCategories();
+          fetchDeletedCategories();
         }
       }
     ).then(() => true).catch(() => false);
-  }, [handleAdminAction, state.category, updateState, fetchAllCategories]);
+  }, [handleAdminAction, state.category, updateState, fetchAllCategories, fetchDeletedCategories]);
 
   const restoreCategory = useCallback(async (categoryId: string): Promise<Category | null> => {
     return await handleAdminAction(
@@ -376,22 +411,21 @@ export const useAdminCategory = (
         onSuccess: (response) => {
           const restoredCategory = response.data?.category;
           if (restoredCategory) {
-            // Update single category if it matches
             if (state.category?._id.toString() === categoryId) {
               updateState({ category: restoredCategory });
             }
-            // Remove from inactive categories and update other arrays
             updateState({
-              inactiveCategories: state.inactiveCategories.filter(cat => cat._id.toString() !== categoryId),
+              deletedCategories: state.deletedCategories.filter(cat => cat._id.toString() !== categoryId),
               allCategories: state.allCategories.map(cat => 
                 cat._id.toString() === categoryId ? restoredCategory : cat
               )
             });
+            fetchAllCategories();
           }
         }
       }
     ).then(response => response.data?.category || null).catch(() => null);
-  }, [handleAdminAction, state.category, state.inactiveCategories, state.allCategories, updateState]);
+  }, [handleAdminAction, state.category, state.deletedCategories, state.allCategories, updateState, fetchAllCategories]);
 
   const toggleCategoryStatus = useCallback(async (categoryId: string): Promise<Category | null> => {
     return await handleAdminAction(
@@ -403,11 +437,9 @@ export const useAdminCategory = (
         onSuccess: (response) => {
           const updatedCategory = response.data?.category;
           if (updatedCategory) {
-            // Update single category if it matches
             if (state.category?._id.toString() === categoryId) {
               updateState({ category: updatedCategory });
             }
-            // Update in all arrays
             const updateInArray = (categories: Category[]) =>
               categories.map(cat => 
                 cat._id.toString() === categoryId ? updatedCategory : cat
@@ -418,13 +450,14 @@ export const useAdminCategory = (
               allCategories: updateInArray(state.allCategories),
               inactiveCategories: updatedCategory.isActive 
                 ? state.inactiveCategories.filter(cat => cat._id.toString() !== categoryId)
-                : [...state.inactiveCategories.filter(cat => cat._id.toString() !== categoryId), updatedCategory]
+                : [...state.inactiveCategories.filter(cat => cat._id.toString() !== categoryId), updatedCategory],
+              deletedCategories: state.deletedCategories.filter(cat => cat._id.toString() !== categoryId),
             });
           }
         }
       }
     ).then(response => response.data?.category || null).catch(() => null);
-  }, [handleAdminAction, state.category, state.categories, state.allCategories, state.inactiveCategories, updateState]);
+  }, [handleAdminAction, state.category, state.categories, state.allCategories, state.inactiveCategories, state.deletedCategories, updateState]);
 
   const updateDisplayOrder = useCallback(async (data: UpdateDisplayOrderData): Promise<boolean> => {
     return await handleAdminAction(
@@ -434,7 +467,6 @@ export const useAdminCategory = (
         errorKey: 'updateError',
         successKey: 'updateSuccess',
         onSuccess: () => {
-          // Refresh categories to get updated order
           if (state.categories.length > 0) {
             fetchAllCategories();
           }
@@ -457,11 +489,9 @@ export const useAdminCategory = (
         onSuccess: (response) => {
           const moderatedCategory = response.data?.category;
           if (moderatedCategory) {
-            // Update single category if it matches
             if (state.category?._id.toString() === categoryId) {
               updateState({ category: moderatedCategory });
             }
-            // Update in all arrays
             const updateInArray = (categories: Category[]) =>
               categories.map(cat => 
                 cat._id.toString() === categoryId ? moderatedCategory : cat
@@ -471,12 +501,13 @@ export const useAdminCategory = (
               categories: updateInArray(state.categories),
               allCategories: updateInArray(state.allCategories),
               inactiveCategories: updateInArray(state.inactiveCategories),
+              deletedCategories: state.deletedCategories.filter(cat => cat._id.toString() !== categoryId),
             });
           }
         }
       }
     ).then(response => response.data?.category || null).catch(() => null);
-  }, [handleAdminAction, state.category, state.categories, state.allCategories, state.inactiveCategories, updateState]);
+  }, [handleAdminAction, state.category, state.categories, state.allCategories, state.inactiveCategories, state.deletedCategories, updateState]);
 
   const bulkModerateCategories = useCallback(async (
     categories: Array<{ categoryId: string; data: ModerateCategoryData }>
@@ -536,6 +567,7 @@ export const useAdminCategory = (
       categories: [],
       allCategories: [],
       inactiveCategories: [],
+      deletedCategories: [],
       searchResults: [],
       pagination: undefined,
     });
@@ -578,13 +610,18 @@ export const useAdminCategory = (
   }, [updateState]);
 
   const refetch = useCallback(async () => {
+    const promises: Promise<void>[] = [];
     if (categoryId && state.category) {
-      await fetchCategoryWithFullDetails(categoryId);
+      promises.push(fetchCategoryWithFullDetails(categoryId));
     }
     if (state.categories.length > 0) {
-      await fetchAllCategories();
+      promises.push(fetchAllCategories());
     }
-  }, [categoryId, state.category, state.categories.length, fetchCategoryWithFullDetails, fetchAllCategories]);
+    if (state.deletedCategories.length > 0) {
+      promises.push(fetchDeletedCategories());
+    }
+    await Promise.all(promises);
+  }, [categoryId, state.category, state.categories.length, state.deletedCategories.length, fetchCategoryWithFullDetails, fetchAllCategories, fetchDeletedCategories]);
 
   // Admin auto-initialization effect
   useEffect(() => {
@@ -594,7 +631,6 @@ export const useAdminCategory = (
       try {
         const promises: Promise<CategoryResult>[] = [];
 
-        // Auto-fetch single category with full details
         if (categoryId && memoizedOptions?.autoFetch !== false) {
           promises.push(
             categoryAPI.getCategoryWithFullDetails(categoryId).then(response => ({
@@ -604,11 +640,19 @@ export const useAdminCategory = (
           );
         }
 
-        // Auto-fetch all categories for admin
         if (memoizedOptions?.autoFetchCategories) {
           promises.push(
             categoryAPI.getAllCategoriesForAdmin(state.params).then(response => ({
-              type: "categories" as const,
+              type: "paginatedCategories" as const,
+              data: response.data,
+            }))
+          );
+        }
+
+        if (memoizedOptions?.autoFetchDeleted) {
+          promises.push(
+            categoryAPI.getDeletedCategories(state.params).then(response => ({
+              type: "paginatedCategories" as const,
               data: response.data,
             }))
           );
@@ -636,9 +680,14 @@ export const useAdminCategory = (
 
             if (type === "category") {
               newState.category = data;
-            } else if (type === "categories") {
-              newState.allCategories = data.categories;
-              newState.categories = data.categories;
+            } else if (type === "paginatedCategories") {
+              if (data.categories.some(cat => cat.isDeleted)) {
+                newState.deletedCategories = data.categories;
+              } else {
+                newState.allCategories = data.categories;
+                newState.categories = data.categories;
+              }
+              newState.pagination = data.pagination;
             }
           } else {
             console.warn("Admin category initialization failed for one operation:", result.reason);
@@ -670,6 +719,7 @@ export const useAdminCategory = (
     categoryId,
     memoizedOptions?.autoFetch,
     memoizedOptions?.autoFetchCategories,
+    memoizedOptions?.autoFetchDeleted,
     state.params,
     updateState,
   ]);
@@ -680,6 +730,8 @@ export const useAdminCategory = (
     fetchAllCategories,
     fetchInactiveCategories,
     fetchAllParentCategories,
+    fetchDeletedCategories,
+    fetchDeletedCategoryById,
     searchAllCategories,
     searchInactiveCategories,
     clearSearch,
@@ -713,11 +765,13 @@ export const useAdminCategory = (
  */
 export const useAdminCategoryManager = (options?: {
   autoFetchOnMount?: boolean;
+  autoFetchDeleted?: boolean;
   defaultParams?: CategorySearchParams;
   includeInactive?: boolean;
 }) => {
   return useAdminCategory(undefined, {
     autoFetchCategories: options?.autoFetchOnMount !== false,
+    autoFetchDeleted: options?.autoFetchDeleted,
     defaultParams: options?.defaultParams,
     includeInactive: options?.includeInactive ?? true,
   });
@@ -731,12 +785,11 @@ export const useInactiveCategoryManager = (options?: {
   defaultParams?: CategorySearchParams;
 }) => {
   const adminHook = useAdminCategory(undefined, {
-    autoFetchCategories: false, // We'll fetch inactive categories specifically
+    autoFetchCategories: false,
     defaultParams: options?.defaultParams,
     includeInactive: true,
   });
 
-  // Auto-fetch inactive categories on mount
   useEffect(() => {
     if (options?.autoFetchOnMount !== false) {
       adminHook.fetchInactiveCategories();
@@ -744,29 +797,24 @@ export const useInactiveCategoryManager = (options?: {
   }, [adminHook, options?.autoFetchOnMount]);
 
   return {
-    // Main state (focused on inactive categories)
     categories: adminHook.inactiveCategories,
     loading: adminHook.isLoading,
     error: adminHook.error,
     pagination: adminHook.pagination,
     params: adminHook.params,
 
-    // Inactive-specific operations
     fetchInactiveCategories: adminHook.fetchInactiveCategories,
     searchInactiveCategories: adminHook.searchInactiveCategories,
     
-    // Restoration operations
     restoreCategory: adminHook.restoreCategory,
     bulkRestore: adminHook.bulkRestore,
     
-    // Standard operations
     updateParams: adminHook.updateParams,
     clearData: adminHook.clearData,
     clearError: adminHook.clearError,
     clearUpdateState: adminHook.clearUpdateState,
     refetch: adminHook.refetch,
 
-    // Search functionality
     search: {
       results: adminHook.searchResults,
       loading: adminHook.isLoading,
@@ -777,7 +825,53 @@ export const useInactiveCategoryManager = (options?: {
       clearSearch: adminHook.clearSearch,
     },
 
-    // Loading and error states for updates
+    updateLoading: adminHook.updateLoading,
+    updateError: adminHook.updateError,
+    updateSuccess: adminHook.updateSuccess,
+  };
+};
+
+/**
+ * Hook for managing deleted categories
+ */
+export const useDeletedCategoryManager = (options?: {
+  autoFetchOnMount?: boolean;
+  defaultParams?: DeletedCategoriesParams;
+}) => {
+  const adminHook = useAdminCategory(undefined, {
+    autoFetchCategories: false,
+    autoFetchDeleted: options?.autoFetchOnMount !== false,
+    defaultParams: options?.defaultParams,
+  });
+
+  return {
+    categories: adminHook.deletedCategories,
+    loading: adminHook.isLoading,
+    error: adminHook.error,
+    pagination: adminHook.pagination,
+    params: adminHook.params,
+
+    fetchDeletedCategories: adminHook.fetchDeletedCategories,
+    fetchDeletedCategoryById: adminHook.fetchDeletedCategoryById,
+    
+    restoreCategory: adminHook.restoreCategory,
+    bulkRestore: adminHook.bulkRestore,
+    
+    updateParams: adminHook.updateParams,
+    clearData: adminHook.clearData,
+    clearError: adminHook.clearError,
+    clearUpdateState: adminHook.clearUpdateState,
+    refetch: adminHook.refetch,
+
+    search: {
+      results: adminHook.searchResults,
+      loading: adminHook.isLoading,
+      error: adminHook.error,
+      query: adminHook.searchQuery,
+      setQuery: adminHook.setSearchQuery,
+      clearSearch: adminHook.clearSearch,
+    },
+
     updateLoading: adminHook.updateLoading,
     updateError: adminHook.updateError,
     updateSuccess: adminHook.updateSuccess,
@@ -791,23 +885,18 @@ export const useCategoryModeration = () => {
   const adminHook = useAdminCategory();
 
   return {
-    // Moderation operations
     moderateCategory: adminHook.moderateCategory,
     bulkModerateCategories: adminHook.bulkModerateCategories,
     
-    // Status management
     toggleCategoryStatus: adminHook.toggleCategoryStatus,
     bulkToggleStatus: adminHook.bulkToggleStatus,
     
-    // Restoration operations
     restoreCategory: adminHook.restoreCategory,
     bulkRestore: adminHook.bulkRestore,
     
-    // Deletion operations
     deleteCategory: adminHook.deleteCategory,
     bulkDelete: adminHook.bulkDelete,
 
-    // Loading and error states
     moderateLoading: adminHook.moderateLoading,
     moderateError: adminHook.moderateError,
     moderateSuccess: adminHook.moderateSuccess,
@@ -818,7 +907,6 @@ export const useCategoryModeration = () => {
     deleteError: adminHook.deleteError,
     deleteSuccess: adminHook.deleteSuccess,
     
-    // State clearing
     clearModerateState: adminHook.clearModerateState,
     clearUpdateState: adminHook.clearUpdateState,
     clearDeleteState: adminHook.clearDeleteState,

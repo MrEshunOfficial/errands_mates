@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import ServiceList from "@/components/homepage/ServiceList";
+import AdminServiceTable from "@/components/admin/services/service-list";
 
 export default function ServiceListPage() {
   return (
@@ -10,7 +10,8 @@ export default function ServiceListPage() {
         <nav className="flex items-center space-x-2 text-sm text-muted-foreground">
           <Link
             href="/admin"
-            className="hover:text-foreground transition-colors">
+            className="hover:text-foreground transition-colors"
+          >
             Admin
           </Link>
           <span>/</span>
@@ -20,7 +21,11 @@ export default function ServiceListPage() {
         </nav>
       </div>
       <main className="min-h-screen w-full">
-        <ServiceList />
+        <AdminServiceTable
+          limit={50}
+          searchPlaceholder="Find services..."
+          autoFetch={true}
+        />
       </main>
     </div>
   );

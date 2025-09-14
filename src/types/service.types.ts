@@ -1,43 +1,52 @@
-// types/service.types.ts
 import { Types } from "mongoose";
-import {
-  BaseEntity,
-  SoftDeletable,
-  FileReference,
-  ServiceStatus,
-} from "./base.types";
-import { ModerationStatus } from "./base.types";
-import { Category } from "./category.types";
+import { BaseEntity, SoftDeletable, ServiceStatus, ModerationStatus } from "./base.types";
+import { FileReference } from "@/lib/api/categories/categoryImage.api";
+import { IUser } from "./user.types";
+
+
+export interface Category {
+  _id: string;
+  name: string;
+  slug: string;
+  description?: string;
+}
+
+export interface SubmittedBy {
+  _id: string;
+  name?: string;
+  email?: string;
+  serviceUserId?: string;
+  [key: string]: unknown;
+}
 
 export interface Service extends BaseEntity, SoftDeletable {
+  user: IUser | Types.ObjectId;
   title: string;
   description: string;
   priceDescription?: string;
   priceBasedOnServiceType: boolean;
   categoryId: Types.ObjectId;
+  category?: Category;
   images: FileReference[];
-
   isPopular: boolean;
   status: ServiceStatus;
   tags: string[];
-
   basePrice?: number;
   priceRange?: {
     min: number;
     max: number;
     currency: string;
   };
-
   slug: string;
-
-  submittedBy?: Types.ObjectId;
-  approvedBy?: Types.ObjectId;
+  submittedBy?: SubmittedBy;
+  approvedBy?: SubmittedBy;
   approvedAt?: Date;
-  rejectedBy?: Types.ObjectId;
+  rejectedBy?: SubmittedBy;
   rejectedAt?: Date;
   rejectionReason?: string;
   moderationNotes?: string;
 }
+
 
 export interface ServiceFilters {
   categoryId?: Types.ObjectId;
@@ -58,12 +67,10 @@ export interface ServiceFilters {
   moderationStatus?: ModerationStatus[];
 }
 
-// Service with populated category details
 export interface ServiceWithCategory extends Service {
-  category: Pick<Category, "_id" | "name">;
+  category: Category;
 }
 
-// Common query parameters for services
 export interface ServiceQueryParams {
   page?: number;
   limit?: number;

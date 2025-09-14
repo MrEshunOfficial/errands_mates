@@ -11,8 +11,9 @@ import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Service } from "@/types/service.types";
-import { FileReference, ServiceStatus } from "@/types/base.types";
-import { useService } from "@/hooks/services/use-service";
+import { ServiceStatus } from "@/types/base.types";
+import { FileReference } from "@/lib/api/categories/categoryImage.api";
+import { useUserService } from "@/hooks/public/services/use-service";
 
 interface ServiceImageUploadProps {
   serviceId?: string;
@@ -43,15 +44,20 @@ export default function ServiceImageUpload({
   imageIndex = 0,
   allowMultiple = false,
 }: ServiceImageUploadProps) {
-  const { updateService, isSubmitting } = useService();
+  const {
+    isSubmitting,
+    currentService,
+    error: serviceError,
+  } = useUserService();
   const [dragActive, setDragActive] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
 
-  // Get current image URL - works for both existing services and new ones
-  const currentImageUrl = service?.images?.[imageIndex]?.url;
-  const hasImages = service?.images && service.images.length > 0;
+  const serviceToUse = service || currentService;
+  const currentImageUrl =
+    previewImage || serviceToUse?.images?.[imageIndex]?.url;
+  const hasImages = serviceToUse?.images && serviceToUse.images.length > 0;
 
-  // Image compression utility
   const compressImage = useCallback(
     (file: File, maxWidth = 1200, quality = 0.8): Promise<File> => {
       return new Promise((resolve) => {
@@ -92,12 +98,10 @@ export default function ServiceImageUpload({
     []
   );
 
-  // Validate image file
   const validateFile = useCallback((file: File): Promise<string | null> => {
     const maxSize = 10 * 1024 * 1024; // 10MB
     const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
-    // Basic validation
     if (file.size > maxSize) {
       return Promise.resolve("File size must be less than 10MB");
     }
@@ -110,48 +114,13 @@ export default function ServiceImageUpload({
       return Promise.resolve("Please select a valid image file");
     }
 
-    // Check image dimensions
-    return new Promise((resolve) => {
-      const img = new window.Image();
-      img.onload = () => {
-        const { width, height } = img;
-
-        // Minimum dimensions check
-        if (width < 300 || height < 200) {
-          resolve("Image must be at least 300x200 pixels for good quality");
-          return;
-        }
-
-        // Maximum dimensions check
-        if (width > 8000 || height > 8000) {
-          resolve("Image dimensions should not exceed 8000x8000 pixels");
-          return;
-        }
-
-        // Aspect ratio check
-        const aspectRatio = width / height;
-        if (aspectRatio < 0.3 || aspectRatio > 4) {
-          resolve("Please use an image with a reasonable aspect ratio");
-          return;
-        }
-
-        resolve(null); // No validation errors
-      };
-
-      img.onerror = () => {
-        resolve("Invalid image file");
-      };
-
-      img.src = URL.createObjectURL(file);
-    });
+    return Promise.resolve(null);
   }, []);
 
-  // Handle file processing and upload
   const handleFileSelect = useCallback(
     async (file: File) => {
       if (disabled || uploading || isSubmitting) return;
 
-      // Validate file
       const validationError = await validateFile(file);
       if (validationError) {
         onError?.(validationError);
@@ -161,97 +130,40 @@ export default function ServiceImageUpload({
 
       try {
         setUploading(true);
+        const fileUrl = URL.createObjectURL(file);
+        setPreviewImage(fileUrl);
 
-        // Compress if needed
         let processedFile = file;
         if (file.size > 2 * 1024 * 1024) {
-          // If larger than 2MB
           processedFile = await compressImage(file);
         }
 
-        // For new services (no serviceId), return base64 for temporary storage
-        if (!serviceId && !service?._id) {
-          const base64 = await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = () => reject(new Error("Failed to read file"));
-            reader.readAsDataURL(processedFile);
-          });
-
-          const imageData: FileReference = {
-            url: base64,
-            fileName: processedFile.name,
-            fileSize: processedFile.size,
-            mimeType: processedFile.type,
-            uploadedAt: new Date(),
-          };
-
-          onSuccess?.(imageData);
-          toast.success("Image selected successfully!");
-          return;
-        }
-
-        // For existing services, upload to server
-        const id = serviceId || service?._id?.toString();
-        if (!id) {
-          throw new Error("Service ID is required to upload images");
-        }
-
-        // Create FormData for upload
-        const formData = new FormData();
-        formData.append("image", processedFile);
-        formData.append("serviceId", id);
-        formData.append("imageIndex", imageIndex.toString());
-
-        const response = await fetch("/api/services/upload-image", {
-          method: "POST",
-          body: formData,
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = () => reject(new Error("Failed to read file"));
+          reader.readAsDataURL(processedFile);
         });
 
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || "Failed to upload image");
-        }
-
-        const { fileReference } = await response.json();
-
-        const newFileReference: FileReference = {
-          url: fileReference.url,
+        const imageData: FileReference = {
+          url: base64,
           fileName: processedFile.name,
           fileSize: processedFile.size,
           mimeType: processedFile.type,
           uploadedAt: new Date(),
         };
 
-        // Update service images array using the hook
-        const updatedImages = [...(service?.images || [])];
-
-        if (imageIndex < updatedImages.length) {
-          updatedImages[imageIndex] = newFileReference;
-        } else {
-          // Fill gaps if needed
-          while (updatedImages.length < imageIndex) {
-            updatedImages.push({
-              url: "",
-              fileName: "",
-              fileSize: 0,
-              mimeType: "",
-              uploadedAt: new Date(),
-            });
-          }
-          updatedImages[imageIndex] = newFileReference;
-        }
-
-        // Update service using the hook
-        await updateService(id, { images: updatedImages });
-        onSuccess?.(newFileReference);
-        toast.success("Service image updated successfully!");
+        onSuccess?.(imageData);
+        URL.revokeObjectURL(fileUrl);
+        setPreviewImage(base64);
+        toast.success("Image selected successfully!");
       } catch (error) {
         const errorMessage =
-          error instanceof Error ? error.message : "Failed to upload image";
+          error instanceof Error ? error.message : "Failed to process image";
         onError?.(errorMessage);
         toast.error(errorMessage);
-        console.error("Image upload error:", error);
+        console.error("Image processing error:", error);
+        setPreviewImage(null);
       } finally {
         setUploading(false);
       }
@@ -262,30 +174,22 @@ export default function ServiceImageUpload({
       isSubmitting,
       validateFile,
       compressImage,
-      serviceId,
-      service?._id,
-      service?.images,
-      imageIndex,
-      updateService,
       onSuccess,
       onError,
     ]
   );
 
-  // Handle file input change
   const handleFileInputChange = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
       if (file) {
         handleFileSelect(file);
       }
-      // Reset input to allow selecting the same file again
       event.target.value = "";
     },
     [handleFileSelect]
   );
 
-  // Handle drag and drop
   const handleDragOver = useCallback(
     (e: React.DragEvent) => {
       e.preventDefault();
@@ -321,48 +225,14 @@ export default function ServiceImageUpload({
     [disabled, uploading, isSubmitting, handleFileSelect, onError]
   );
 
-  // Handle image removal
   const handleRemoveImage = useCallback(async () => {
     if (disabled || uploading || isSubmitting || !allowRemove) return;
 
     try {
       setUploading(true);
-
-      // For new services (no serviceId), just call success with null
-      if (!serviceId && !service?._id) {
-        onSuccess?.(null);
-        toast.success("Image removed successfully!");
-        return;
-      }
-
-      // For existing services, update on server
-      const id = serviceId || service?._id?.toString();
-      if (!id || !currentImageUrl) {
-        throw new Error("Service ID and image are required to remove image");
-      }
-
-      const updatedImages =
-        service?.images?.filter((_, index) => index !== imageIndex) || [];
-
-      // Update service using the hook
-      await updateService(id, { images: updatedImages });
-
-      // Optionally delete the file from storage
-      try {
-        await fetch("/api/services/delete-image", {
-          method: "DELETE",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            serviceId: id,
-            imageUrl: currentImageUrl,
-          }),
-        });
-      } catch (deleteError) {
-        console.warn("Failed to delete image file:", deleteError);
-      }
-
+      setPreviewImage(null);
       onSuccess?.(null);
-      toast.success("Service image removed successfully!");
+      toast.success("Image removed successfully!");
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to remove image";
@@ -372,22 +242,8 @@ export default function ServiceImageUpload({
     } finally {
       setUploading(false);
     }
-  }, [
-    disabled,
-    uploading,
-    isSubmitting,
-    allowRemove,
-    serviceId,
-    service?._id,
-    service?.images,
-    currentImageUrl,
-    imageIndex,
-    updateService,
-    onSuccess,
-    onError,
-  ]);
+  }, [disabled, uploading, isSubmitting, allowRemove, onSuccess, onError]);
 
-  // Size classes
   const sizeClasses = {
     sm: "w-24 h-24",
     md: "w-32 h-32",
@@ -395,14 +251,12 @@ export default function ServiceImageUpload({
     xl: "w-64 h-64",
   };
 
-  // Shape classes
   const shapeClasses = {
     circle: "rounded-full",
     square: "rounded-none",
     rounded: "rounded-xl",
   };
 
-  // Get appropriate label based on whether it's the primary image or additional
   const getImageLabel = () => {
     if (imageIndex === 0) {
       return "Primary Service Image";
@@ -410,9 +264,8 @@ export default function ServiceImageUpload({
     return `Service Image ${imageIndex + 1}`;
   };
 
-  // Get total image count
   const getTotalImageCount = () => {
-    return service?.images?.length || 0;
+    return serviceToUse?.images?.length || 0;
   };
 
   const isLoadingState = isSubmitting || uploading;
@@ -433,6 +286,14 @@ export default function ServiceImageUpload({
         </div>
       )}
 
+      {serviceError && (
+        <div className="mb-3 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
+          <p className="text-xs text-red-700 dark:text-red-300">
+            {serviceError}
+          </p>
+        </div>
+      )}
+
       <div
         className={`relative ${
           sizeClasses[size]
@@ -442,25 +303,30 @@ export default function ServiceImageUpload({
             : currentImageUrl
             ? "border-gray-300 dark:border-gray-600"
             : "border-gray-300 dark:border-gray-600 hover:border-gray-400"
-        } ${shapeClasses[shape]} overflow-hidden`}
+        } ${shapeClasses[shape]} overflow-hidden ${
+          disabled || isLoadingState ? "opacity-75" : ""
+        }`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
-        onDrop={handleDrop}>
+        onDrop={handleDrop}
+      >
         {currentImageUrl ? (
-          // Show current image with overlay controls
           <div className="w-full h-full relative">
             <Image
               src={currentImageUrl}
               alt={`Service Image ${imageIndex + 1}`}
               className="w-full h-full object-cover"
               fill
-              unoptimized={currentImageUrl.startsWith("data:")} // For base64 images
+              unoptimized={currentImageUrl.startsWith("data:")}
+              priority={imageIndex === 0}
             />
-
-            {/* Overlay controls */}
             <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-50 transition-all duration-300 flex items-center justify-center opacity-0 hover:opacity-100">
               <div className="flex gap-2">
-                <label className="cursor-pointer">
+                <label
+                  className={`cursor-pointer ${
+                    isLoadingState ? "pointer-events-none" : ""
+                  }`}
+                >
                   <Input
                     type="file"
                     accept="image/*"
@@ -472,20 +338,18 @@ export default function ServiceImageUpload({
                     <Upload className="w-4 h-4 text-gray-700 dark:text-gray-300" />
                   </div>
                 </label>
-
                 {allowRemove && (
                   <Button
                     type="button"
                     onClick={handleRemoveImage}
                     disabled={isLoadingState}
-                    className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50">
+                    className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     <X className="w-4 h-4 text-red-600 dark:text-red-400" />
                   </Button>
                 )}
               </div>
             </div>
-
-            {/* Loading overlay */}
             {isLoadingState && (
               <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
                 <div className="bg-white dark:bg-gray-800 rounded-lg p-4 flex items-center gap-3">
@@ -498,8 +362,11 @@ export default function ServiceImageUpload({
             )}
           </div>
         ) : (
-          // Show upload area
-          <label className="cursor-pointer w-full h-full flex flex-col items-center justify-center p-4">
+          <label
+            className={`cursor-pointer w-full h-full flex flex-col items-center justify-center p-4 ${
+              isLoadingState ? "pointer-events-none" : ""
+            }`}
+          >
             <input
               type="file"
               accept="image/*"
@@ -507,12 +374,11 @@ export default function ServiceImageUpload({
               className="hidden"
               disabled={isLoadingState}
             />
-
             {isLoadingState ? (
               <div className="flex flex-col items-center">
                 <Loader2 className="w-8 h-8 text-blue-500 animate-spin mb-2" />
-                <span className="text-sm text-gray-600 dark:text-gray-400">
-                  {uploading ? "Processing..." : "Loading..."}
+                <span className="text-sm text-gray-600 dark:text-gray-400 text-center">
+                  {uploading ? "Processing image..." : "Loading..."}
                 </span>
               </div>
             ) : (
@@ -520,13 +386,13 @@ export default function ServiceImageUpload({
                 <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center mb-3">
                   <FolderOpen className="w-6 h-6 text-white" />
                 </div>
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 text-center">
                   Upload {imageIndex === 0 ? "Primary" : "Additional"} Image
                 </span>
                 <span className="text-xs text-gray-500 dark:text-gray-400 text-center">
                   Click or drag & drop
                 </span>
-                <span className="text-xs text-gray-400 mt-1">
+                <span className="text-xs text-gray-400 mt-1 text-center">
                   PNG, JPG, WebP up to 10MB
                 </span>
               </>
@@ -535,7 +401,6 @@ export default function ServiceImageUpload({
         )}
       </div>
 
-      {/* Show image count info if managing multiple images */}
       {allowMultiple && hasImages && (
         <div className="mt-2 text-xs text-gray-500 dark:text-gray-400 text-center">
           Image {imageIndex + 1} of {getTotalImageCount()}
@@ -543,7 +408,6 @@ export default function ServiceImageUpload({
         </div>
       )}
 
-      {/* Service Image Guidelines */}
       {showLabel && (
         <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
           <h4 className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1">
@@ -568,15 +432,16 @@ export default function ServiceImageUpload({
         </div>
       )}
 
-      {/* Service Status Warning - only show for existing services */}
-      {serviceId && service && service.status === ServiceStatus.APPROVED && (
-        <div className="mt-3 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-md border border-amber-200 dark:border-amber-800">
-          <p className="text-xs text-amber-700 dark:text-amber-300">
-            <strong>Note:</strong> Changing the images of an approved service
-            may require re-approval depending on your platform&apos;s policies.
-          </p>
-        </div>
-      )}
+      {serviceId &&
+        serviceToUse &&
+        serviceToUse.status === ServiceStatus.APPROVED && (
+          <div className="mt-3 p-2 bg-amber-50 dark:bg-amber-900/20 rounded-md border border-amber-200 dark:border-amber-800">
+            <p className="text-xs text-amber-700 dark:text-amber-300">
+              <strong>Note:</strong> Changing the images of an approved service
+              may require re-approval.
+            </p>
+          </div>
+        )}
     </div>
   );
 }

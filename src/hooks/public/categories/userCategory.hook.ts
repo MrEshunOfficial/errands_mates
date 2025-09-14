@@ -85,7 +85,10 @@ export const useCategory = (
     pagination: undefined,
     searchQuery: "",
     params: options?.defaultParams || {},
-    isLoading: false,
+    isLoading: !!(
+      (categoryId && options?.autoFetch !== false) ||
+      options?.autoFetchCategories
+    ),
     error: null,
     isInitialized: false,
   });

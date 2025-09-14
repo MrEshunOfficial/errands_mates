@@ -3,7 +3,7 @@
 import { CategoryModerationDetail } from "@/components/admin/categories/category-moderation";
 import { ErrorState } from "@/components/ui/ErrorState";
 import LoadingOverlay from "@/components/ui/LoadingOverlay";
-import { useAdminCategoryManager } from "@/hooks/categories/adminCategory.hook";
+import { useAdminCategoryManager } from "@/hooks/admin/admin.category.hook";
 import Link from "next/link";
 import { use } from "react";
 

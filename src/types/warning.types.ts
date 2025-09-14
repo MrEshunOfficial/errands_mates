@@ -1,6 +1,7 @@
 // types/warning.types.ts
 import { Types } from "mongoose";
-import { BaseEntity, FileReference } from "./base.types";
+import { BaseEntity } from "./base.types";
+import { FileReference } from "@/lib/api/categories/categoryImage.api";
 
 export interface UserWarning extends BaseEntity {
   userId: Types.ObjectId;

@@ -177,15 +177,6 @@ const navigationItems: NavigationItem[] = [
         systemRoles: [SystemRole.ADMIN, SystemRole.SUPER_ADMIN],
         adminLevel: "both",
       },
-
-      {
-        href: "/admin/services/create",
-        label: "Create Service",
-        icon: Plus,
-        description: "Add new service",
-        systemRoles: [SystemRole.ADMIN, SystemRole.SUPER_ADMIN],
-        adminLevel: "both",
-      },
       {
         href: "/admin/services/marketplace",
         label: "Marketplace Oversight",

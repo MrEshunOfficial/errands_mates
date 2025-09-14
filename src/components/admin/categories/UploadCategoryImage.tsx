@@ -7,9 +7,9 @@ import {
   Loader2,
 } from "lucide-react";
 import { Category } from "@/types/category.types";
-import { useAdminCategory } from "@/hooks/categories/adminCategory.hook";
+import { useAdminCategory } from "@/hooks/admin/admin.category.hook";
 import { FileReference } from "@/lib/api/categories/categoryImage.api";
-import { useCategoryImage } from "@/hooks/categories/useCategoryImages";
+import { useCategoryImage } from "@/hooks/public/categories/useCategoryImages";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -310,7 +310,8 @@ export default function CategoryImageUpload({
         } ${shapeClasses[shape]} overflow-hidden`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
-        onDrop={handleDrop}>
+        onDrop={handleDrop}
+      >
         {currentImageUrl ? (
           // Show current image with overlay controls
           <div className="w-full h-28 relative">
@@ -342,7 +343,8 @@ export default function CategoryImageUpload({
                     type="button"
                     onClick={handleRemoveImage}
                     disabled={isLoadingState}
-                    className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50">
+                    className="p-2 bg-white dark:bg-gray-800 rounded-lg shadow-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
+                  >
                     <X className="w-4 h-4 text-red-600 dark:text-red-400" />
                   </Button>
                 )}
@@ -450,7 +452,8 @@ export function CategoryImageUploadCard({
     <div
       className={`bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 ${
         compact ? "p-4" : "p-6"
-      } ${className}`}>
+      } ${className}`}
+    >
       {!compact && (
         <div className="mb-4">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-2">

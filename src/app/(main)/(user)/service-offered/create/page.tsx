@@ -80,14 +80,16 @@ const CreateServicePage: React.FC = () => {
     <div className="w-full p-2">
       <div className="flex flex-col gap-2">
         <nav className="flex items-center space-x-2 text-sm text-muted-foreground">
-          <Link href="/" className="hover:text-foreground transition-colors">
-            Home
+          <Link
+            href="/admin"
+            className="hover:text-foreground transition-colors">
+            Admin
           </Link>
           <span>/</span>
           <Link
-            href="/service-offered"
+            href="/admin/services"
             className="hover:text-foreground transition-colors">
-            Services offered
+            Services
           </Link>
           <span>/</span>
           <span className="text-foreground">create</span>

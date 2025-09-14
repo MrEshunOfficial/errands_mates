@@ -1,6 +1,6 @@
 // types/base.types.ts
+import { FileReference } from "@/lib/api/categories/categoryImage.api";
 import { Types } from "mongoose";
-
 export interface BaseEntity {
   _id: Types.ObjectId;
   createdAt: Date;
@@ -11,14 +11,6 @@ export interface SoftDeletable {
   isDeleted?: boolean;
   deletedAt?: Date;
   deletedBy?: Types.ObjectId;
-}
-
-export interface FileReference {
-  url: string;
-  fileName: string;
-  fileSize: number;
-  mimeType?: string;
-  uploadedAt?: Date | string;
 }
 
 export interface UserLocation {

@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Category } from "@/types";
 import { createCategorySchema } from "@/lib/utils/schemas/service.category.schema";
 import { toast } from "sonner";
-import { useAdminCategoryManager } from "@/hooks/categories/adminCategory.hook";
+import { useAdminCategoryManager } from "@/hooks/admin/admin.category.hook";
 import { CategoryImageUploadCard } from "./UploadCategoryImage";
 import Image from "next/image";
 import { FileReference } from "@/lib/api/categories/categoryImage.api";
@@ -478,7 +478,8 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
               initial={{ opacity: 0, scale: 0.9, y: -10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: -10 }}
-              className="mb-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 border border-green-200 dark:border-green-700 rounded-2xl flex items-center gap-3">
+              className="mb-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/30 dark:to-emerald-900/30 border border-green-200 dark:border-green-700 rounded-2xl flex items-center gap-3"
+            >
               <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
                 <Check className="w-4 h-4 text-white" />
               </div>
@@ -493,7 +494,8 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="mb-6 p-4 bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/30 dark:to-pink-900/30 border border-red-200 dark:border-red-700 rounded-2xl flex items-center gap-3">
+            className="mb-6 p-4 bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900/30 dark:to-pink-900/30 border border-red-200 dark:border-red-700 rounded-2xl flex items-center gap-3"
+          >
             <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center">
               <AlertCircle className="w-4 h-4 text-white" />
             </div>
@@ -511,7 +513,8 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 }}>
+                transition={{ delay: 0.2 }}
+              >
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">
                   Category Name *
                 </label>
@@ -536,7 +539,8 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
                   <motion.p
                     initial={{ opacity: 0, y: -5 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                    className="mt-2 text-sm text-red-600 flex items-center gap-1"
+                  >
                     <AlertCircle className="w-4 h-4" />
                     {errors.name}
                   </motion.p>
@@ -547,7 +551,8 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.3 }}>
+                transition={{ delay: 0.3 }}
+              >
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">
                   Description
                 </label>
@@ -572,7 +577,8 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
                   <motion.p
                     initial={{ opacity: 0, y: -5 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                    className="mt-2 text-sm text-red-600 flex items-center gap-1"
+                  >
                     <AlertCircle className="w-4 h-4" />
                     {errors.description}
                   </motion.p>
@@ -583,7 +589,8 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
               <motion.div
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.4 }}>
+                transition={{ delay: 0.4 }}
+              >
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">
                   Parent Category
                 </label>
@@ -592,7 +599,8 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
                   onChange={(e) =>
                     updateField("parentCategoryId", e.target.value || undefined)
                   }
-                  className="w-full px-4 py-4 bg-white/50 dark:bg-gray-700/50 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-gray-900 dark:text-gray-100">
+                  className="w-full px-4 py-4 bg-white/50 dark:bg-gray-700/50 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-300 text-gray-900 dark:text-gray-100"
+                >
                   <option value="">Select parent category (optional)</option>
                   {parentCategories
                     .filter(
@@ -603,7 +611,8 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
                     .map((cat) => (
                       <option
                         key={cat._id.toString()}
-                        value={cat._id.toString()}>
+                        value={cat._id.toString()}
+                      >
                         {cat.name}
                       </option>
                     ))}
@@ -617,7 +626,8 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.2 }}>
+                transition={{ delay: 0.2 }}
+              >
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200 mb-3">
                   Category Image
                 </label>
@@ -642,7 +652,8 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
                     }`}
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}>
+                    onDrop={handleDrop}
+                  >
                     {imageData ? (
                       // Show selected image
                       <div className="relative">
@@ -687,7 +698,8 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
                               type="button"
                               onClick={handleImageRemove}
                               disabled={imageUploadLoading}
-                              className="px-3 py-2 bg-red-50 hover:bg-red-100 dark:bg-red-900/30 dark:hover:bg-red-900/50 border border-red-200 dark:border-red-700 rounded-lg text-red-700 dark:text-red-300 text-sm font-medium transition-colors flex items-center justify-center gap-2">
+                              className="px-3 py-2 bg-red-50 hover:bg-red-100 dark:bg-red-900/30 dark:hover:bg-red-900/50 border border-red-200 dark:border-red-700 rounded-lg text-red-700 dark:text-red-300 text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                            >
                               <X className="w-4 h-4" />
                               Remove
                             </button>
@@ -743,7 +755,8 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
                   <motion.p
                     initial={{ opacity: 0, y: -5 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="mt-2 text-sm text-red-600 flex items-center gap-1">
+                    className="mt-2 text-sm text-red-600 flex items-center gap-1"
+                  >
                     <AlertCircle className="w-4 h-4" />
                     {errors.image}
                   </motion.p>
@@ -755,7 +768,8 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.3 }}
-                className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-6 rounded-2xl border border-blue-200 dark:border-blue-800">
+                className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 p-6 rounded-2xl border border-blue-200 dark:border-blue-800"
+              >
                 <h3 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">
                   Status Settings
                 </h3>
@@ -774,7 +788,8 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
                         formData.isActive
                           ? "bg-blue-500"
                           : "bg-gray-300 dark:bg-gray-600"
-                      }`}>
+                      }`}
+                    >
                       <div
                         className={`w-5 h-5 bg-white rounded-full shadow-md transform transition-transform duration-300 mt-0.5 ${
                           formData.isActive
@@ -802,7 +817,8 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="space-y-4">
+            className="space-y-4"
+          >
             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-200">
               Tags
             </label>
@@ -823,7 +839,8 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
                 type="button"
                 onClick={addTag}
                 disabled={!currentTag.trim()}
-                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-400 disabled:to-gray-500 text-white rounded-xl font-medium shadow-lg transition-all duration-300 flex items-center gap-2">
+                className="px-6 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 disabled:from-gray-400 disabled:to-gray-500 text-white rounded-xl font-medium shadow-lg transition-all duration-300 flex items-center gap-2"
+              >
                 <Plus className="w-4 h-4" />
               </Button>
             </div>
@@ -839,12 +856,14 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
                         animate={{ opacity: 1, scale: 1 }}
                         exit={{ opacity: 0, scale: 0.8 }}
                         transition={{ delay: index * 0.05 }}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/40 dark:to-indigo-900/40 text-blue-800 dark:text-blue-200 rounded-xl text-sm font-medium border border-blue-200 dark:border-blue-700 shadow-sm">
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/40 dark:to-indigo-900/40 text-blue-800 dark:text-blue-200 rounded-xl text-sm font-medium border border-blue-200 dark:border-blue-700 shadow-sm"
+                      >
                         {tag}
                         <Button
                           type="button"
                           onClick={() => removeTag(tag)}
-                          className="hover:bg-blue-200 dark:hover:bg-blue-800 rounded-full p-1 transition-colors">
+                          className="hover:bg-blue-200 dark:hover:bg-blue-800 rounded-full p-1 transition-colors"
+                        >
                           <X className="w-3 h-3" />
                         </Button>
                       </motion.span>
@@ -868,7 +887,8 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
               <motion.p
                 initial={{ opacity: 0, y: -5 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
+                className="text-sm text-red-600 dark:text-red-400 flex items-center gap-1"
+              >
                 <AlertCircle className="w-4 h-4" />
                 {errors.tags}
               </motion.p>
@@ -880,12 +900,14 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
-            className="pt-4 flex gap-4">
+            className="pt-4 flex gap-4"
+          >
             {(isEdit || onCancel) && (
               <Button
                 type="button"
                 onClick={handleCancel}
-                className="flex-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 py-4 px-8 rounded-2xl font-semibold text-lg shadow-lg transition-all duration-300 flex items-center justify-center gap-3">
+                className="flex-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-200 py-4 px-8 rounded-2xl font-semibold text-lg shadow-lg transition-all duration-300 flex items-center justify-center gap-3"
+              >
                 <X className="w-5 h-5" />
                 Cancel
               </Button>
@@ -896,7 +918,8 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
               disabled={isLoading || imageUploadLoading}
               className={`${
                 isEdit || onCancel ? "flex-1" : "w-full"
-              } bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-4 px-8 rounded-2xl font-semibold text-lg shadow-2xl focus:ring-4 focus:ring-blue-500/30 transition-all duration-300 disabled:opacity-50 flex items-center justify-center gap-3 group`}>
+              } bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white py-4 px-8 rounded-2xl font-semibold text-lg shadow-2xl focus:ring-4 focus:ring-blue-500/30 transition-all duration-300 disabled:opacity-50 flex items-center justify-center gap-3 group`}
+            >
               {isLoading || imageUploadLoading ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
@@ -923,7 +946,8 @@ const CategoryForm: React.FC<CategoryFormProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.6 }}
-            className="text-center mt-8">
+            className="text-center mt-8"
+          >
             <p className="text-sm text-gray-500 dark:text-gray-400">
               All fields marked with * are required
             </p>

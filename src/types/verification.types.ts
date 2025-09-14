@@ -49,4 +49,3 @@ export interface VerificationResponse {
   verification?: Partial<UserVerification>;
   error?: string;
 }
-

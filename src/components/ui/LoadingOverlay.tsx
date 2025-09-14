@@ -13,7 +13,7 @@ export default function LoadingOverlay({
   if (!show) return null;
 
   return (
-    <div className="absolute inset-0 rounded-2xl flex items-center justify-center bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm z-50">
+    <div className="fixed inset-0 rounded-2xl flex items-center justify-center bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm z-50">
       <div className="flex flex-col items-center space-y-4">
         {/* Animated dots */}
         <div className="flex items-center space-x-2">

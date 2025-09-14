@@ -19,25 +19,25 @@ export const baseNavigationItems: NavigationItem[] = [
   },
   {
     title: "Find Services",
-    href: "/errand-services",
+    href: "/services",
     icon: <Package className="h-4 w-4" />,
     children: [
       {
         title: "All Services",
-        href: "/errand-services",
+        href: "/services",
         description: "Browse all available services",
         icon: <Grid3X3 className="h-4 w-4" />,
       },
       {
         title: "Popular Services",
-        href: "/errand-services/popular",
+        href: "/services/popular",
         description: "Most requested services",
         icon: <Package className="h-4 w-4" />,
         badge: "Hot",
       },
       {
         title: "Emergency Services",
-        href: "/errand-services/emergency",
+        href: "/services/emergency",
         description: "Urgent assistance available 24/7",
         icon: <Bell className="h-4 w-4" />,
         badge: "24/7",

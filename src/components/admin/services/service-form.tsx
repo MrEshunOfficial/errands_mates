@@ -1,9 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import { useForm, Controller, SubmitHandler } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { toast } from "react-hot-toast";
 import {
   Save,
   Send,
@@ -12,62 +11,27 @@ import {
   DollarSign,
   Tag,
   AlertCircle,
-  Info,
   ChevronDown,
   Folder,
+  Loader2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Types } from "mongoose";
 
 import type { Service } from "@/types/service.types";
 import type { CategoryWithServices } from "@/types/category.types";
-import { FileReference, ServiceStatus } from "@/types/base.types";
-
-// Import your schema
-import { Button } from "@/components/ui/button";
-import { useService } from "@/hooks/services/use-service";
+import { ServiceStatus } from "@/types/base.types";
 import { createServiceSchema } from "@/lib/utils/schemas/service.schema";
 import ServiceImageUpload from "./ServiceImageUpload";
-import { useCategory } from "@/hooks/categories/userCategory.hook";
+import { useCategory } from "@/hooks/public/categories/userCategory.hook";
+import { toast } from "sonner";
+import { FileReference } from "@/lib/api/categories/categoryImage.api";
 
-// Form data type based on the schema - matches what the form expects
-type ServiceFormData = {
-  title: string;
-  description: string;
-  priceBasedOnServiceType: boolean;
-  categoryId: string; // Form uses string, we convert to ObjectId later
-  images: FileReference[];
-  tags: string[];
-  priceDescription?: string;
-  basePrice?: number;
-  priceRange?: {
-    min: number;
-    max: number;
-    currency: string;
-  };
-};
+// Types
+import { z } from "zod";
+import { useUserService } from "@/hooks/public/services/use-service";
 
-// API data types - what the backend expects
-type CreateServiceData = {
-  title: string;
-  description: string;
-  priceBasedOnServiceType: boolean;
-  categoryId: Types.ObjectId;
-  images: FileReference[];
-  tags: string[];
-  priceDescription?: string;
-  basePrice?: number;
-  priceRange?: {
-    min: number;
-    max: number;
-    currency: string;
-  };
-  submittedBy?: Types.ObjectId;
-};
+type ServiceFormData = z.infer<typeof createServiceSchema>;
 
-type UpdateServiceData = CreateServiceData;
-
-// Extended Category type to handle subcategories property
 interface ExtendedCategory extends CategoryWithServices {
   subcategories?: ExtendedCategory[];
 }
@@ -83,6 +47,93 @@ interface ServiceFormProps {
   categories?: ExtendedCategory[];
 }
 
+// Utility functions
+const normalizeFileReference = (
+  img: FileReference
+): ServiceFormData["images"][0] => ({
+  url: img.url,
+  fileName: img.fileName,
+  fileSize: img.fileSize,
+  mimeType: img.mimeType,
+  uploadedAt:
+    img.uploadedAt instanceof Date
+      ? img.uploadedAt
+      : typeof img.uploadedAt === "string"
+      ? new Date(img.uploadedAt)
+      : new Date(),
+});
+
+const convertFormDataToAPI = (data: ServiceFormData) => ({
+  ...data,
+  categoryId: data.categoryId, // Keep as string, let the API handle conversion
+  images: data.images.filter((img) => img.url),
+  tags: data.tags.map((tag) => tag.trim()).filter(Boolean),
+  title: data.title.trim(),
+  description: data.description.trim(),
+  priceDescription: data.priceDescription?.trim(),
+});
+
+// Components
+const FormError = ({
+  error,
+  onClear,
+}: {
+  error: string;
+  onClear: () => void;
+}) => (
+  <div className="mb-4 p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+    <div className="flex items-center space-x-2">
+      <AlertCircle size={16} className="text-red-500 dark:text-red-400" />
+      <span className="text-sm text-red-700 dark:text-red-300">{error}</span>
+    </div>
+    <button
+      type="button"
+      onClick={onClear}
+      className="mt-2 text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200 underline"
+    >
+      Dismiss
+    </button>
+  </div>
+);
+
+const SubmissionOverlay = ({ mode }: { mode: "create" | "edit" }) => (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white dark:bg-gray-800 rounded-lg p-6 flex items-center space-x-4 shadow-xl">
+      <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+      <div>
+        <p className="text-lg font-medium text-gray-900 dark:text-gray-100">
+          {mode === "create" ? "Creating Service..." : "Updating Service..."}
+        </p>
+        <p className="text-sm text-gray-600 dark:text-gray-400">
+          Please wait while we process your request
+        </p>
+      </div>
+    </div>
+  </div>
+);
+
+const FormField = ({
+  label,
+  error,
+  children,
+  required = false,
+}: {
+  label: string | React.ReactNode;
+  error?: string;
+  children: React.ReactNode;
+  required?: boolean;
+}) => (
+  <div>
+    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+      {label} {required && "*"}
+    </label>
+    {children}
+    {error && (
+      <p className="mt-1 text-sm text-red-600 dark:text-red-400">{error}</p>
+    )}
+  </div>
+);
+
 const ServiceForm: React.FC<ServiceFormProps> = ({
   service,
   onSuccess,
@@ -93,42 +144,61 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
   showCancelButton = true,
   categories: propCategories = [],
 }) => {
-  const { createService, updateService, isSubmitting } = useService();
+  // Hooks
+  const {
+    createService,
+    updateService,
+    isSubmitting,
+    currentService,
+    setCurrentService,
+    error: serviceError,
+    clearError,
+  } = useUserService();
+
   const {
     categories: fetchedCategories,
     isLoading: categoriesLoading,
-    error: categoriesError,
     fetchParentCategories,
-    clearError: clearCategoriesError,
   } = useCategory();
 
-  const [currentImages, setCurrentImages] = useState<FileReference[]>([]);
-  const [showPricingFields, setShowPricingFields] = useState(false);
+  // State - Fix the FileReference type issue
+  const [currentImages, setCurrentImages] = useState<
+    Array<{
+      url: string;
+      fileName: string;
+      fileSize?: number;
+      mimeType?: string;
+      uploadedAt?: Date;
+    }>
+  >([]);
   const [tagInput, setTagInput] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("");
+  const [localIsSubmitting, setLocalIsSubmitting] = useState(false);
 
-  // Use prop categories if provided, otherwise use fetched categories
-  const categories: ExtendedCategory[] =
+  // Computed values
+  const categories =
     propCategories.length > 0
       ? propCategories
       : (fetchedCategories as ExtendedCategory[]) || [];
+  const serviceToUse = service || currentService;
+  const isFormSubmitting = localIsSubmitting || isSubmitting;
 
-  // Form setup with validation
-  const {
-    control,
-    handleSubmit,
-    watch,
-    setValue,
-    formState: { errors, isValid },
-    reset,
-  } = useForm<ServiceFormData>({
+  // Form setup
+  const form = useForm<ServiceFormData>({
     resolver: zodResolver(createServiceSchema),
     defaultValues: {
       title: "",
       description: "",
       priceBasedOnServiceType: true,
       categoryId: "",
-      images: [],
+      images: [
+        {
+          url: "",
+          fileName: "",
+          uploadedAt: new Date(),
+          fileSize: 0,
+          mimeType: "",
+        },
+      ],
       tags: [],
       priceDescription: "",
       basePrice: undefined,
@@ -137,11 +207,24 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
     mode: "onChange",
   });
 
-  // Watch for changes
-  const priceBasedOnServiceType = watch("priceBasedOnServiceType");
-  const currentTags = watch("tags");
+  const {
+    control,
+    handleSubmit,
+    watch,
+    setValue,
+    formState: { errors, isValid },
+    reset,
+  } = form as unknown as ReturnType<typeof useForm<ServiceFormData>>;
+  const [priceBasedOnServiceType, currentTags] = watch([
+    "priceBasedOnServiceType",
+    "tags",
+  ]);
 
-  // Fetch categories if not provided as props
+  // Effects
+  useEffect(() => {
+    if (serviceError) clearError();
+  }, [serviceError, clearError]);
+
   useEffect(() => {
     if (
       propCategories.length === 0 &&
@@ -160,126 +243,82 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
     fetchParentCategories,
   ]);
 
-  // Initialize form when service prop changes
   useEffect(() => {
-    if (service) {
-      // Transform images to ensure uploadedAt is Date type
-      const transformedImages: FileReference[] =
-        service.images?.map((img) => ({
-          ...img,
-          uploadedAt:
-            img.uploadedAt instanceof Date
-              ? img.uploadedAt
-              : img.uploadedAt
-              ? new Date(img.uploadedAt)
-              : undefined,
-        })) || [];
-
+    if (serviceToUse) {
+      const transformedImages =
+        serviceToUse.images?.map(normalizeFileReference) || [];
       reset({
-        title: service.title,
-        description: service.description,
-        priceBasedOnServiceType: service.priceBasedOnServiceType,
-        categoryId: service.categoryId.toString(),
+        title: serviceToUse.title,
+        description: serviceToUse.description,
+        priceBasedOnServiceType: serviceToUse.priceBasedOnServiceType,
+        categoryId: serviceToUse.categoryId.toString(),
         images: transformedImages,
-        tags: service.tags || [],
-        priceDescription: service.priceDescription || "",
-        basePrice: service.basePrice,
-        priceRange: service.priceRange
-          ? {
-              min: service.priceRange.min,
-              max: service.priceRange.max,
-              currency: service.priceRange.currency,
-            }
-          : undefined,
+        tags: serviceToUse.tags || [],
+        priceDescription: serviceToUse.priceDescription || "",
+        basePrice: serviceToUse.basePrice,
+        priceRange: serviceToUse.priceRange,
       });
       setCurrentImages(transformedImages);
-      setSelectedCategory(service.categoryId.toString());
-      setShowPricingFields(!service.priceBasedOnServiceType);
     }
-  }, [service, reset]);
+  }, [serviceToUse, reset]);
 
-  // Update pricing fields visibility
-  useEffect(() => {
-    setShowPricingFields(!priceBasedOnServiceType);
-  }, [priceBasedOnServiceType]);
-
-  // Handle image updates
+  // Handlers
   const handleImageUpdate = useCallback(
     (imageData: FileReference | null, index: number = 0) => {
+      let updatedImages = [...currentImages];
+
       if (imageData) {
-        // Add or replace image at specific index
-        const updatedImages = [...currentImages];
-
-        // Ensure uploadedAt is a Date object
-        const normalizedImage = {
-          ...imageData,
-          uploadedAt:
-            imageData.uploadedAt instanceof Date
-              ? imageData.uploadedAt
-              : new Date(imageData.uploadedAt || Date.now()),
-        };
-
-        if (index < updatedImages.length) {
-          updatedImages[index] = normalizedImage;
-        } else {
-          // Fill gaps if needed
-          while (updatedImages.length < index) {
-            updatedImages.push({
-              url: "",
-              fileName: "",
-              fileSize: 0,
-              mimeType: "",
-              uploadedAt: new Date(),
-            });
-          }
-          updatedImages[index] = normalizedImage;
+        // Ensure we have enough slots in the array
+        while (updatedImages.length <= index) {
+          updatedImages.push({
+            url: "",
+            fileName: "",
+            fileSize: 0,
+            uploadedAt: new Date(),
+          });
         }
+        updatedImages[index] = normalizeFileReference(imageData);
+      } else if (index < updatedImages.length) {
+        updatedImages.splice(index, 1);
+      }
 
-        setCurrentImages(updatedImages);
-        setValue("images", updatedImages, {
-          shouldValidate: true,
-          shouldDirty: true,
-        });
-      } else {
-        // Remove image at index
-        const updatedImages = currentImages.filter((_, i) => i !== index);
-        setCurrentImages(updatedImages);
-        setValue("images", updatedImages, {
-          shouldValidate: true,
-          shouldDirty: true,
-        });
+      // Filter out empty images and normalize
+      updatedImages = updatedImages
+        .filter((img) => img.url)
+        .map((img) =>
+          normalizeFileReference({ ...img, fileSize: img.fileSize ?? 0 })
+        );
+
+      setCurrentImages(updatedImages);
+      setValue(
+        "images",
+        updatedImages.map((img) => ({
+          ...img,
+          uploadedAt: img.uploadedAt ?? new Date(),
+        })),
+        { shouldValidate: true }
+      );
+
+      if (serviceToUse) {
+        // Convert back to FileReference format for the service
+        const fileReferences: FileReference[] = updatedImages.map((img) => ({
+          url: img.url,
+          fileName: img.fileName,
+          fileSize: img.fileSize || 0, // Provide default fileSize
+          mimeType: img.mimeType,
+          uploadedAt: img.uploadedAt || new Date(),
+        }));
+        setCurrentService({ ...serviceToUse, images: fileReferences });
       }
     },
-    [currentImages, setValue]
+    [currentImages, setValue, serviceToUse, setCurrentService]
   );
 
-  // Add this effect to sync with service updates from the hook
-  useEffect(() => {
-    if (service?.images) {
-      const transformedImages = service.images.map((img) => ({
-        ...img,
-        uploadedAt:
-          img.uploadedAt instanceof Date
-            ? img.uploadedAt
-            : new Date(img.uploadedAt || Date.now()),
-      }));
-
-      if (JSON.stringify(transformedImages) !== JSON.stringify(currentImages)) {
-        setCurrentImages(transformedImages);
-        setValue("images", transformedImages, {
-          shouldValidate: true,
-          shouldDirty: false, // Don't mark as dirty for sync updates
-        });
-      }
-    }
-  }, [service?.images, setValue, currentImages]);
-
-  const handleImageError = useCallback((error: string, index: number = 0) => {
-    console.error(`Image upload error at index ${index}:`, error);
+  const handleImageError = useCallback((error: string) => {
+    console.error("Image upload error:", error);
     toast.error(error);
   }, []);
 
-  // Handle tag addition
   const handleAddTag = useCallback(() => {
     const trimmedTag = tagInput.trim();
     if (
@@ -287,108 +326,97 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
       !currentTags.includes(trimmedTag) &&
       currentTags.length < 10
     ) {
-      const newTags = [...currentTags, trimmedTag];
-      setValue("tags", newTags, { shouldValidate: true, shouldDirty: true });
+      setValue("tags", [...currentTags, trimmedTag], { shouldValidate: true });
       setTagInput("");
     }
   }, [tagInput, currentTags, setValue]);
 
-  // Handle tag removal
   const handleRemoveTag = useCallback(
     (tagToRemove: string) => {
-      const newTags = currentTags.filter((tag) => tag !== tagToRemove);
-      setValue("tags", newTags, { shouldValidate: true, shouldDirty: true });
+      setValue(
+        "tags",
+        currentTags.filter((tag) => tag !== tagToRemove),
+        { shouldValidate: true }
+      );
     },
     [currentTags, setValue]
   );
 
-  // Handle tag input key press
-  const handleTagKeyPress = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        handleAddTag();
-      }
-    },
-    [handleAddTag]
-  );
+  const onSubmit = async (data: ServiceFormData) => {
+    if (isFormSubmitting) return;
 
-  // Form submission with proper typing
-  const onSubmit: SubmitHandler<ServiceFormData> = async (data) => {
     try {
-      let result: Service;
+      setLocalIsSubmitting(true);
+      clearError();
 
-      if (mode === "create") {
-        // Convert form data to API format
-        const createData: CreateServiceData = {
-          ...data,
-          categoryId: new Types.ObjectId(data.categoryId),
-        };
-        result = await createService(createData);
-        toast.success("Service created successfully!");
-      } else if (service?._id) {
-        // Update existing service
-        const updateData: UpdateServiceData = {
-          ...data,
-          categoryId: new Types.ObjectId(data.categoryId),
-        };
-        result = await updateService(service._id.toString(), updateData);
-        toast.success("Service updated successfully!");
-      } else {
-        throw new Error("Service ID is required for updates");
-      }
+      const loadingToastId = toast.loading(
+        mode === "create" ? "Creating service..." : "Updating service..."
+      );
 
+      const apiData = convertFormDataToAPI(data);
+      const result =
+        mode === "create"
+          ? await createService(apiData)
+          : await updateService(serviceToUse!._id.toString(), apiData);
+
+      toast.dismiss(loadingToastId);
+      toast.success(
+        `Service ${mode === "create" ? "created" : "updated"} successfully!`
+      );
       onSuccess?.(result);
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to save service";
       toast.error(errorMessage);
-      console.error("Service form submission error:", error);
+    } finally {
+      setLocalIsSubmitting(false);
     }
   };
 
-  // Form validation status
-  const canSubmit = isValid && currentImages.length > 0 && !isSubmitting;
+  const canSubmit = isValid && !isFormSubmitting;
+  const isRejected =
+    service?.status === ServiceStatus.REJECTED ||
+    currentService?.status === ServiceStatus.REJECTED;
 
   return (
     <div className={`w-full p-3 ${className}`}>
+      {serviceError && <FormError error={serviceError} onClear={clearError} />}
+      {isFormSubmitting && <SubmissionOverlay mode={mode} />}
+
       <form
         onSubmit={handleSubmit(onSubmit)}
-        className="space-y-4 max-h-[80vh] overflow-auto">
+        className="space-y-4 max-h-[80vh] overflow-auto"
+      >
         {/* Service Images */}
         <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
           <ServiceImageUpload
-            serviceId={service?._id?.toString()}
-            service={service}
+            serviceId={serviceToUse?._id?.toString()}
+            service={serviceToUse}
             imageIndex={0}
             onSuccess={(imageData) => handleImageUpdate(imageData, 0)}
-            onError={(error) => handleImageError(error, 0)}
+            onError={handleImageError}
             size="xl"
             showLabel={true}
             allowRemove={true}
-            disabled={isSubmitting}
+            disabled={isFormSubmitting}
           />
 
-          {/* Additional Images */}
-          {(currentImages.length > 0 || mode === "create") && (
-            <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-              {[1, 2, 3, 4].map((index) => (
-                <ServiceImageUpload
-                  key={index}
-                  serviceId={service?._id?.toString()}
-                  service={service}
-                  imageIndex={index}
-                  onSuccess={(imageData) => handleImageUpdate(imageData, index)}
-                  onError={(error) => handleImageError(error, index)}
-                  size="md"
-                  showLabel={false}
-                  allowRemove={true}
-                  disabled={isSubmitting}
-                />
-              ))}
-            </div>
-          )}
-
+          <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map((index) => (
+              <ServiceImageUpload
+                key={index}
+                serviceId={serviceToUse?._id?.toString()}
+                service={serviceToUse}
+                imageIndex={index}
+                onSuccess={(imageData) => handleImageUpdate(imageData, index)}
+                onError={handleImageError}
+                size="md"
+                showLabel={false}
+                allowRemove={true}
+                disabled={isFormSubmitting}
+              />
+            ))}
+          </div>
           {errors.images && (
             <p className="mt-2 text-sm text-red-600 dark:text-red-400">
               {errors.images.message}
@@ -402,11 +430,11 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
             Basic Information
           </h3>
 
-          {/* Title */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Service Title *
-            </label>
+          <FormField
+            label="Service Title"
+            error={errors.title?.message}
+            required
+          >
             <Controller
               name="title"
               control={control}
@@ -414,73 +442,39 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
                 <input
                   {...field}
                   type="text"
-                  className={`w-full px-4 py-3 rounded-lg border transition-colors ${
+                  disabled={isFormSubmitting}
+                  className={`w-full px-4 py-3 rounded-lg border transition-colors disabled:opacity-50 ${
                     errors.title
-                      ? "border-red-500 focus:border-red-500 focus:ring-red-500"
-                      : "border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-500"
+                      ? "border-red-500"
+                      : "border-gray-300 dark:border-gray-600"
                   } bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
                   placeholder="Enter a descriptive title for your service"
                 />
               )}
             />
-            {errors.title && (
-              <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                {errors.title.message}
-              </p>
-            )}
-          </div>
+          </FormField>
 
-          {/* Category */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          <FormField
+            label={
               <div className="flex items-center space-x-2">
                 <Folder
                   size={16}
                   className="text-blue-600 dark:text-blue-400"
                 />
-                <span>Category *</span>
+                <span>Category</span>
               </div>
-            </label>
-
-            {/* Category Loading State */}
-            {categoriesLoading && (
+            }
+            error={errors.categoryId?.message}
+            required
+          >
+            {categoriesLoading ? (
               <div className="flex items-center space-x-2 p-3 border border-gray-200 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
                 <span className="text-sm text-gray-600 dark:text-gray-400">
                   Loading categories...
                 </span>
               </div>
-            )}
-
-            {/* Category Error State */}
-            {categoriesError && (
-              <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-                <div className="flex items-center space-x-2">
-                  <AlertCircle
-                    size={16}
-                    className="text-red-500 dark:text-red-400"
-                  />
-                  <span className="text-sm text-red-700 dark:text-red-300">
-                    Failed to load categories: {categoriesError}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    clearCategoriesError();
-                    fetchParentCategories({
-                      includeSubcategories: true,
-                      includeServicesCount: true,
-                    });
-                  }}
-                  className="mt-2 text-xs text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200 underline">
-                  Retry
-                </button>
-              </div>
-            )}
-
-            {/* Category Select */}
-            {!categoriesLoading && !categoriesError && (
+            ) : (
               <Controller
                 name="categoryId"
                 control={control}
@@ -488,35 +482,30 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
                   <div className="relative">
                     <select
                       {...field}
-                      value={field.value || selectedCategory}
-                      onChange={(e) => {
-                        field.onChange(e.target.value);
-                        setSelectedCategory(e.target.value);
-                      }}
-                      className={`w-full px-4 py-3 pr-10 rounded-lg border transition-colors appearance-none ${
+                      disabled={isFormSubmitting}
+                      className={`w-full px-4 py-3 pr-10 rounded-lg border transition-colors appearance-none disabled:opacity-50 ${
                         errors.categoryId
-                          ? "border-red-500 focus:border-red-500 focus:ring-red-500"
-                          : "border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-500"
-                      } bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}>
+                          ? "border-red-500"
+                          : "border-gray-300 dark:border-gray-600"
+                      } bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
+                    >
                       <option value="">
                         Select a category for your service
                       </option>
                       {categories.map((category) => (
                         <optgroup
                           key={category._id.toString()}
-                          label={category.name}>
+                          label={category.name}
+                        >
                           <option value={category._id.toString()}>
                             {category.name}
-                            {category.subcategories &&
-                              category.subcategories.length > 0 &&
-                              ` (${category.subcategories.length} subcategories)`}
                           </option>
-                          {category.subcategories?.map((subcategory) => (
+                          {category.subcategories?.map((sub) => (
                             <option
-                              key={subcategory._id.toString()}
-                              value={subcategory._id.toString()}
-                              className="pl-4">
-                              — {subcategory.name}
+                              key={sub._id.toString()}
+                              value={sub._id.toString()}
+                            >
+                              — {sub.name}
                             </option>
                           ))}
                         </optgroup>
@@ -530,42 +519,13 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
                 )}
               />
             )}
+          </FormField>
 
-            {/* Category Validation Error */}
-            {errors.categoryId && (
-              <p className="mt-1 text-sm text-red-600 dark:text-red-400 flex items-center space-x-1">
-                <AlertCircle size={14} />
-                <span>{errors.categoryId.message}</span>
-              </p>
-            )}
-
-            {/* Category Help Text */}
-            {selectedCategory && !errors.categoryId && (
-              <div className="mt-2 p-2 bg-blue-50 dark:bg-blue-900/20 rounded-md">
-                <p className="text-xs text-blue-700 dark:text-blue-300">
-                  <Info size={12} className="inline mr-1" />
-                  {(() => {
-                    const selected = categories
-                      .flatMap((cat) => [cat, ...(cat.subcategories || [])])
-                      .find((cat) => cat._id.toString() === selectedCategory);
-                    return selected
-                      ? `Selected: ${selected.name}${
-                          selected.description
-                            ? ` - ${selected.description}`
-                            : ""
-                        }`
-                      : "Category selected";
-                  })()}
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* Description */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Description *
-            </label>
+          <FormField
+            label="Description"
+            error={errors.description?.message}
+            required
+          >
             <Controller
               name="description"
               control={control}
@@ -573,21 +533,17 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
                 <textarea
                   {...field}
                   rows={4}
-                  className={`w-full px-4 py-3 rounded-lg border transition-colors resize-none ${
+                  disabled={isFormSubmitting}
+                  className={`w-full px-4 py-3 rounded-lg border transition-colors resize-none disabled:opacity-50 ${
                     errors.description
-                      ? "border-red-500 focus:border-red-500 focus:ring-red-500"
-                      : "border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-500"
+                      ? "border-red-500"
+                      : "border-gray-300 dark:border-gray-600"
                   } bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
                   placeholder="Describe your service in detail..."
                 />
               )}
             />
-            {errors.description && (
-              <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-                {errors.description.message}
-              </p>
-            )}
-          </div>
+          </FormField>
         </div>
 
         {/* Pricing Information */}
@@ -596,7 +552,6 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
             Pricing Information
           </h3>
 
-          {/* Pricing Type Toggle */}
           <div>
             <label className="flex items-center space-x-3">
               <Controller
@@ -607,38 +562,26 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
                     type="checkbox"
                     checked={field.value}
                     onChange={field.onChange}
-                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    disabled={isFormSubmitting}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50"
                   />
                 )}
               />
               <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Price based on service type (flexible pricing)
               </span>
-              <div className="group relative">
-                <Info
-                  size={16}
-                  className="text-gray-400 hover:text-gray-600 cursor-help"
-                />
-                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                  Check this if pricing varies by service complexity
-                </div>
-              </div>
             </label>
           </div>
 
-          {/* Fixed Pricing Fields */}
           <AnimatePresence>
-            {showPricingFields && (
+            {!priceBasedOnServiceType && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
                 exit={{ opacity: 0, height: 0 }}
-                className="space-y-4">
-                {/* Price Description */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Price Description
-                  </label>
+                className="space-y-4"
+              >
+                <FormField label="Price Description">
                   <Controller
                     name="priceDescription"
                     control={control}
@@ -646,18 +589,15 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
                       <input
                         {...field}
                         type="text"
-                        className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                        disabled={isFormSubmitting}
+                        className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                         placeholder="e.g., Starting from, Per hour, Fixed rate"
                       />
                     )}
                   />
-                </div>
+                </FormField>
 
-                {/* Base Price */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Base Price (GHS)
-                  </label>
+                <FormField label="Base Price (GHS)">
                   <Controller
                     name="basePrice"
                     control={control}
@@ -676,91 +616,14 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
                           onChange={(e) =>
                             field.onChange(Number(e.target.value) || undefined)
                           }
-                          className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                          disabled={isFormSubmitting}
+                          className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                           placeholder="0.00"
                         />
                       </div>
                     )}
                   />
-                </div>
-
-                {/* Price Range */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Price Range (Optional)
-                  </label>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <Controller
-                      name="priceRange.min"
-                      control={control}
-                      render={({ field }) => (
-                        <div>
-                          <label className="block text-xs text-gray-500 mb-1">
-                            Minimum
-                          </label>
-                          <input
-                            {...field}
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={field.value || ""}
-                            onChange={(e) =>
-                              field.onChange(
-                                Number(e.target.value) || undefined
-                              )
-                            }
-                            className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                            placeholder="0.00"
-                          />
-                        </div>
-                      )}
-                    />
-                    <Controller
-                      name="priceRange.max"
-                      control={control}
-                      render={({ field }) => (
-                        <div>
-                          <label className="block text-xs text-gray-500 mb-1">
-                            Maximum
-                          </label>
-                          <input
-                            {...field}
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={field.value || ""}
-                            onChange={(e) =>
-                              field.onChange(
-                                Number(e.target.value) || undefined
-                              )
-                            }
-                            className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                            placeholder="0.00"
-                          />
-                        </div>
-                      )}
-                    />
-                    <Controller
-                      name="priceRange.currency"
-                      control={control}
-                      render={({ field }) => (
-                        <div>
-                          <label className="block text-xs text-gray-500 mb-1">
-                            Currency
-                          </label>
-                          <select
-                            {...field}
-                            value={field.value || "GHS"}
-                            className="w-full px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100">
-                            <option value="GHS">GHS</option>
-                            <option value="USD">USD</option>
-                            <option value="EUR">EUR</option>
-                          </select>
-                        </div>
-                      )}
-                    />
-                  </div>
-                </div>
+                </FormField>
               </motion.div>
             )}
           </AnimatePresence>
@@ -772,7 +635,6 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
             Tags
           </h3>
 
-          {/* Tag Input */}
           <div className="flex space-x-2">
             <div className="flex-1 relative">
               <Tag
@@ -783,8 +645,11 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
                 type="text"
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
-                onKeyPress={handleTagKeyPress}
-                className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                onKeyPress={(e) =>
+                  e.key === "Enter" && (e.preventDefault(), handleAddTag())
+                }
+                disabled={isFormSubmitting}
+                className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 placeholder="Enter tags to help customers find your service"
                 maxLength={50}
               />
@@ -792,40 +657,41 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
             <button
               type="button"
               onClick={handleAddTag}
-              disabled={!tagInput.trim() || currentTags.length >= 10}
-              className="px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg transition-colors flex items-center space-x-2">
+              disabled={
+                !tagInput.trim() || currentTags.length >= 10 || isFormSubmitting
+              }
+              className="px-4 py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-lg transition-colors flex items-center space-x-2"
+            >
               <Plus size={18} />
               <span>Add</span>
             </button>
           </div>
 
-          {/* Tag List */}
           {currentTags.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {currentTags.map((tag, index) => (
                 <span
                   key={index}
-                  className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
+                  className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200"
+                >
                   {tag}
-                  <Button
+                  <button
                     type="button"
                     onClick={() => handleRemoveTag(tag)}
-                    className="ml-2 hover:text-red-600 transition-colors">
+                    disabled={isFormSubmitting}
+                    className="ml-2 hover:text-red-600 transition-colors"
+                  >
                     <X size={14} />
-                  </Button>
+                  </button>
                 </span>
               ))}
             </div>
           )}
-
-          <p className="text-xs text-gray-500">
-            Add up to 10 tags. Tags help customers discover your service.
-          </p>
         </div>
 
         {/* Form Actions */}
         <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
-          {service?.status === ServiceStatus.REJECTED && (
+          {isRejected && (
             <div className="flex items-center space-x-2 text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg">
               <AlertCircle size={18} />
               <span className="text-sm">
@@ -840,7 +706,9 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
               <button
                 type="button"
                 onClick={onCancel}
-                className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+                disabled={isFormSubmitting}
+                className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+              >
                 Cancel
               </button>
             )}
@@ -852,20 +720,24 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
                 canSubmit
                   ? "bg-blue-600 hover:bg-blue-700 text-white"
                   : "bg-gray-400 text-gray-700 cursor-not-allowed"
-              }`}>
-              {isSubmitting ? (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-              ) : mode === "create" ? (
-                <Send size={18} />
+              }`}
+            >
+              {isFormSubmitting ? (
+                <>
+                  <Loader2 size={18} className="animate-spin" />
+                  <span>
+                    {mode === "create" ? "Creating..." : "Updating..."}
+                  </span>
+                </>
               ) : (
-                <Save size={18} />
+                <>
+                  {mode === "create" ? <Send size={18} /> : <Save size={18} />}
+                  <span>
+                    {submitButtonText ||
+                      (mode === "create" ? "Create Service" : "Update Service")}
+                  </span>
+                </>
               )}
-              <span>
-                {isSubmitting
-                  ? "Saving..."
-                  : submitButtonText ||
-                    (mode === "create" ? "Create Service" : "Update Service")}
-              </span>
             </button>
           </div>
         </div>

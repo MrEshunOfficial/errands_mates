@@ -1,6 +1,7 @@
 import { Service } from "@/types/service.types";
-import { ServiceStatus, FileReference } from "@/types/base.types";
+import { ServiceStatus } from "@/types/base.types";
 import { AuthResponse } from "@/types/user.types";
+import { FileReference } from "../categories/categoryImage.api";
 
 // Custom error class for service API errors
 export class ServiceAPIError extends Error {
@@ -61,6 +62,7 @@ export interface RejectServiceData {
 }
 
 export interface ServiceSearchParams {
+  userId?: string;
   search?: string;
   category?: string;
   status?: ServiceStatus;
@@ -800,11 +802,6 @@ class ServiceAPI {
     return this.batchFileOperation("delete", { entities });
   }
 
-  // =============================================================
-  // SEARCH OPERATIONS (removed since no search endpoint exists in backend)
-  // =============================================================
-  // Note: Removed search methods since they don't exist in your backend routes
-  // If you need search functionality, you'll need to implement the backend endpoints first
 }
 
 // Export singleton instance

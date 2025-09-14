@@ -45,7 +45,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { CategoryDetails } from "@/types/category.types";
 import { Service } from "@/types";
-import { useAdminCategory } from "@/hooks/categories/adminCategory.hook";
+import { useAdminCategory } from "@/hooks/admin/admin.category.hook";
 import CategoryCard from "./CategoryCard";
 
 interface CategoryDetailsProps {

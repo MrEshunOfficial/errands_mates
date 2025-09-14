@@ -1,21 +1,18 @@
 "use client";
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Category } from "@/types/category.types";
 import LoadingOverlay from "@/components/ui/LoadingOverlay";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import {
   Grid,
   List,
   RefreshCw,
   Plus,
-  Trash2,
-  RotateCcw,
-  ExternalLink,
+  Archive,
+  ArchiveRestore,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -37,8 +34,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useAdminCategoryManager } from "@/hooks/categories/adminCategory.hook";
-import Image from "next/image";
+import { useAdminCategoryManager } from "@/hooks/admin/admin.category.hook";
+import {
+  CategoryCardConfig,
+  CategoryCardAction,
+  AdminCategoryCard,
+} from "./AdminCategoryCard";
 
 // Type definitions
 type CategoryFilter = "all" | "active" | "inactive";
@@ -56,54 +57,7 @@ interface SimplifiedCategoryListProps {
   defaultFilter?: CategoryFilter;
 }
 
-interface CategoryImageProps {
-  category: Category;
-  size: {
-    w: number;
-    h: number;
-    class: string;
-  };
-}
-
-interface ActionBtnProps {
-  category: Category;
-  isGrid?: boolean;
-  onDelete: (category: Category) => void;
-  onRestore: (category: Category) => void;
-}
-
-interface ServiceCountDisplayProps {
-  category: Category;
-  includeServicesCount: boolean;
-  getServiceCount: (category: Category) => number;
-}
-
-interface CategoryCardProps {
-  category: Category;
-  isGrid: boolean;
-  isSelected: (category: Category) => boolean;
-  onToggleSelection: (category: Category) => void;
-  onCategoryView: (category: Category) => void;
-  onDelete: (category: Category) => void;
-  onRestore: (category: Category) => void;
-  includeServicesCount: boolean;
-  getServiceCount: (category: Category) => number;
-}
-
-// Extended category type with potential service count properties
-interface ExtendedCategory extends Category {
-  serviceCount?: number;
-  servicesCount?: number;
-  services_count?: number;
-  service_count?: number;
-  services?: unknown[];
-  subcategories?: Array<{
-    serviceCount?: number;
-    servicesCount?: number;
-  }>;
-}
-
-const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
+const CategoryList: React.FC<SimplifiedCategoryListProps> = ({
   includeSubcategories = true,
   includeServicesCount = true,
   limit = 20,
@@ -115,9 +69,12 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
   defaultFilter = "all",
 }) => {
   const router = useRouter();
-  const [viewMode, setViewMode] = useState<ViewMode>("list");
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [selectedCategories, setSelectedCategories] = useState<Category[]>([]);
   const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(
+    null
+  );
+  const [categoryToRestore, setCategoryToRestore] = useState<Category | null>(
     null
   );
   const [categoryFilter, setCategoryFilter] =
@@ -157,6 +114,42 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
     includeInactive,
   });
 
+  // Card configuration based on individual category state
+  const getCardConfigForCategory = useCallback(
+    (category: Category): CategoryCardConfig => {
+      const baseConfig: CategoryCardConfig = {
+        viewMode,
+        showSelection: true,
+        showServiceCount: includeServicesCount,
+        showStatus: true,
+        showImage: true,
+        showDescription: true,
+        availableActions: [],
+        primaryAction: "view",
+        customLabels: {
+          archive: "Archive",
+          restore: "Restore",
+          delete: "Delete",
+          view: "View",
+          edit: "Edit",
+        },
+      };
+
+      const isDeleted = (category as Category).isDeleted || !category.isActive;
+
+      if (isDeleted) {
+        baseConfig.availableActions = ["view", "restore"];
+        baseConfig.primaryAction = "view";
+      } else {
+        baseConfig.availableActions = ["view", "edit", "archive"];
+        baseConfig.primaryAction = "view";
+      }
+
+      return baseConfig;
+    },
+    [viewMode, includeServicesCount]
+  );
+
   const getFilteredCategories = useCallback((): Category[] => {
     if (searchQuery) return searchResults;
 
@@ -176,30 +169,9 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
     inactiveCategories,
   ]);
 
-  // Helper function to get service count from category object
-  const getServiceCount = useCallback((category: Category): number => {
-    const extendedCategory = category as ExtendedCategory;
-
-    const possibleCounts: Array<number | undefined> = [
-      extendedCategory.serviceCount,
-      extendedCategory.servicesCount,
-      extendedCategory.services_count,
-      extendedCategory.service_count,
-      Array.isArray(extendedCategory.services)
-        ? extendedCategory.services.length
-        : undefined,
-      extendedCategory.subcategories?.reduce((total, sub) => {
-        const subCount = sub.serviceCount || sub.servicesCount || 0;
-        return total + subCount;
-      }, 0),
-    ];
-
-    const count = possibleCounts.find(
-      (count): count is number => typeof count === "number" && count >= 0
-    );
-
-    return count ?? 0;
-  }, []);
+  useEffect(() => {
+    fetchAllCategories();
+  }, [fetchAllCategories]);
 
   const handleAction = useCallback(
     async (
@@ -220,6 +192,23 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
     []
   );
 
+  const createBulkHandler = useCallback(
+    (action: (ids: string[]) => Promise<unknown>, successMessage: string) => {
+      return async () => {
+        if (!selectedCategories.length) return;
+
+        const ids = selectedCategories.map((c) => c._id.toString());
+        await handleAction(
+          () => action(ids),
+          `${selectedCategories.length} ${successMessage}`,
+          `Failed to ${successMessage.split(" ")[1]}`
+        );
+        setSelectedCategories([]);
+      };
+    },
+    [selectedCategories, handleAction]
+  );
+
   const handleSearchChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>): void => {
       const query = e.target.value;
@@ -234,7 +223,6 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
         categoryFilter === "inactive"
           ? searchInactiveCategories
           : searchAllCategories;
-
       searchFn(query, limit);
     },
     [
@@ -251,13 +239,32 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
     async (filter: CategoryFilter): Promise<void> => {
       setCategoryFilter(filter);
       clearSearch();
+      setSelectedCategories([]);
 
       const fetchFn =
         filter === "inactive" ? fetchInactiveCategories : fetchAllCategories;
 
-      await handleAction(fetchFn, "", "Failed to filter categories");
+      await handleAction(
+        () =>
+          fetchFn({
+            limit,
+            includeSubcategories,
+            includeServicesCount,
+            includeUserData: true,
+          }),
+        "",
+        "Failed to filter categories"
+      );
     },
-    [clearSearch, fetchAllCategories, fetchInactiveCategories, handleAction]
+    [
+      clearSearch,
+      fetchAllCategories,
+      fetchInactiveCategories,
+      handleAction,
+      limit,
+      includeSubcategories,
+      includeServicesCount,
+    ]
   );
 
   const toggleSelection = useCallback((category: Category): void => {
@@ -274,250 +281,136 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
     [selectedCategories]
   );
 
-  const handleCategoryView = useCallback(
-    (category: Category): void => {
-      if (onCategoryClick) {
-        onCategoryClick(category);
-      } else {
-        router.push(`/admin/services/categories/${category._id}`);
+  const handleCategoryAction = useCallback(
+    (action: CategoryCardAction, category: Category): void => {
+      switch (action) {
+        case "view":
+          if (onCategoryClick) {
+            onCategoryClick(category);
+          } else {
+            router.push(`/admin/services/categories/${category._id}`);
+          }
+          break;
+        case "edit":
+          router.push(`/admin/services/categories/${category._id}/edit`);
+          break;
+        case "archive":
+          setCategoryToDelete(category);
+          break;
+        case "restore":
+          setCategoryToRestore(category);
+          break;
+        case "delete":
+          setCategoryToDelete(category);
+          break;
+        case "toggle-status":
+          if (category.isActive) {
+            setCategoryToDelete(category);
+          } else {
+            setCategoryToRestore(category);
+          }
+          break;
+        default:
+          break;
       }
     },
     [onCategoryClick, router]
   );
 
-  const handleCategoryDelete = useCallback((category: Category): void => {
-    setCategoryToDelete(category);
-  }, []);
+  const confirmDelete = useCallback(async (): Promise<void> => {
+    if (!categoryToDelete) return;
 
-  const handleCategoryRestore = useCallback(
-    async (category: Category): Promise<void> => {
-      await handleAction(
-        () => restoreCategory(category._id.toString()),
-        `"${category.name}" restored`,
-        "Failed to restore"
-      );
-    },
-    [handleAction, restoreCategory]
-  );
+    await handleAction(
+      () => deleteCategory(categoryToDelete._id.toString()),
+      `"${categoryToDelete.name}" archived successfully`,
+      "Failed to archive category"
+    );
 
-  const createBulkHandler = useCallback(
-    (action: (ids: string[]) => Promise<unknown>, successMessage: string) =>
-      async (): Promise<void> => {
-        if (!selectedCategories.length) return;
+    setCategoryToDelete(null);
+    setSelectedCategories((prev) =>
+      prev.filter((c) => c._id !== categoryToDelete._id)
+    );
+  }, [handleAction, deleteCategory, categoryToDelete]);
 
-        await handleAction(
-          () => action(selectedCategories.map((c) => c._id.toString())),
-          `${selectedCategories.length} ${successMessage}`,
-          `Failed to ${successMessage.split(" ")[1]}`
-        );
+  const confirmRestore = useCallback(async (): Promise<void> => {
+    if (!categoryToRestore) return;
 
-        setSelectedCategories([]);
-      },
-    [selectedCategories, handleAction]
-  );
+    await handleAction(
+      () => restoreCategory(categoryToRestore._id.toString()),
+      `"${categoryToRestore.name}" restored successfully`,
+      "Failed to restore category"
+    );
+
+    setCategoryToRestore(null);
+    setSelectedCategories((prev) =>
+      prev.filter((c) => c._id !== categoryToRestore._id)
+    );
+  }, [handleAction, restoreCategory, categoryToRestore]);
+
+  const createBulkArchiveHandler = useCallback(async (): Promise<void> => {
+    if (!selectedCategories.length) return;
+
+    const categoriesToArchive = selectedCategories.filter(
+      (c) => c.isActive && !(c as Category).isDeleted
+    );
+
+    if (categoriesToArchive.length === 0) {
+      toast.error("No active categories selected to archive");
+      return;
+    }
+
+    await handleAction(
+      () => bulkDelete(categoriesToArchive.map((c) => c._id.toString())),
+      `${categoriesToArchive.length} categories archived successfully`,
+      "Failed to archive categories"
+    );
+
+    setSelectedCategories([]);
+  }, [selectedCategories, handleAction, bulkDelete]);
+
+  const createBulkRestoreHandler = useCallback(async (): Promise<void> => {
+    if (!selectedCategories.length) return;
+
+    const categoriesToRestore = selectedCategories.filter(
+      (c) => !c.isActive || (c as Category).isDeleted
+    );
+
+    if (categoriesToRestore.length === 0) {
+      toast.error("No inactive categories selected to restore");
+      return;
+    }
+
+    await handleAction(
+      () => bulkRestore(categoriesToRestore.map((c) => c._id.toString())),
+      `${categoriesToRestore.length} categories restored successfully`,
+      "Failed to restore categories"
+    );
+
+    setSelectedCategories([]);
+  }, [selectedCategories, handleAction, bulkRestore]);
 
   const displayCategories = getFilteredCategories();
+  const inactiveCount = inactiveCategories.length;
 
-  // Component definitions
-  const CategoryImage: React.FC<CategoryImageProps> = ({ category, size }) => (
-    <div className={cn("rounded-lg overflow-hidden bg-muted", size.class)}>
-      {category.image ? (
-        <Image
-          src={category.image.url}
-          alt={category.name}
-          width={size.w}
-          height={size.h}
-          className="w-full h-full object-cover"
-        />
-      ) : (
-        <div className="w-full h-full bg-muted-foreground/10" />
-      )}
-    </div>
-  );
+  const selectedActiveCount = selectedCategories.filter(
+    (c) => c.isActive && !(c as Category).isDeleted
+  ).length;
 
-  const ActionBtn: React.FC<ActionBtnProps> = ({
-    category,
-    isGrid,
-    onDelete,
-    onRestore,
-  }) => (
-    <Button
-      variant="ghost"
-      size="sm"
-      onClick={(e) => {
-        e.stopPropagation();
-        if (category.isActive) {
-          onDelete(category);
-        } else {
-          onRestore(category);
-        }
-      }}
-      className={cn(
-        isGrid
-          ? category.isActive
-            ? "text-destructive"
-            : "text-green-600"
-          : `px-2 ${category.isActive ? "text-destructive" : "text-green-600"}`
-      )}>
-      {category.isActive ? (
-        <Trash2 className="w-4 h-4" />
-      ) : (
-        <RotateCcw className="w-4 h-4" />
-      )}
-      {isGrid && (
-        <span className="ml-1">{category.isActive ? "Delete" : "Restore"}</span>
-      )}
-    </Button>
-  );
+  const selectedInactiveCount = selectedCategories.filter(
+    (c) => !c.isActive || (c as Category).isDeleted
+  ).length;
 
-  const ServiceCountDisplay: React.FC<ServiceCountDisplayProps> = ({
-    category,
-    includeServicesCount,
-    getServiceCount,
-  }) => {
-    if (!includeServicesCount) return null;
+  const selectedDeletedCount = selectedCategories.filter(
+    (c) => (c as Category).isDeleted
+  ).length;
 
-    const serviceCount = getServiceCount(category);
-
-    return (
-      <p className="text-xs text-muted-foreground">
-        {serviceCount} service{serviceCount !== 1 ? "s" : ""}
-      </p>
-    );
-  };
-
-  const CategoryCard: React.FC<CategoryCardProps> = ({
-    category,
-    isGrid,
-    isSelected,
-    onToggleSelection,
-    onCategoryView,
-    onDelete,
-    onRestore,
-    includeServicesCount,
-    getServiceCount,
-  }) => (
-    <Card
-      className={cn(
-        "transition-all cursor-pointer",
-        isGrid ? "h-full hover:shadow-lg" : "hover:shadow-md",
-        !category.isActive && "bg-orange-50/50 border-orange-200"
-      )}>
-      <CardContent className="px-2">
-        {isGrid ? (
-          <div className="space-y-3">
-            <div className="flex justify-between">
-              <Input
-                type="checkbox"
-                checked={isSelected(category)}
-                onChange={() => onToggleSelection(category)}
-                onClick={(e) => e.stopPropagation()}
-                className="w-4 h-4"
-              />
-              {!category.isActive && (
-                <Badge variant="secondary" className="text-xs">
-                  Inactive
-                </Badge>
-              )}
-            </div>
-            <CategoryImage
-              category={category}
-              size={{ w: 200, h: 120, class: "aspect-video" }}
-            />
-            <div
-              onClick={() => onCategoryView(category)}
-              className="cursor-pointer">
-              <h3 className="font-medium text-sm truncate mb-1">
-                {category.name}
-              </h3>
-              <p className="text-xs text-muted-foreground line-clamp-2">
-                {category.description || "No description"}
-              </p>
-              <ServiceCountDisplay
-                category={category}
-                includeServicesCount={includeServicesCount}
-                getServiceCount={getServiceCount}
-              />
-            </div>
-            <div className="flex justify-between pt-2 border-t">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onCategoryView(category);
-                }}>
-                <ExternalLink className="w-4 h-4 mr-1" />
-                View
-              </Button>
-              <ActionBtn
-                category={category}
-                isGrid
-                onDelete={onDelete}
-                onRestore={onRestore}
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-center gap-3">
-            <Input
-              type="checkbox"
-              checked={isSelected(category)}
-              onChange={() => onToggleSelection(category)}
-              onClick={(e) => e.stopPropagation()}
-              className="w-4 h-4"
-            />
-            <CategoryImage
-              category={category}
-              size={{ w: 48, h: 48, class: "w-12 h-12 flex-shrink-0" }}
-            />
-            <div
-              className="flex-1 min-w-0 cursor-pointer"
-              onClick={() => onCategoryView(category)}>
-              <div className="flex items-center gap-2 mb-1">
-                <h3 className="font-medium text-sm truncate">
-                  {category.name}
-                </h3>
-                {!category.isActive && (
-                  <Badge variant="secondary" className="text-xs">
-                    Inactive
-                  </Badge>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground truncate">
-                {category.description || "No description"}
-              </p>
-              <ServiceCountDisplay
-                category={category}
-                includeServicesCount={includeServicesCount}
-                getServiceCount={getServiceCount}
-              />
-            </div>
-            <div className="flex gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onCategoryView(category);
-                }}
-                className="px-2">
-                <ExternalLink className="w-4 h-4" />
-              </Button>
-              <ActionBtn
-                category={category}
-                onDelete={onDelete}
-                onRestore={onRestore}
-              />
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-
-  // Error state
-  if (error && !displayCategories.length && !isLoading) {
+  if (
+    error &&
+    !categories.length &&
+    !allCategories.length &&
+    !inactiveCategories.length &&
+    !searchResults.length
+  ) {
     return (
       <ErrorState
         title="Failed to load categories"
@@ -529,6 +422,78 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
         showSearch={showSearch}
         searchPlaceholder={searchPlaceholder}
       />
+    );
+  }
+
+  if (isLoading && displayCategories.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <RefreshCw className="w-8 h-8 animate-spin mx-auto mb-2 text-muted-foreground" />
+          <p className="text-muted-foreground">Loading categories...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isLoading && !error && displayCategories.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="text-center">
+          <p className="text-muted-foreground mb-4">
+            {searchQuery
+              ? `No categories found for "${searchQuery}"`
+              : categoryFilter === "active"
+              ? `No active categories found${
+                  allCategories.length > 0
+                    ? ` (${allCategories.length} total)`
+                    : ""
+                }`
+              : categoryFilter === "inactive"
+              ? `No inactive categories found${
+                  allCategories.length > 0
+                    ? ` (${allCategories.length} active)`
+                    : ""
+                }`
+              : `No categories found`}
+          </p>
+          <div className="flex items-center justify-center gap-3">
+            {searchQuery && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSearchQuery("");
+                  clearSearch();
+                }}
+              >
+                Clear search
+              </Button>
+            )}
+            {categoryFilter === "inactive" && (
+              <Button
+                variant="outline"
+                onClick={() => handleFilterChange("inactive")}
+              >
+                Refresh Inactive
+              </Button>
+            )}
+            {categoryFilter === "inactive" && inactiveCount === 0 && (
+              <Button
+                variant="outline"
+                onClick={() => handleFilterChange("all")}
+              >
+                View all categories
+              </Button>
+            )}
+            <Button
+              onClick={() => router.push("/admin/services/categories/create")}
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Create Category
+            </Button>
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -548,18 +513,37 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
           </div>
         )}
         <div className="flex items-center gap-2">
-          <Select value={categoryFilter} onValueChange={handleFilterChange}>
-            <SelectTrigger className="w-32">
+          <Select
+            value={categoryFilter}
+            onValueChange={handleFilterChange}
+            disabled={isLoading}
+          >
+            <SelectTrigger className="w-40">
               <SelectValue placeholder="Filter" />
             </SelectTrigger>
             <SelectContent>
-              {(["all", "active", "inactive"] as const).map((filter) => (
-                <SelectItem key={filter} value={filter}>
-                  {filter.charAt(0).toUpperCase() + filter.slice(1)}
-                </SelectItem>
-              ))}
+              <SelectItem value="all">All ({allCategories.length})</SelectItem>
+              <SelectItem value="active">
+                Active ({categories.filter((c) => c.isActive).length})
+              </SelectItem>
+              <SelectItem value="inactive">
+                Inactive ({inactiveCount})
+              </SelectItem>
             </SelectContent>
           </Select>
+
+          {inactiveCount > 0 && categoryFilter !== "inactive" && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleFilterChange("inactive")}
+              className="text-orange-600 hover:text-orange-700"
+            >
+              <Archive className="w-4 h-4 mr-1" />
+              Inactive ({inactiveCount})
+            </Button>
+          )}
+
           <Button
             variant="outline"
             size="sm"
@@ -573,9 +557,11 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
                 "Failed to refresh"
               )
             }
-            disabled={isLoading}>
+            disabled={isLoading}
+          >
             <RefreshCw className={cn("w-4 h-4", isLoading && "animate-spin")} />
           </Button>
+
           <div className="flex border rounded-lg p-1">
             {(["list", "grid"] as const).map((mode) => (
               <Button
@@ -583,7 +569,9 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
                 variant={viewMode === mode ? "default" : "ghost"}
                 size="sm"
                 onClick={() => setViewMode(mode)}
-                className="px-3">
+                className="px-3"
+                disabled={isLoading}
+              >
                 {mode === "list" ? (
                   <List className="w-4 h-4" />
                 ) : (
@@ -594,7 +582,9 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
           </div>
 
           <Button
-            onClick={() => router.push("/admin/services/categories/create")}>
+            onClick={() => router.push("/admin/services/categories/create")}
+            disabled={isLoading}
+          >
             <Plus className="w-4 h-4 mr-2" />
             Create
           </Button>
@@ -606,60 +596,81 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
           <div className="flex items-center justify-between">
             <span className="text-sm font-medium">
               {selectedCategories.length} selected
+              {selectedActiveCount > 0 &&
+                selectedInactiveCount > 0 &&
+                ` (${selectedActiveCount} active, ${selectedInactiveCount} inactive)`}
+              {selectedActiveCount === 0 &&
+                selectedInactiveCount > 0 &&
+                ` (all inactive${selectedDeletedCount > 0 ? `/deleted` : ""})`}
+              {selectedInactiveCount === 0 &&
+                selectedActiveCount > 0 &&
+                ` (all active)`}
             </span>
             <div className="flex gap-2">
-              {selectedCategories.some((c) => !c.isActive) && (
+              {selectedInactiveCount > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={createBulkRestoreHandler}
+                  disabled={isLoading || updateLoading}
+                  className="text-green-600 hover:text-green-700"
+                >
+                  <ArchiveRestore className="w-4 h-4 mr-1" />
+                  Restore ({selectedInactiveCount})
+                </Button>
+              )}
+
+              {selectedCategories.length > 0 && (
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={createBulkHandler(
-                    bulkRestore,
-                    "categories restored"
-                  )}>
-                  <RotateCcw className="w-4 h-4 mr-1" />
-                  Restore
+                    bulkToggleStatus,
+                    "categories status updated"
+                  )}
+                  disabled={isLoading || updateLoading}
+                >
+                  Toggle Status
                 </Button>
               )}
+
+              {selectedActiveCount > 0 && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={isLoading || deleteLoading}
+                      className="text-orange-600 hover:text-orange-700"
+                    >
+                      <Archive className="w-4 h-4 mr-1" />
+                      Archive ({selectedActiveCount})
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Archive Categories</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Archive {selectedActiveCount} selected active
+                        categories? They will be moved to inactive status and
+                        can be restored later.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={createBulkArchiveHandler}>
+                        Archive
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+
               <Button
                 variant="outline"
                 size="sm"
-                onClick={createBulkHandler(
-                  bulkToggleStatus,
-                  "categories status updated"
-                )}>
-                Toggle Status
-              </Button>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive" size="sm">
-                    <Trash2 className="w-4 h-4 mr-1" />
-                    Delete
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete Categories</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      Delete {selectedCategories.length} selected categories?
-                      This action cannot be undone.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={createBulkHandler(
-                        bulkDelete,
-                        "categories deleted"
-                      )}>
-                      Delete
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSelectedCategories([])}>
+                onClick={() => setSelectedCategories([])}
+              >
                 Clear
               </Button>
             </div>
@@ -667,83 +678,80 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
         </div>
       )}
 
-      {isLoading && !displayCategories.length ? (
-        <div className="flex items-center justify-center py-12">
-          <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground" />
-        </div>
-      ) : !displayCategories.length ? (
-        <div className="text-center py-12">
-          <h3 className="text-lg font-semibold mb-2">
-            {searchQuery
-              ? `No results for "${searchQuery}"`
-              : "No categories found"}
-          </h3>
-          <div className="flex items-center justify-center gap-3">
-            {searchQuery && (
-              <Button variant="outline" onClick={clearSearch}>
-                Clear search
-              </Button>
-            )}
-            <Button
-              onClick={() => router.push("/admin/services/categories/create")}>
-              <Plus className="w-4 h-4 mr-2" />
-              Create Category
-            </Button>
+      {(updateLoading || deleteLoading) && (
+        <div className="relative">
+          <div className="absolute inset-0 bg-background/50 backdrop-blur-sm z-10 flex items-center justify-center">
+            <div className="text-center">
+              <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-muted-foreground" />
+              <p className="text-sm text-muted-foreground">Updating...</p>
+            </div>
           </div>
-        </div>
-      ) : (
-        <div
-          className={
-            viewMode === "list"
-              ? "space-y-2"
-              : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
-          }>
-          {displayCategories.map((category) => (
-            <CategoryCard
-              key={category._id.toString()}
-              category={category}
-              isGrid={viewMode === "grid"}
-              isSelected={isSelected}
-              onToggleSelection={toggleSelection}
-              onCategoryView={handleCategoryView}
-              onDelete={handleCategoryDelete}
-              onRestore={handleCategoryRestore}
-              includeServicesCount={includeServicesCount}
-              getServiceCount={getServiceCount}
-            />
-          ))}
         </div>
       )}
 
+      <div
+        className={
+          viewMode === "list"
+            ? "space-y-2"
+            : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
+        }
+      >
+        {displayCategories.map((category) => (
+          <AdminCategoryCard
+            key={category._id.toString()}
+            category={category}
+            config={getCardConfigForCategory(category)}
+            isSelected={isSelected(category)}
+            onToggleSelection={toggleSelection}
+            onAction={handleCategoryAction}
+            isLoading={isLoading}
+            actionLoading={updateLoading || deleteLoading}
+          />
+        ))}
+      </div>
+
       <AlertDialog
         open={!!categoryToDelete}
-        onOpenChange={() => setCategoryToDelete(null)}>
+        onOpenChange={() => setCategoryToDelete(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Category</AlertDialogTitle>
+            <AlertDialogTitle>Archive Category</AlertDialogTitle>
             <AlertDialogDescription>
-              Delete &quot;{categoryToDelete?.name}&quot;? This action cannot be
-              undone.
+              Archive &quot;{categoryToDelete?.name}&quot;? This will move it to
+              inactive status. You can restore it later from the inactive
+              categories list.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDelete}>
+              Archive
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={!!categoryToRestore}
+        onOpenChange={() => setCategoryToRestore(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Restore Category</AlertDialogTitle>
+            <AlertDialogDescription>
+              Restore &quot;{categoryToRestore?.name}&quot; to active status?
+              This will make it visible and usable again.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={async () => {
-                if (!categoryToDelete) return;
-
-                await handleAction(
-                  () => deleteCategory(categoryToDelete._id.toString()),
-                  `"${categoryToDelete.name}" deleted successfully`,
-                  "Failed to delete category"
-                );
-
-                setCategoryToDelete(null);
-                setSelectedCategories((prev) =>
-                  prev.filter((c) => c._id !== categoryToDelete._id)
-                );
-              }}>
-              Delete
+              onClick={confirmRestore}
+              className="bg-green-600 text-white hover:bg-green-700"
+            >
+              <ArchiveRestore className="w-4 h-4 mr-1" />
+              Restore
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -751,11 +759,11 @@ const SimplifiedCategoryList: React.FC<SimplifiedCategoryListProps> = ({
 
       {(updateLoading || deleteLoading) && (
         <LoadingOverlay
-          message={updateLoading ? "Updating..." : "Deleting..."}
+          message={updateLoading ? "Updating..." : "Processing..."}
         />
       )}
     </div>
   );
 };
 
-export default SimplifiedCategoryList;
+export default CategoryList;

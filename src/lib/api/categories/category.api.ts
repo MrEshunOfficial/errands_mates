@@ -1,6 +1,7 @@
 import { Category } from "@/types/category.types";
-import { ModerationStatus, FileReference } from "@/types/base.types";
+import { ModerationStatus } from "@/types/base.types";
 import { AuthResponse } from "@/types/user.types";
+import { FileReference } from "./categoryImage.api";
 
 export class CategoryAPIError extends Error {
   constructor(
@@ -41,7 +42,6 @@ export interface UpdateDisplayOrderData {
   }>;
 }
 
-// Updated moderation interfaces
 export interface ModerateCategoryData {
   moderationStatus: ModerationStatus;
   moderationNotes?: string;
@@ -79,7 +79,7 @@ export interface PendingCategoriesParams {
 
 export interface CategorySearchParams {
   search?: string;
-  parentId?: string;
+  parentId?: string | null;
   includeSubcategories?: boolean;
   includeServicesCount?: boolean;
   includeUserData?: boolean;
@@ -98,10 +98,7 @@ export interface CategorySearchQuery {
   limit?: number;
   includeInactive?: boolean;
   includeUserData?: boolean;
-  parentId?: string;
-  includeServices?: boolean;
-  servicesLimit?: number;
-  popularOnly?: boolean;
+  parentId?: string | null;
 }
 
 export interface CategoryFetchOptions {
@@ -165,6 +162,21 @@ export interface CategorySearchResponse {
   data: {
     categories: Category[];
   };
+}
+
+export interface DeletedCategoriesParams {
+  page?: number;
+  limit?: number;
+  includeSubcategories?: boolean;
+  includeUserData?: boolean;
+}
+
+export interface DeletedCategoryFetchOptions {
+  includeSubcategories?: boolean;
+  includeUserData?: boolean;
+  includeServices?: boolean;
+  servicesLimit?: number;
+  popularOnly?: boolean;
 }
 
 type ErrorResponse = {
@@ -243,38 +255,7 @@ class CategoryAPI {
     return queryParams;
   }
 
-  // ==================== MODERATION METHODS ====================
-
-  async getPendingCategories(
-    params: PendingCategoriesParams = {}
-  ): Promise<PaginatedCategoryResponse> {
-    const queryParams = this.buildQueryParams(params);
-    const endpoint = queryParams.toString()
-      ? `/moderation/pending?${queryParams}`
-      : "/moderation/pending";
-    return this.makeRequest<PaginatedCategoryResponse>(endpoint);
-  }
-
-  async moderateCategory(
-    categoryId: string,
-    data: ModerateCategoryData
-  ): Promise<ModerationResponse> {
-    return this.makeRequest<ModerationResponse>(`/${categoryId}/moderate`, {
-      method: "PATCH",
-      body: JSON.stringify(data),
-    });
-  }
-
-  async bulkModerateCategories(
-    data: BulkModerateCategoriesData
-  ): Promise<BulkModerationResponse> {
-    return this.makeRequest<BulkModerationResponse>("/moderate/bulk", {
-      method: "PATCH",
-      body: JSON.stringify(data),
-    });
-  }
-
-  // ==================== EXISTING METHODS ====================
+  // ==================== CRUD METHODS ====================
 
   async createCategory(data: CreateCategoryData): Promise<CategoryResponse> {
     return this.makeRequest<CategoryResponse>("/", {
@@ -327,6 +308,23 @@ class CategoryAPI {
     });
   }
 
+  async toggleCategoryStatus(categoryId: string): Promise<CategoryResponse> {
+    return this.makeRequest<CategoryResponse>(`/${categoryId}/toggle-status`, {
+      method: "PATCH",
+    });
+  }
+
+  async updateDisplayOrder(
+    data: UpdateDisplayOrderData
+  ): Promise<CategoriesResponse> {
+    return this.makeRequest<CategoriesResponse>("/display-order", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  // ==================== FETCH METHODS ====================
+
   async getCategories(
     params: CategorySearchParams = {}
   ): Promise<PaginatedCategoryResponse> {
@@ -351,7 +349,6 @@ class CategoryAPI {
     const endpoint = params.toString()
       ? `/parents/${parentId}/subcategories?${params}`
       : `/parents/${parentId}/subcategories`;
-
     return this.makeRequest<CategoriesResponse>(endpoint);
   }
 
@@ -362,16 +359,55 @@ class CategoryAPI {
     return this.makeRequest<CategorySearchResponse>(`/search?${queryParams}`);
   }
 
-  async toggleCategoryStatus(categoryId: string): Promise<CategoryResponse> {
-    return this.makeRequest<CategoryResponse>(`/${categoryId}/toggle-status`, {
+  // ==================== DELETED CATEGORIES METHODS ====================
+
+  async getDeletedCategories(
+    params: DeletedCategoriesParams = {}
+  ): Promise<PaginatedCategoryResponse> {
+    const queryParams = this.buildQueryParams(params);
+    const endpoint = queryParams.toString()
+      ? `/deleted?${queryParams}`
+      : "/deleted";
+    return this.makeRequest<PaginatedCategoryResponse>(endpoint);
+  }
+
+  async getDeletedCategoryById(
+    categoryId: string,
+    options: DeletedCategoryFetchOptions = {}
+  ): Promise<CategoryResponse> {
+    const params = this.buildQueryParams(options);
+    const endpoint = params.toString()
+      ? `/deleted/${categoryId}?${params}`
+      : `/deleted/${categoryId}`;
+    return this.makeRequest<CategoryResponse>(endpoint);
+  }
+
+  // ==================== MODERATION METHODS ====================
+
+  async getPendingCategories(
+    params: PendingCategoriesParams = {}
+  ): Promise<PaginatedCategoryResponse> {
+    const queryParams = this.buildQueryParams(params);
+    const endpoint = queryParams.toString()
+      ? `/moderation/pending?${queryParams}`
+      : "/moderation/pending";
+    return this.makeRequest<PaginatedCategoryResponse>(endpoint);
+  }
+
+  async moderateCategory(
+    categoryId: string,
+    data: ModerateCategoryData
+  ): Promise<ModerationResponse> {
+    return this.makeRequest<ModerationResponse>(`/${categoryId}/moderate`, {
       method: "PATCH",
+      body: JSON.stringify(data),
     });
   }
 
-  async updateDisplayOrder(
-    data: UpdateDisplayOrderData
-  ): Promise<AuthResponse> {
-    return this.makeRequest<AuthResponse>("/display-order", {
+  async bulkModerateCategories(
+    data: BulkModerateCategoriesData
+  ): Promise<BulkModerationResponse> {
+    return this.makeRequest<BulkModerationResponse>("/moderate/bulk", {
       method: "PATCH",
       body: JSON.stringify(data),
     });
@@ -426,16 +462,12 @@ class CategoryAPI {
     query: string,
     limit?: number,
     includeInactive = false,
-    includeServices = false,
-    servicesLimit = 5
   ): Promise<CategorySearchResponse> {
     return this.searchCategories({
       q: query,
       limit,
       includeUserData: true,
       includeInactive,
-      includeServices,
-      servicesLimit,
     });
   }
 
@@ -572,14 +604,11 @@ class CategoryAPI {
   async searchAllCategoriesForAdmin(
     query: string,
     limit?: number,
-    includeServices = false
   ): Promise<CategorySearchResponse> {
     return this.searchCategoriesForAdmin(
       query,
       limit,
-      true,
-      includeServices,
-      5
+      true
     );
   }
 

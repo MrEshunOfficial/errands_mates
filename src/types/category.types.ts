@@ -1,8 +1,10 @@
+
 // types/category.types.ts
 import { Types } from "mongoose";
-import { BaseEntity, SoftDeletable, FileReference } from "./base.types";
+import { BaseEntity, SoftDeletable } from "./base.types";
 import { ModerationStatus } from "./base.types";
 import { Service } from "./service.types";
+import { FileReference } from "@/lib/api/categories/categoryImage.api";
 
 export interface Category extends BaseEntity, SoftDeletable {
   name: string;

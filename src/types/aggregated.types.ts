@@ -71,15 +71,6 @@ export interface QueryParams {
   search?: string;
 }
 
-// Common response structure
-export interface ApiResponse<T = any> {
-  success: boolean;
-  message: string;
-  data?: T;
-  error?: string;
-  statusCode?: number;
-}
-
 // Combined user with profile for convenience
 export interface UserWithProfile {
   user: IUser;
@@ -193,15 +184,6 @@ export interface ServiceQueryParams extends QueryParams {
   maxPrice?: number;
   location?: string;
   radius?: number;
-}
-
-// Common response structure
-export interface ApiResponse<T = any> {
-  success: boolean;
-  message: string;
-  data?: T;
-  error?: string;
-  statusCode?: number;
 }
 
 // Dashboard stats for admin

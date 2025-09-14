@@ -7,7 +7,7 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import CategoryForm from "@/components/admin/categories/category-form";
-import { useAdminCategory } from "@/hooks/categories/adminCategory.hook";
+import { useAdminCategory } from "@/hooks/admin/admin.category.hook";
 import { Category } from "@/types";
 import LoadingOverlay from "@/components/ui/LoadingOverlay";
 import { ErrorState } from "@/components/ui/ErrorState";
