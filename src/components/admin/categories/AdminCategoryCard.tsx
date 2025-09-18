@@ -91,7 +91,7 @@ export interface AdminCategoryCardProps {
   isSelected?: boolean;
   onToggleSelection?: (category: Category) => void;
 
-  // Actions
+  // Actions - This is the key change: onAction now handles all actions including confirmations
   onAction: (action: CategoryCardAction, category: Category) => void;
 
   // Loading states
@@ -196,8 +196,7 @@ const StatusBadge: React.FC<{
     return (
       <Badge
         variant="secondary"
-        className={cn("text-xs", style.badgeClassName)}
-      >
+        className={cn("text-xs", style.badgeClassName)}>
         Deleted
       </Badge>
     );
@@ -208,8 +207,7 @@ const StatusBadge: React.FC<{
     return (
       <Badge
         variant="secondary"
-        className={cn("text-xs", style.badgeClassName)}
-      >
+        className={cn("text-xs", style.badgeClassName)}>
         Inactive
       </Badge>
     );
@@ -225,6 +223,7 @@ const ActionButton: React.FC<{
   onAction: (action: CategoryCardAction, category: Category) => void;
   variant?: "icon" | "text";
   size?: "sm" | "default";
+  disabled?: boolean;
 }> = ({
   action,
   category,
@@ -232,6 +231,7 @@ const ActionButton: React.FC<{
   onAction,
   variant = "icon",
   size = "sm",
+  disabled = false,
 }) => {
   const customLabels = config.customLabels || {};
 
@@ -297,13 +297,13 @@ const ActionButton: React.FC<{
     <Button
       variant="ghost"
       size={size}
+      disabled={disabled}
       onClick={(e) => {
         e.stopPropagation();
         onAction(action, category);
       }}
       className={cn(variant === "icon" ? "px-2" : "", actionConfig.className)}
-      title={actionConfig.label}
-    >
+      title={actionConfig.label}>
       <Icon className="w-4 h-4" />
       {variant === "text" && <span className="ml-1">{actionConfig.label}</span>}
     </Button>
@@ -314,7 +314,8 @@ const GridActions: React.FC<{
   category: Category;
   config: CategoryCardConfig;
   onAction: (action: CategoryCardAction, category: Category) => void;
-}> = ({ category, config, onAction }) => {
+  disabled?: boolean;
+}> = ({ category, config, onAction, disabled = false }) => {
   const primaryAction = config.primaryAction || "view";
   const otherActions = config.availableActions.filter(
     (action) => action !== primaryAction
@@ -328,6 +329,7 @@ const GridActions: React.FC<{
         config={config}
         onAction={onAction}
         variant="text"
+        disabled={disabled}
       />
 
       {otherActions.length === 1 ? (
@@ -337,11 +339,12 @@ const GridActions: React.FC<{
           config={config}
           onAction={onAction}
           variant="text"
+          disabled={disabled}
         />
       ) : otherActions.length > 1 ? (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm">
+            <Button variant="ghost" size="sm" disabled={disabled}>
               <MoreHorizontal className="w-4 h-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -353,13 +356,14 @@ const GridActions: React.FC<{
                     e.stopPropagation();
                     onAction(action, category);
                   }}
-                >
+                  disabled={disabled}>
                   <ActionButton
                     action={action}
                     category={category}
                     config={config}
                     onAction={() => {}}
                     variant="text"
+                    disabled={true} // Always disabled in dropdown since onClick is handled by DropdownMenuItem
                   />
                 </DropdownMenuItem>
                 {index < otherActions.length - 1 && action === "view" && (
@@ -378,7 +382,8 @@ const ListActions: React.FC<{
   category: Category;
   config: CategoryCardConfig;
   onAction: (action: CategoryCardAction, category: Category) => void;
-}> = ({ category, config, onAction }) => {
+  disabled?: boolean;
+}> = ({ category, config, onAction, disabled = false }) => {
   return (
     <div className="flex gap-1">
       {config.availableActions.slice(0, 2).map((action) => (
@@ -389,13 +394,18 @@ const ListActions: React.FC<{
           config={config}
           onAction={onAction}
           variant="icon"
+          disabled={disabled}
         />
       ))}
 
       {config.availableActions.length > 2 && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="px-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="px-2"
+              disabled={disabled}>
               <MoreHorizontal className="w-4 h-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -407,13 +417,14 @@ const ListActions: React.FC<{
                   e.stopPropagation();
                   onAction(action, category);
                 }}
-              >
+                disabled={disabled}>
                 <ActionButton
                   action={action}
                   category={category}
                   config={config}
                   onAction={() => {}}
                   variant="text"
+                  disabled={true} // Always disabled in dropdown since onClick is handled by DropdownMenuItem
                 />
               </DropdownMenuItem>
             ))}
@@ -474,6 +485,8 @@ export const AdminCategoryCard: React.FC<AdminCategoryCardProps> = ({
     onAction(primaryAction, category);
   };
 
+  const isActionDisabled = isLoading || actionLoading;
+
   if (config.viewMode === "grid") {
     return (
       <Card className={cardClassName}>
@@ -488,7 +501,7 @@ export const AdminCategoryCard: React.FC<AdminCategoryCardProps> = ({
                   onChange={() => onToggleSelection(category)}
                   onClick={(e) => e.stopPropagation()}
                   className="w-4 h-4"
-                  disabled={isLoading || actionLoading}
+                  disabled={isActionDisabled}
                 />
               )}
               <div className="flex gap-1">
@@ -524,6 +537,7 @@ export const AdminCategoryCard: React.FC<AdminCategoryCardProps> = ({
               category={category}
               config={config}
               onAction={onAction}
+              disabled={isActionDisabled}
             />
           </div>
         </CardContent>
@@ -544,7 +558,7 @@ export const AdminCategoryCard: React.FC<AdminCategoryCardProps> = ({
               onChange={() => onToggleSelection(category)}
               onClick={(e) => e.stopPropagation()}
               className="w-4 h-4"
-              disabled={isLoading || actionLoading}
+              disabled={isActionDisabled}
             />
           )}
 
@@ -559,8 +573,7 @@ export const AdminCategoryCard: React.FC<AdminCategoryCardProps> = ({
           {/* Content */}
           <div
             className="flex-1 min-w-0 cursor-pointer"
-            onClick={handlePrimaryClick}
-          >
+            onClick={handlePrimaryClick}>
             <div className="flex items-center gap-2 mb-1">
               <h3 className={textClassName}>{category.name}</h3>
               <StatusBadge category={category} config={config} />
@@ -582,6 +595,7 @@ export const AdminCategoryCard: React.FC<AdminCategoryCardProps> = ({
             category={category}
             config={config}
             onAction={onAction}
+            disabled={isActionDisabled}
           />
         </div>
       </CardContent>

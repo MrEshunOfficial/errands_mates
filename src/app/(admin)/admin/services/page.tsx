@@ -10,8 +10,7 @@ export default function ServiceListPage() {
         <nav className="flex items-center space-x-2 text-sm text-muted-foreground">
           <Link
             href="/admin"
-            className="hover:text-foreground transition-colors"
-          >
+            className="hover:text-foreground transition-colors">
             Admin
           </Link>
           <span>/</span>
@@ -20,7 +19,7 @@ export default function ServiceListPage() {
           </span>
         </nav>
       </div>
-      <main className="min-h-screen w-full">
+      <main className="min-h-[90vh] w-full">
         <AdminServiceTable
           limit={50}
           searchPlaceholder="Find services..."

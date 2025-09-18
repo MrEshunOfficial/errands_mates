@@ -35,27 +35,47 @@ interface CategoryState {
 interface CategoryActions {
   // Single category operations
   fetchCategory: (id: string, options?: CategoryFetchOptions) => Promise<void>;
-  fetchCategoryBySlug: (slug: string, options?: CategoryFetchOptions) => Promise<void>;
-  fetchCategoryWithAllServices: (id: string, servicesLimit?: number) => Promise<void>; // NEW
+  fetchCategoryBySlug: (
+    slug: string,
+    options?: CategoryFetchOptions
+  ) => Promise<void>;
+  fetchCategoryWithAllServices: (
+    id: string,
+    servicesLimit?: number
+  ) => Promise<void>; // NEW
   fetchCategoryBreadcrumb: (id: string) => Promise<void>; // NEW
-  
+
   // Category list operations
   fetchCategories: (searchParams?: CategorySearchParams) => Promise<void>;
-  fetchParentCategories: (options?: ParentCategoriesFetchOptions) => Promise<void>;
-  fetchSubcategories: (parentId: string, options?: SubcategoriesFetchOptions) => Promise<void>;
-  fetchCategoriesWithPopularServices: (searchParams?: CategorySearchParams) => Promise<void>; // NEW
-  fetchParentCategoriesWithServices: (servicesLimit?: number, popularOnly?: boolean) => Promise<void>; // NEW
-  fetchSubcategoriesWithServices: (parentId: string, servicesLimit?: number, popularOnly?: boolean) => Promise<void>; // NEW
-  
+  fetchParentCategories: (
+    options?: ParentCategoriesFetchOptions
+  ) => Promise<void>;
+  fetchSubcategories: (
+    parentId: string,
+    options?: SubcategoriesFetchOptions
+  ) => Promise<void>;
+  fetchCategoriesWithPopularServices: (
+    searchParams?: CategorySearchParams
+  ) => Promise<void>; // NEW
+  fetchParentCategoriesWithServices: (
+    servicesLimit?: number,
+    popularOnly?: boolean
+  ) => Promise<void>; // NEW
+  fetchSubcategoriesWithServices: (
+    parentId: string,
+    servicesLimit?: number,
+    popularOnly?: boolean
+  ) => Promise<void>; // NEW
+
   // NEW: Special purpose fetches
   fetchFeaturedCategories: (limit?: number) => Promise<void>;
   fetchNavigationCategories: () => Promise<void>;
-  
+
   // Search operations
   searchCategories: (searchParams: CategorySearchQuery) => Promise<void>;
   clearSearch: () => void;
   setSearchQuery: (query: string) => void;
-  
+
   // Utility operations
   updateParams: (newParams: Partial<CategorySearchParams>) => void;
   clearData: () => void;
@@ -97,202 +117,253 @@ export const useCategory = (
   const memoizedOptions = useMemo(() => options, [options]);
 
   const updateState = useCallback((updates: Partial<CategoryState>) => {
-    setState(prev => ({ ...prev, ...updates }));
+    setState((prev) => ({ ...prev, ...updates }));
   }, []);
 
   // Generic action handler for consistent error handling
-  const handleCategoryAction = useCallback(async <T>(
-    action: () => Promise<T>,
-    onSuccess?: (response: T) => void
-  ): Promise<T> => {
-    try {
-      updateState({ isLoading: true, error: null });
-      
-      const response = await action();
-      
-      updateState({ isLoading: false });
-      
-      onSuccess?.(response);
-      return response;
-    } catch (error) {
-      const errorMessage = error instanceof CategoryAPIError 
-        ? error.message 
-        : 'An unexpected error occurred';
-      
-      updateState({
-        isLoading: false,
-        error: errorMessage,
-      });
-      throw error;
-    }
-  }, [updateState]);
+  const handleCategoryAction = useCallback(
+    async <T>(
+      action: () => Promise<T>,
+      onSuccess?: (response: T) => void
+    ): Promise<T> => {
+      try {
+        updateState({ isLoading: true, error: null });
+
+        const response = await action();
+
+        updateState({ isLoading: false });
+
+        onSuccess?.(response);
+        return response;
+      } catch (error) {
+        const errorMessage =
+          error instanceof CategoryAPIError
+            ? error.message
+            : "An unexpected error occurred";
+
+        updateState({
+          isLoading: false,
+          error: errorMessage,
+        });
+        throw error;
+      }
+    },
+    [updateState]
+  );
 
   // Single category operations
-  const fetchCategory = useCallback(async (id: string, fetchOptions?: CategoryFetchOptions) => {
-    const defaultOptions: CategoryFetchOptions = {
-      includeSubcategories: memoizedOptions?.includeSubcategories,
-      includeUserData: memoizedOptions?.includeUserData,
-      includeServices: memoizedOptions?.includeServices,
-      servicesLimit: memoizedOptions?.servicesLimit,
-      popularOnly: memoizedOptions?.popularOnly,
-    };
-    
-    const finalOptions = { ...defaultOptions, ...fetchOptions };
+  const fetchCategory = useCallback(
+    async (id: string, fetchOptions?: CategoryFetchOptions) => {
+      const defaultOptions: CategoryFetchOptions = {
+        includeSubcategories: memoizedOptions?.includeSubcategories,
+        includeUserData: memoizedOptions?.includeUserData,
+        includeServices: memoizedOptions?.includeServices,
+        servicesLimit: memoizedOptions?.servicesLimit,
+        popularOnly: memoizedOptions?.popularOnly,
+      };
 
-    await handleCategoryAction(
-      () => categoryAPI.getCategoryById(id, finalOptions),
-      (response) => {
-        updateState({ category: response.data?.category || null });
-      }
-    );
-  }, [handleCategoryAction, memoizedOptions, updateState]);
+      const finalOptions = { ...defaultOptions, ...fetchOptions };
 
-  const fetchCategoryBySlug = useCallback(async (slug: string, fetchOptions?: CategoryFetchOptions) => {
-    const defaultOptions: CategoryFetchOptions = {
-      includeSubcategories: memoizedOptions?.includeSubcategories,
-      includeUserData: memoizedOptions?.includeUserData,
-      includeServices: memoizedOptions?.includeServices,
-      servicesLimit: memoizedOptions?.servicesLimit,
-      popularOnly: memoizedOptions?.popularOnly,
-    };
-    
-    const finalOptions = { ...defaultOptions, ...fetchOptions };
+      await handleCategoryAction(
+        () => categoryAPI.getCategoryById(id, finalOptions),
+        (response) => {
+          updateState({ category: response.data?.category || null });
+        }
+      );
+    },
+    [handleCategoryAction, memoizedOptions, updateState]
+  );
 
-    await handleCategoryAction(
-      () => categoryAPI.getCategoryBySlug(slug, finalOptions),
-      (response) => {
-        updateState({ category: response.data?.category || null });
-      }
-    );
-  }, [handleCategoryAction, memoizedOptions, updateState]);
+  const fetchCategoryBySlug = useCallback(
+    async (slug: string, fetchOptions?: CategoryFetchOptions) => {
+      const defaultOptions: CategoryFetchOptions = {
+        includeSubcategories: memoizedOptions?.includeSubcategories,
+        includeUserData: memoizedOptions?.includeUserData,
+        includeServices: memoizedOptions?.includeServices,
+        servicesLimit: memoizedOptions?.servicesLimit,
+        popularOnly: memoizedOptions?.popularOnly,
+      };
+
+      const finalOptions = { ...defaultOptions, ...fetchOptions };
+
+      await handleCategoryAction(
+        () => categoryAPI.getCategoryBySlug(slug, finalOptions),
+        (response) => {
+          updateState({ category: response.data?.category || null });
+        }
+      );
+    },
+    [handleCategoryAction, memoizedOptions, updateState]
+  );
 
   // NEW: Fetch category with all its services - perfect for detailed category pages
-  const fetchCategoryWithAllServices = useCallback(async (id: string, servicesLimit = 20) => {
-    await handleCategoryAction(
-      () => categoryAPI.getCategoryWithAllServices(id, servicesLimit),
-      (response) => {
-        updateState({ category: response.data?.category || null });
-      }
-    );
-  }, [handleCategoryAction, updateState]);
+  const fetchCategoryWithAllServices = useCallback(
+    async (id: string, servicesLimit = 20) => {
+      await handleCategoryAction(
+        () => categoryAPI.getCategoryWithAllServices(id, servicesLimit),
+        (response) => {
+          updateState({ category: response.data?.category || null });
+        }
+      );
+    },
+    [handleCategoryAction, updateState]
+  );
 
   // NEW: Fetch minimal category data for breadcrumbs
-  const fetchCategoryBreadcrumb = useCallback(async (id: string) => {
-    await handleCategoryAction(
-      () => categoryAPI.getCategoryBreadcrumb(id),
-      (response) => {
-        updateState({ category: response.data?.category || null });
-      }
-    );
-  }, [handleCategoryAction, updateState]);
+  const fetchCategoryBreadcrumb = useCallback(
+    async (id: string) => {
+      await handleCategoryAction(
+        () => categoryAPI.getCategoryBreadcrumb(id),
+        (response) => {
+          updateState({ category: response.data?.category || null });
+        }
+      );
+    },
+    [handleCategoryAction, updateState]
+  );
 
   // Category list operations
-  const fetchCategories = useCallback(async (searchParams?: CategorySearchParams) => {
-    const queryParams = searchParams || state.params;
-    
-    await handleCategoryAction(
-      () => categoryAPI.getCategories(queryParams),
-      (response) => {
-        updateState({
-          categories: response.data.categories,
-          pagination: response.data.pagination,
-        });
-      }
-    );
-  }, [handleCategoryAction, state.params, updateState]);
+  const fetchCategories = useCallback(
+    async (searchParams?: CategorySearchParams) => {
+      const queryParams = searchParams || state.params;
 
-  const fetchParentCategories = useCallback(async (fetchOptions?: ParentCategoriesFetchOptions) => {
-    const defaultOptions: ParentCategoriesFetchOptions = {
-      includeUserData: memoizedOptions?.includeUserData,
-      includeServices: memoizedOptions?.includeServices,
-      servicesLimit: memoizedOptions?.servicesLimit,
-      popularOnly: memoizedOptions?.popularOnly,
-    };
-    
-    const finalOptions = { ...defaultOptions, ...fetchOptions };
+      await handleCategoryAction(
+        () => categoryAPI.getCategories(queryParams),
+        (response) => {
+          updateState({
+            categories: response.data.categories,
+            pagination: response.data.pagination,
+          });
+        }
+      );
+    },
+    [handleCategoryAction, state.params, updateState]
+  );
 
-    await handleCategoryAction(
-      () => categoryAPI.getParentCategories(finalOptions),
-      (response) => {
-        updateState({
-          categories: response.data.categories,
-          pagination: undefined,
-        });
-      }
-    );
-  }, [handleCategoryAction, memoizedOptions, updateState]);
+  const fetchParentCategories = useCallback(
+    async (fetchOptions?: ParentCategoriesFetchOptions) => {
+      const defaultOptions: ParentCategoriesFetchOptions = {
+        includeUserData: memoizedOptions?.includeUserData,
+        includeServices: memoizedOptions?.includeServices,
+        servicesLimit: memoizedOptions?.servicesLimit,
+        popularOnly: memoizedOptions?.popularOnly,
+        includeInactive: false, // Always exclude inactive categories for users
+      };
 
-  const fetchSubcategories = useCallback(async (parentId: string, fetchOptions?: SubcategoriesFetchOptions) => {
-    const defaultOptions: SubcategoriesFetchOptions = {
-      includeUserData: memoizedOptions?.includeUserData,
-      includeServices: memoizedOptions?.includeServices,
-      servicesLimit: memoizedOptions?.servicesLimit,
-      popularOnly: memoizedOptions?.popularOnly,
-    };
-    
-    const finalOptions = { ...defaultOptions, ...fetchOptions };
+      const finalOptions = {
+        ...defaultOptions,
+        ...fetchOptions,
+        includeInactive: false,
+      };
 
-    await handleCategoryAction(
-      () => categoryAPI.getSubcategories(parentId, finalOptions),
-      (response) => {
-        updateState({
-          categories: response.data.categories,
-          pagination: undefined,
-        });
-      }
-    );
-  }, [handleCategoryAction, memoizedOptions, updateState]);
+      await handleCategoryAction(
+        () => categoryAPI.getParentCategories(finalOptions),
+        (response) => {
+          updateState({
+            categories: response.data.categories,
+            pagination: undefined,
+          });
+        }
+      );
+    },
+    [handleCategoryAction, memoizedOptions, updateState]
+  );
 
-  // NEW: Enhanced category fetching methods with services
-  const fetchCategoriesWithPopularServices = useCallback(async (searchParams?: CategorySearchParams) => {
-    const queryParams = { ...state.params, ...searchParams };
-    
-    await handleCategoryAction(
-      () => categoryAPI.getCategoriesWithPopularServices(queryParams),
-      (response) => {
-        updateState({
-          categories: response.data.categories,
-          pagination: response.data.pagination,
-        });
-      }
-    );
-  }, [handleCategoryAction, state.params, updateState]);
+  const fetchSubcategories = useCallback(
+    async (parentId: string, fetchOptions?: SubcategoriesFetchOptions) => {
+      const defaultOptions: SubcategoriesFetchOptions = {
+        includeUserData: memoizedOptions?.includeUserData,
+        includeServices: memoizedOptions?.includeServices,
+        servicesLimit: memoizedOptions?.servicesLimit,
+        popularOnly: memoizedOptions?.popularOnly,
+      };
 
-  const fetchParentCategoriesWithServices = useCallback(async (servicesLimit = 5, popularOnly = false) => {
-    await handleCategoryAction(
-      () => categoryAPI.getParentCategoriesWithServices(servicesLimit, popularOnly),
-      (response) => {
-        updateState({
-          categories: response.data.categories,
-          pagination: undefined,
-        });
-      }
-    );
-  }, [handleCategoryAction, updateState]);
+      const finalOptions = { ...defaultOptions, ...fetchOptions };
 
-  const fetchSubcategoriesWithServices = useCallback(async (parentId: string, servicesLimit = 3, popularOnly = true) => {
-    await handleCategoryAction(
-      () => categoryAPI.getSubcategoriesWithServices(parentId, servicesLimit, popularOnly),
-      (response) => {
-        updateState({
-          categories: response.data.categories,
-          pagination: undefined,
-        });
-      }
-    );
-  }, [handleCategoryAction, updateState]);
+      await handleCategoryAction(
+        () => categoryAPI.getSubcategories(parentId, finalOptions),
+        (response) => {
+          updateState({
+            categories: response.data.categories,
+            pagination: undefined,
+          });
+        }
+      );
+    },
+    [handleCategoryAction, memoizedOptions, updateState]
+  );
 
-  // NEW: Special purpose fetches for common UI patterns
-  const fetchFeaturedCategories = useCallback(async (limit = 8) => {
-    await handleCategoryAction(
-      () => categoryAPI.getFeaturedCategories(limit),
-      (response) => {
-        updateState({
-          featuredCategories: response.data.categories,
-        });
-      }
-    );
-  }, [handleCategoryAction, updateState]);
+  // NEW: Enhanced category fetching methods with services using optimized API methods
+  const fetchCategoriesWithPopularServices = useCallback(
+    async (searchParams?: CategorySearchParams) => {
+      const queryParams = { ...state.params, ...searchParams };
+
+      await handleCategoryAction(
+        () => categoryAPI.getCategoriesWithPopularServices(queryParams),
+        (response) => {
+          updateState({
+            categories: response.data.categories,
+            pagination: response.data.pagination,
+          });
+        }
+      );
+    },
+    [handleCategoryAction, state.params, updateState]
+  );
+
+  const fetchParentCategoriesWithServices = useCallback(
+    async (servicesLimit = 5, popularOnly = false) => {
+      await handleCategoryAction(
+        () =>
+          categoryAPI.getParentCategoriesWithServices(
+            servicesLimit,
+            popularOnly
+          ),
+        (response) => {
+          updateState({
+            categories: response.data.categories,
+            pagination: undefined,
+          });
+        }
+      );
+    },
+    [handleCategoryAction, updateState]
+  );
+
+  const fetchSubcategoriesWithServices = useCallback(
+    async (parentId: string, servicesLimit = 3, popularOnly = true) => {
+      await handleCategoryAction(
+        () =>
+          categoryAPI.getSubcategoriesWithServices(
+            parentId,
+            servicesLimit,
+            popularOnly
+          ),
+        (response) => {
+          updateState({
+            categories: response.data.categories,
+            pagination: undefined,
+          });
+        }
+      );
+    },
+    [handleCategoryAction, updateState]
+  );
+
+  // NEW: Special purpose fetches for common UI patterns using optimized API methods
+  const fetchFeaturedCategories = useCallback(
+    async (limit = 8) => {
+      await handleCategoryAction(
+        () => categoryAPI.getFeaturedCategories(limit),
+        (response) => {
+          updateState({
+            featuredCategories: response.data.categories,
+          });
+        }
+      );
+    },
+    [handleCategoryAction, updateState]
+  );
 
   const fetchNavigationCategories = useCallback(async () => {
     await handleCategoryAction(
@@ -305,26 +376,35 @@ export const useCategory = (
     );
   }, [handleCategoryAction, updateState]);
 
-  // Search operations
-  const searchCategories = useCallback(async (searchParams: CategorySearchQuery) => {
-    if (!searchParams.q.trim()) {
-      updateState({
-        searchResults: [],
-        searchQuery: searchParams.q,
-      });
-      return;
-    }
-
-    await handleCategoryAction(
-      () => categoryAPI.searchCategories(searchParams),
-      (response) => {
+  // Search operations - enhanced to exclude inactive categories for users
+  const searchCategories = useCallback(
+    async (searchParams: CategorySearchQuery) => {
+      if (!searchParams.q.trim()) {
         updateState({
-          searchResults: response.data.categories,
+          searchResults: [],
           searchQuery: searchParams.q,
         });
+        return;
       }
-    );
-  }, [handleCategoryAction, updateState]);
+
+      // Ensure we don't include inactive categories for users
+      const userSearchParams = {
+        ...searchParams,
+        includeInactive: false,
+      };
+
+      await handleCategoryAction(
+        () => categoryAPI.searchCategories(userSearchParams),
+        (response) => {
+          updateState({
+            searchResults: response.data.categories,
+            searchQuery: searchParams.q,
+          });
+        }
+      );
+    },
+    [handleCategoryAction, updateState]
+  );
 
   const clearSearch = useCallback(() => {
     updateState({
@@ -333,14 +413,26 @@ export const useCategory = (
     });
   }, [updateState]);
 
-  const setSearchQuery = useCallback((query: string) => {
-    updateState({ searchQuery: query });
-  }, [updateState]);
+  const setSearchQuery = useCallback(
+    (query: string) => {
+      updateState({ searchQuery: query });
+    },
+    [updateState]
+  );
 
   // Utility operations
-  const updateParams = useCallback((newParams: Partial<CategorySearchParams>) => {
-    updateState({ params: { ...state.params, ...newParams } });
-  }, [updateState, state.params]);
+  const updateParams = useCallback(
+    (newParams: Partial<CategorySearchParams>) => {
+      // Ensure inactive categories are never included for regular users
+      const safeParams = {
+        ...state.params,
+        ...newParams,
+        includeInactive: false,
+      };
+      updateState({ params: safeParams });
+    },
+    [updateState, state.params]
+  );
 
   const clearData = useCallback(() => {
     updateState({
@@ -364,7 +456,13 @@ export const useCategory = (
     if (state.categories.length > 0) {
       await fetchCategories();
     }
-  }, [categoryId, state.category, state.categories.length, fetchCategory, fetchCategories]);
+  }, [
+    categoryId,
+    state.category,
+    state.categories.length,
+    fetchCategory,
+    fetchCategories,
+  ]);
 
   // Enhanced auto-initialization effect
   useEffect(() => {
@@ -378,7 +476,10 @@ export const useCategory = (
     };
 
     type CategoryResult = { type: "category"; data: Category | null };
-    type CategoriesResult = { type: "categories"; data: { categories: Category[]; pagination: Pagination } };
+    type CategoriesResult = {
+      type: "categories";
+      data: { categories: Category[]; pagination: Pagination };
+    };
     type Result = CategoryResult | CategoriesResult;
 
     const initializeCategory = async () => {
@@ -396,10 +497,12 @@ export const useCategory = (
           };
 
           promises.push(
-            categoryAPI.getCategoryById(categoryId, categoryFetchOptions).then((response): CategoryResult => ({
-              type: "category",
-              data: response.data?.category || null,
-            }))
+            categoryAPI.getCategoryById(categoryId, categoryFetchOptions).then(
+              (response): CategoryResult => ({
+                type: "category",
+                data: response.data?.category || null,
+              })
+            )
           );
         }
 
@@ -410,13 +513,16 @@ export const useCategory = (
             includeServices: memoizedOptions?.includeServices,
             servicesLimit: memoizedOptions?.servicesLimit,
             popularOnly: memoizedOptions?.popularOnly,
+            includeInactive: false, // Never include inactive categories for users
           };
 
           promises.push(
-            categoryAPI.getCategories(searchParams).then((response): CategoriesResult => ({
-              type: "categories",
-              data: response.data,
-            }))
+            categoryAPI.getCategories(searchParams).then(
+              (response): CategoriesResult => ({
+                type: "categories",
+                data: response.data,
+              })
+            )
           );
         }
 
@@ -447,7 +553,10 @@ export const useCategory = (
               newState.pagination = data.pagination;
             }
           } else {
-            console.warn("Category initialization failed for one operation:", result.reason);
+            console.warn(
+              "Category initialization failed for one operation:",
+              result.reason
+            );
           }
         });
 
@@ -524,8 +633,7 @@ export const useCategories = (
 ) => {
   const categoryHook = useCategory(undefined, {
     autoFetchCategories: true,
-    defaultParams: initialParams,
-    includeServices: options?.includeServices,
+    defaultParams: { ...initialParams, includeInactive: false },
     servicesLimit: options?.servicesLimit,
     popularOnly: options?.popularOnly,
   });
@@ -539,8 +647,10 @@ export const useCategories = (
     fetchCategories: categoryHook.fetchCategories,
     fetchParentCategories: categoryHook.fetchParentCategories,
     fetchSubcategories: categoryHook.fetchSubcategories,
-    fetchCategoriesWithPopularServices: categoryHook.fetchCategoriesWithPopularServices,
-    fetchParentCategoriesWithServices: categoryHook.fetchParentCategoriesWithServices,
+    fetchCategoriesWithPopularServices:
+      categoryHook.fetchCategoriesWithPopularServices,
+    fetchParentCategoriesWithServices:
+      categoryHook.fetchParentCategoriesWithServices,
     fetchSubcategoriesWithServices: categoryHook.fetchSubcategoriesWithServices,
     updateParams: categoryHook.updateParams,
     clearData: categoryHook.clearData,
@@ -563,16 +673,22 @@ export const useCategorySearch = (options?: {
     popularOnly: options?.popularOnly,
   });
 
-  const searchWithServices = useCallback(async (searchParams: Omit<CategorySearchQuery, 'includeServices' | 'servicesLimit' | 'popularOnly'>) => {
-    const enhancedParams: CategorySearchQuery = {
-      ...searchParams,
-      includeServices: options?.includeServices,
-      servicesLimit: options?.servicesLimit,
-      popularOnly: options?.popularOnly,
-    };
-    
-    await categoryHook.searchCategories(enhancedParams);
-  }, [categoryHook, options]);
+  const searchWithServices = useCallback(
+    async (
+      searchParams: Omit<
+        CategorySearchQuery,
+        "includeServices" | "servicesLimit" | "popularOnly" | "includeInactive"
+      >
+    ) => {
+      const enhancedParams: CategorySearchQuery = {
+        ...searchParams,
+        includeInactive: false,
+      };
+
+      await categoryHook.searchCategories(enhancedParams);
+    },
+    [categoryHook]
+  );
 
   return {
     results: categoryHook.searchResults,
@@ -612,25 +728,34 @@ export const useCategoryDetail = (
   });
 
   // Fetch by slug with enhanced service options
-  const fetchBySlug = useCallback(async (slug: string) => {
-    const fetchOptions: CategoryFetchOptions = {
-      includeSubcategories: options?.includeSubcategories ?? true,
-      includeUserData: options?.includeUserData,
-      includeServices: options?.includeServices,
-      servicesLimit: options?.servicesLimit,
-      popularOnly: options?.popularOnly,
-    };
+  const fetchBySlug = useCallback(
+    async (slug: string) => {
+      const fetchOptions: CategoryFetchOptions = {
+        includeSubcategories: options?.includeSubcategories ?? true,
+        includeUserData: options?.includeUserData,
+        includeServices: options?.includeServices,
+        servicesLimit: options?.servicesLimit,
+        popularOnly: options?.popularOnly,
+      };
 
-    await categoryHook.fetchCategoryBySlug(slug, fetchOptions);
-  }, [categoryHook, options]);
+      await categoryHook.fetchCategoryBySlug(slug, fetchOptions);
+    },
+    [categoryHook, options]
+  );
 
   // NEW: Fetch category with all services for detailed view
-  const fetchWithAllServices = useCallback(async (id?: string, servicesLimit = 50) => {
-    const targetId = id || categoryId;
-    if (targetId) {
-      await categoryHook.fetchCategoryWithAllServices(targetId, servicesLimit);
-    }
-  }, [categoryHook, categoryId]);
+  const fetchWithAllServices = useCallback(
+    async (id?: string, servicesLimit = 50) => {
+      const targetId = id || categoryId;
+      if (targetId) {
+        await categoryHook.fetchCategoryWithAllServices(
+          targetId,
+          servicesLimit
+        );
+      }
+    },
+    [categoryHook, categoryId]
+  );
 
   // Auto-fetch by slug if provided instead of categoryId
   useEffect(() => {
@@ -641,23 +766,32 @@ export const useCategoryDetail = (
 
   // Auto-fetch all services if requested
   useEffect(() => {
-    if (options?.fetchAllServices && categoryId && options?.autoFetch !== false) {
+    if (
+      options?.fetchAllServices &&
+      categoryId &&
+      options?.autoFetch !== false
+    ) {
       fetchWithAllServices(categoryId);
     }
-  }, [options?.fetchAllServices, categoryId, options?.autoFetch, fetchWithAllServices]);
+  }, [
+    options?.fetchAllServices,
+    categoryId,
+    options?.autoFetch,
+    fetchWithAllServices,
+  ]);
 
   return {
     category: categoryHook.category,
     loading: categoryHook.isLoading,
     error: categoryHook.error,
     isInitialized: categoryHook.isInitialized,
-    
+
     // Enhanced fetch methods
     fetchById: categoryHook.fetchCategory,
     fetchBySlug,
     fetchWithAllServices,
     fetchBreadcrumb: categoryHook.fetchCategoryBreadcrumb,
-    
+
     // Utility methods
     clearError: categoryHook.clearError,
     refetch: categoryHook.refetch,
@@ -685,60 +819,97 @@ export const useCategoryHierarchy = (
   });
 
   // Fetch parent categories with services
-  const fetchParents = useCallback(async (fetchOptions?: ParentCategoriesFetchOptions) => {
-    await categoryHook.fetchParentCategories(fetchOptions);
-  }, [categoryHook]);
+  const fetchParents = useCallback(
+    async (fetchOptions?: ParentCategoriesFetchOptions) => {
+      const safeOptions = { ...fetchOptions, includeInactive: false };
+      await categoryHook.fetchParentCategories(safeOptions);
+    },
+    [categoryHook]
+  );
 
   // Fetch subcategories with services for a specific parent
-  const fetchChildren = useCallback(async (parentCategoryId: string, fetchOptions?: SubcategoriesFetchOptions) => {
-    await categoryHook.fetchSubcategories(parentCategoryId, fetchOptions);
-  }, [categoryHook]);
+  const fetchChildren = useCallback(
+    async (
+      parentCategoryId: string,
+      fetchOptions?: SubcategoriesFetchOptions
+    ) => {
+      await categoryHook.fetchSubcategories(parentCategoryId, fetchOptions);
+    },
+    [categoryHook]
+  );
 
   // NEW: Fetch parent categories with their services
-  const fetchParentsWithServices = useCallback(async (servicesLimit = 5, popularOnly = false) => {
-    await categoryHook.fetchParentCategoriesWithServices(servicesLimit, popularOnly);
-  }, [categoryHook]);
+  const fetchParentsWithServices = useCallback(
+    async (servicesLimit = 5, popularOnly = false) => {
+      await categoryHook.fetchParentCategoriesWithServices(
+        servicesLimit,
+        popularOnly
+      );
+    },
+    [categoryHook]
+  );
 
   // NEW: Fetch subcategories with their services
-  const fetchChildrenWithServices = useCallback(async (parentCategoryId: string, servicesLimit = 3, popularOnly = true) => {
-    await categoryHook.fetchSubcategoriesWithServices(parentCategoryId, servicesLimit, popularOnly);
-  }, [categoryHook]);
+  const fetchChildrenWithServices = useCallback(
+    async (parentCategoryId: string, servicesLimit = 3, popularOnly = true) => {
+      await categoryHook.fetchSubcategoriesWithServices(
+        parentCategoryId,
+        servicesLimit,
+        popularOnly
+      );
+    },
+    [categoryHook]
+  );
 
   // Auto-fetch based on parentId with service options
   useEffect(() => {
     if (options?.autoFetch !== false) {
       if (parentId) {
         if (options?.includeServices) {
-          fetchChildrenWithServices(parentId, options.servicesLimit, options.popularOnly);
+          fetchChildrenWithServices(
+            parentId,
+            options.servicesLimit,
+            options.popularOnly
+          );
         } else {
-          fetchChildren(parentId, { includeUserData: options?.includeUserData });
+          fetchChildren(parentId, {
+            includeUserData: options?.includeUserData,
+          });
         }
       } else {
         if (options?.includeServices) {
           fetchParentsWithServices(options.servicesLimit, options.popularOnly);
         } else {
-          fetchParents({ 
+          fetchParents({
             includeSubcategories: true,
             includeServicesCount: true,
             includeUserData: options?.includeUserData,
+            includeInactive: false, // Always false for users
           });
         }
       }
     }
-  }, [parentId, options, fetchChildren, fetchParents, fetchChildrenWithServices, fetchParentsWithServices]);
+  }, [
+    parentId,
+    options,
+    fetchChildren,
+    fetchParents,
+    fetchChildrenWithServices,
+    fetchParentsWithServices,
+  ]);
 
   return {
     categories: categoryHook.categories,
     loading: categoryHook.isLoading,
     error: categoryHook.error,
     isInitialized: categoryHook.isInitialized,
-    
+
     // Hierarchy-specific methods
     fetchParents,
     fetchChildren,
     fetchParentsWithServices,
     fetchChildrenWithServices,
-    
+
     // Utility methods
     clearData: categoryHook.clearData,
     clearError: categoryHook.clearError,
@@ -759,7 +930,7 @@ export const useCategoryBrowser = (
 ) => {
   const categoryHook = useCategory(undefined, {
     autoFetchCategories: true,
-    defaultParams: initialParams,
+    defaultParams: { ...initialParams, includeInactive: false }, // Ensure inactive are excluded
     includeServices: options?.includeServices,
     servicesLimit: options?.servicesLimit,
     popularOnly: options?.popularOnly,
@@ -777,11 +948,13 @@ export const useCategoryBrowser = (
     fetchCategories: categoryHook.fetchCategories,
     fetchParentCategories: categoryHook.fetchParentCategories,
     fetchSubcategories: categoryHook.fetchSubcategories,
-    fetchCategoriesWithPopularServices: categoryHook.fetchCategoriesWithPopularServices,
-    fetchParentCategoriesWithServices: categoryHook.fetchParentCategoriesWithServices,
+    fetchCategoriesWithPopularServices:
+      categoryHook.fetchCategoriesWithPopularServices,
+    fetchParentCategoriesWithServices:
+      categoryHook.fetchParentCategoriesWithServices,
     fetchSubcategoriesWithServices: categoryHook.fetchSubcategoriesWithServices,
     updateParams: categoryHook.updateParams,
-    
+
     // Search functionality
     search: {
       results: categoryHook.searchResults,
@@ -833,9 +1006,7 @@ export const useFeaturedCategories = (
 /**
  * NEW: Hook specifically for navigation menu categories
  */
-export const useNavigationCategories = (options?: {
-  autoFetch?: boolean;
-}) => {
+export const useNavigationCategories = (options?: { autoFetch?: boolean }) => {
   const categoryHook = useCategory();
 
   useEffect(() => {

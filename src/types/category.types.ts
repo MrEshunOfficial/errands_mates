@@ -1,4 +1,3 @@
-
 // types/category.types.ts
 import { Types } from "mongoose";
 import { BaseEntity, SoftDeletable } from "./base.types";
@@ -54,13 +53,14 @@ export interface PopulatedUser {
 }
 
 // For API responses where we know these fields are populated
-export interface CategoryDetails extends Omit<Category, "createdBy" | "lastModifiedBy"> {
+export interface CategoryDetails
+  extends Omit<Category, "createdBy" | "lastModifiedBy" | "deletedBy"> {
   services?: Service[];
   servicesCount?: number;
   subcategories?: CategoryDetails[];
-
   createdBy?: PopulatedUser;
   lastModifiedBy?: PopulatedUser;
+  deletedBy?: PopulatedUser;
 }
 
 // For stats and admin views
@@ -83,4 +83,3 @@ export interface CategoryFilters {
     to?: Date;
   };
 }
-

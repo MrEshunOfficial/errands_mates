@@ -108,19 +108,17 @@ interface AdminServiceActions {
   getServicePriorityLevel: (service: Service) => "low" | "medium" | "high";
 }
 
-export const useAdminService = (
-  options?: {
-    autoFetchPending?: boolean;
-    autoFetchAll?: boolean;
-    autoFetchPopular?: boolean;
-    autoFetchStats?: boolean;
-  }
-): AdminServiceState & AdminServiceActions => {
+export const useAdminService = (options?: {
+  autoFetchPending?: boolean;
+  autoFetchAll?: boolean;
+  autoFetchPopular?: boolean;
+  autoFetchStats?: boolean;
+}): AdminServiceState & AdminServiceActions => {
   const shouldAutoFetch = Boolean(
     options?.autoFetchPending ||
-    options?.autoFetchAll ||
-    options?.autoFetchPopular ||
-    options?.autoFetchStats
+      options?.autoFetchAll ||
+      options?.autoFetchPopular ||
+      options?.autoFetchStats
   );
 
   const [state, setState] = useState<AdminServiceState>({
@@ -147,7 +145,7 @@ export const useAdminService = (
         onSuccess?: (response: T) => void;
         showLoading?: boolean;
         showSubmitting?: boolean;
-        loadingKey?: 'isLoading' | 'isSubmitting';
+        loadingKey?: "isLoading" | "isSubmitting";
       }
     ): Promise<T> => {
       const {
@@ -158,12 +156,13 @@ export const useAdminService = (
       } = options || {};
 
       try {
-        const activeLoadingKey = loadingKey || (showSubmitting ? 'isSubmitting' : 'isLoading');
-        
+        const activeLoadingKey =
+          loadingKey || (showSubmitting ? "isSubmitting" : "isLoading");
+
         if (showLoading || showSubmitting) {
-          updateState({ 
-            [activeLoadingKey]: true, 
-            error: null 
+          updateState({
+            [activeLoadingKey]: true,
+            error: null,
           });
         } else {
           updateState({ error: null });
@@ -210,22 +209,39 @@ export const useAdminService = (
           deleted: 0,
         };
 
-        const pendingResponse = await serviceAPI.getPendingServices({ limit: 1 });
+        const pendingResponse = await serviceAPI.getPendingServices({
+          limit: 1,
+        });
         stats.pendingApproval = pendingResponse.pagination?.totalItems || 0;
 
-        const approvedResponse = await serviceAPI.getApprovedServices({ limit: 1 });
+        const approvedResponse = await serviceAPI.getApprovedServices({
+          limit: 1,
+        });
         stats.approved = approvedResponse.pagination?.totalItems || 0;
 
-        const rejectedResponse = await serviceAPI.getServicesByStatus(ServiceStatus.REJECTED, { limit: 1 });
+        const rejectedResponse = await serviceAPI.getServicesByStatus(
+          ServiceStatus.REJECTED,
+          { limit: 1 }
+        );
         stats.rejected = rejectedResponse.pagination?.totalItems || 0;
 
-        const suspendedResponse = await serviceAPI.getServicesByStatus(ServiceStatus.SUSPENDED, { limit: 1 });
+        const suspendedResponse = await serviceAPI.getServicesByStatus(
+          ServiceStatus.SUSPENDED,
+          { limit: 1 }
+        );
         stats.suspended = suspendedResponse.pagination?.totalItems || 0;
 
-        const deletedResponse = await serviceAPI.getUserDeletedServices({ limit: 1 });
+        const deletedResponse = await serviceAPI.getUserDeletedServices({
+          limit: 1,
+        });
         stats.deleted = deletedResponse.pagination?.totalItems || 0;
 
-        stats.totalServices = stats.pendingApproval + stats.approved + stats.rejected + stats.suspended + stats.deleted;
+        stats.totalServices =
+          stats.pendingApproval +
+          stats.approved +
+          stats.rejected +
+          stats.suspended +
+          stats.deleted;
 
         updateState({ serviceStats: stats });
         return stats;
@@ -234,7 +250,7 @@ export const useAdminService = (
         showLoading: false,
         onSuccess: (stats) => {
           console.log("Service statistics updated:", stats);
-        }
+        },
       }
     );
   }, [handleAdminAction, updateState]);
@@ -243,7 +259,7 @@ export const useAdminService = (
   // ADMIN SERVICE APPROVAL WORKFLOW
   // ====================================================================
 
-   const getAllServicesAdmin = useCallback(
+  const getAllServicesAdmin = useCallback(
     async (params?: ServiceSearchParams): Promise<PaginatedServiceResponse> => {
       const response = await handleAdminAction(
         () => serviceAPI.getAllServices(params),
@@ -324,16 +340,12 @@ export const useAdminService = (
     [handleAdminAction, getPendingServices, refreshServiceStats]
   );
 
+  // FIXED: Remove the pre-check that was causing the issue
   const restoreService = useCallback(
     async (serviceId: string): Promise<Service> => {
-      return handleAdminAction(
-        async () => {
-          const service = await serviceAPI.getServiceById(serviceId);
-          if (service.data?.status !== ServiceStatus.REJECTED && !service.data?.isDeleted) {
-            throw new ServiceAPIError("Service must be rejected or deleted to be restored", 400);
-          }
-          return await serviceAPI.restoreService(serviceId);
-        },
+      const response = await handleAdminAction(
+        // Directly call the restore API without pre-checking the service status
+        () => serviceAPI.restoreService(serviceId),
         {
           showSubmitting: true,
           onSuccess: () => {
@@ -341,7 +353,8 @@ export const useAdminService = (
             getAllServicesAdmin().catch(console.error);
           },
         }
-      ).then((response) => (response as ServiceResponse).data!);
+      );
+      return (response as ServiceResponse).data!;
     },
     [handleAdminAction, refreshServiceStats, getAllServicesAdmin]
   );
@@ -529,6 +542,7 @@ export const useAdminService = (
     [handleAdminAction, refreshServiceStats, getAllServicesAdmin]
   );
 
+  // FIXED: Remove the pre-check for batch restore as well
   const batchRestoreServices = useCallback(
     async (serviceIds: string[]): Promise<Service[]> => {
       return handleAdminAction(
@@ -646,42 +660,38 @@ export const useAdminService = (
     [handleAdminAction]
   );
 
- const getServicesWithReports = useCallback(
-  async (): Promise<PaginatedServiceResponse> => {
-    return {
-      success: true,
-      total: 0,
-      data: [],
-      pagination: {
-        currentPage: 1,
-        totalPages: 1,
-        totalItems: 0,
-        hasNextPage: false,
-        hasPrevPage: false,
-      },
-    };
-  },
-  []
-);
+  const getServicesWithReports =
+    useCallback(async (): Promise<PaginatedServiceResponse> => {
+      return {
+        success: true,
+        total: 0,
+        data: [],
+        pagination: {
+          currentPage: 1,
+          totalPages: 1,
+          totalItems: 0,
+          hasNextPage: false,
+          hasPrevPage: false,
+        },
+      };
+    }, []);
 
- const getFlaggedServices = useCallback(
-  async (): Promise<PaginatedServiceResponse> => {
-    console.warn("Flagged services not implemented, returning empty");
-    return {
-      success: true,
-      total: 0,
-      data: [],
-      pagination: {
-        currentPage: 1,
-        totalPages: 1,
-        totalItems: 0,
-        hasNextPage: false,
-        hasPrevPage: false,
-      },
-    };
-  },
-  []
-);
+  const getFlaggedServices =
+    useCallback(async (): Promise<PaginatedServiceResponse> => {
+      console.warn("Flagged services not implemented, returning empty");
+      return {
+        success: true,
+        total: 0,
+        data: [],
+        pagination: {
+          currentPage: 1,
+          totalPages: 1,
+          totalItems: 0,
+          hasNextPage: false,
+          hasPrevPage: false,
+        },
+      };
+    }, []);
 
   // ====================================================================
   // REFRESH METHODS
@@ -761,7 +771,11 @@ export const useAdminService = (
         case "reject":
           return service.status === ServiceStatus.PENDING_APPROVAL;
         case "restore":
-          return service.status === ServiceStatus.REJECTED || service.status === ServiceStatus.SUSPENDED;
+          return (
+            service.status === ServiceStatus.REJECTED ||
+            service.status === ServiceStatus.SUSPENDED ||
+            service.isDeleted === true
+          );
         case "suspend":
           return service.status === ServiceStatus.APPROVED;
         case "delete":
@@ -776,7 +790,8 @@ export const useAdminService = (
   const getServicePriorityLevel = useCallback(
     (service: Service): "low" | "medium" | "high" => {
       const daysSinceSubmission = Math.floor(
-        (Date.now() - new Date(service.createdAt).getTime()) / (1000 * 60 * 60 * 24)
+        (Date.now() - new Date(service.createdAt).getTime()) /
+          (1000 * 60 * 60 * 24)
       );
 
       if (daysSinceSubmission > 7) return "high";
@@ -788,17 +803,29 @@ export const useAdminService = (
 
   // Auto-initialization effect
   type AdminServiceResult =
-    | { type: "pending"; data: Awaited<ReturnType<typeof serviceAPI.getPendingServices>> }
-    | { type: "all"; data: Awaited<ReturnType<typeof serviceAPI.getAllServices>> }
-    | { type: "popular"; data: Awaited<ReturnType<typeof serviceAPI.getPopularServices>> }
-    | { type: "stats"; data: { 
-        totalServices: number;
-        pendingApproval: number;
-        approved: number;
-        rejected: number;
-        suspended: number;
-        deleted: number;
-      } };
+    | {
+        type: "pending";
+        data: Awaited<ReturnType<typeof serviceAPI.getPendingServices>>;
+      }
+    | {
+        type: "all";
+        data: Awaited<ReturnType<typeof serviceAPI.getAllServices>>;
+      }
+    | {
+        type: "popular";
+        data: Awaited<ReturnType<typeof serviceAPI.getPopularServices>>;
+      }
+    | {
+        type: "stats";
+        data: {
+          totalServices: number;
+          pendingApproval: number;
+          approved: number;
+          rejected: number;
+          suspended: number;
+          deleted: number;
+        };
+      };
 
   useEffect(() => {
     let mounted = true;
@@ -915,7 +942,7 @@ export const useAdminService = (
     options?.autoFetchPopular,
     options?.autoFetchStats,
     updateState,
-    getServiceStatistics
+    getServiceStatistics,
   ]);
 
   return {

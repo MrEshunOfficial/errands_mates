@@ -14,7 +14,6 @@ interface PageProps {
 }
 
 export default function CategoryModerationDetailPage({ params }: PageProps) {
-  // Unwrap the params Promise using React.use()
   const { id } = use(params);
 
   const { isLoading, error } = useAdminCategoryManager({
@@ -31,34 +30,30 @@ export default function CategoryModerationDetailPage({ params }: PageProps) {
 
   // Main content with CategoryForm
   return (
-    <div className="h-screen container mx-auto px-4 py-6 space-y-6">
+    <div className="max-h-screen container mx-auto p-4 space-y-3">
       <div className="flex flex-col gap-2">
         <nav className="flex items-center space-x-2 text-sm text-muted-foreground">
           <Link
             href="/admin"
-            className="hover:text-foreground transition-colors"
-          >
+            className="hover:text-foreground transition-colors">
             Admin
           </Link>
           <span>/</span>
           <Link
             href="/admin/services"
-            className="hover:text-foreground transition-colors"
-          >
+            className="hover:text-foreground transition-colors">
             Services
           </Link>
           <span>/</span>
           <Link
             href="/admin/services/categories"
-            className="hover:text-foreground transition-colors"
-          >
+            className="hover:text-foreground transition-colors">
             Categories
           </Link>
           <span>/</span>
           <Link
             href={`/admin/services/categories/${id}`}
-            className="hover:text-foreground transition-colors"
-          >
+            className="hover:text-foreground transition-colors">
             {id}
           </Link>
           <span>/</span>

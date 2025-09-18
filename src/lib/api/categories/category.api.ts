@@ -366,8 +366,8 @@ class CategoryAPI {
   ): Promise<PaginatedCategoryResponse> {
     const queryParams = this.buildQueryParams(params);
     const endpoint = queryParams.toString()
-      ? `/deleted?${queryParams}`
-      : "/deleted";
+      ? `/admin/deleted?${queryParams}`
+      : "/admin/deleted";
     return this.makeRequest<PaginatedCategoryResponse>(endpoint);
   }
 
@@ -377,8 +377,8 @@ class CategoryAPI {
   ): Promise<CategoryResponse> {
     const params = this.buildQueryParams(options);
     const endpoint = params.toString()
-      ? `/deleted/${categoryId}?${params}`
-      : `/deleted/${categoryId}`;
+      ? `/admin/deleted/${categoryId}?${params}`
+      : `/admin/deleted/${categoryId}`;
     return this.makeRequest<CategoryResponse>(endpoint);
   }
 
@@ -461,7 +461,7 @@ class CategoryAPI {
   async searchCategoriesForAdmin(
     query: string,
     limit?: number,
-    includeInactive = false,
+    includeInactive = false
   ): Promise<CategorySearchResponse> {
     return this.searchCategories({
       q: query,
@@ -603,13 +603,9 @@ class CategoryAPI {
 
   async searchAllCategoriesForAdmin(
     query: string,
-    limit?: number,
+    limit?: number
   ): Promise<CategorySearchResponse> {
-    return this.searchCategoriesForAdmin(
-      query,
-      limit,
-      true
-    );
+    return this.searchCategoriesForAdmin(query, limit, true);
   }
 
   async getInactiveCategoriesForAdmin(

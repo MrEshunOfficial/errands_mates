@@ -377,8 +377,7 @@ const AdminServiceTable: React.FC<AdminServiceTableProps> = ({
 
           <DropdownMenuItem
             onClick={() => router.push(`/admin/services/${service._id}`)}
-            className="cursor-pointer"
-          >
+            className="cursor-pointer">
             <ExternalLink className="mr-2 h-4 w-4" />
             View Details
           </DropdownMenuItem>
@@ -387,8 +386,7 @@ const AdminServiceTable: React.FC<AdminServiceTableProps> = ({
             onClick={() =>
               router.push(`/services/${service.slug || service._id}/providers`)
             }
-            className="cursor-pointer"
-          >
+            className="cursor-pointer">
             <Users className="mr-2 h-4 w-4" />
             View Providers ({0})
           </DropdownMenuItem>
@@ -399,15 +397,13 @@ const AdminServiceTable: React.FC<AdminServiceTableProps> = ({
             <>
               <DropdownMenuItem
                 onClick={() => handleServiceApprove(service)}
-                className="cursor-pointer text-green-700 dark:text-green-400"
-              >
+                className="cursor-pointer text-green-700 dark:text-green-400">
                 <Check className="mr-2 h-4 w-4" />
                 Approve Service
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => handleServiceReject(service)}
-                className="cursor-pointer text-red-700 dark:text-red-400"
-              >
+                className="cursor-pointer text-red-700 dark:text-red-400">
                 <X className="mr-2 h-4 w-4" />
                 Reject Service
               </DropdownMenuItem>
@@ -417,8 +413,7 @@ const AdminServiceTable: React.FC<AdminServiceTableProps> = ({
           {isRejected && (
             <DropdownMenuItem
               onClick={() => handleServiceRestore(service)}
-              className="cursor-pointer text-blue-700 dark:text-blue-400"
-            >
+              className="cursor-pointer text-blue-700 dark:text-blue-400">
               <RotateCcw className="mr-2 h-4 w-4" />
               Re-Approve
             </DropdownMenuItem>
@@ -428,8 +423,7 @@ const AdminServiceTable: React.FC<AdminServiceTableProps> = ({
 
           <DropdownMenuItem
             onClick={() => handleTogglePopular(service)}
-            className="cursor-pointer"
-          >
+            className="cursor-pointer">
             {service.isPopular ? (
               <>
                 <Star className="mr-2 h-4 w-4 fill-current" />
@@ -448,16 +442,14 @@ const AdminServiceTable: React.FC<AdminServiceTableProps> = ({
           {service.isDeleted ? (
             <DropdownMenuItem
               onClick={() => handleServiceRestore(service)}
-              className="cursor-pointer text-blue-700 dark:text-blue-400"
-            >
+              className="cursor-pointer text-blue-700 dark:text-blue-400">
               <RotateCcw className="mr-2 h-4 w-4" />
               Restore Service
             </DropdownMenuItem>
           ) : (
             <DropdownMenuItem
               onClick={() => setServiceToDelete(service)}
-              className="cursor-pointer text-red-700 dark:text-red-400"
-            >
+              className="cursor-pointer text-red-700 dark:text-red-400">
               <Trash2 className="mr-2 h-4 w-4" />
               Delete Service
             </DropdownMenuItem>
@@ -469,7 +461,7 @@ const AdminServiceTable: React.FC<AdminServiceTableProps> = ({
 
   if (isLoading && (!isInitialized || services.length === 0)) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-96 space-y-4">
+      <div className="flex flex-col items-center justify-center h-[90vh] space-y-4">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         <div className="text-sm text-muted-foreground">
           {!isInitialized ? "Initializing..." : "Loading services..."}
@@ -528,15 +520,13 @@ const AdminServiceTable: React.FC<AdminServiceTableProps> = ({
             variant="outline"
             size="sm"
             onClick={handleRefresh}
-            disabled={isLoading || isSubmitting}
-          >
+            disabled={isLoading || isSubmitting}>
             <RefreshCw className={cn("w-4 h-4", isLoading && "animate-spin")} />
           </Button>
 
           <Button
             onClick={() => router.push("/admin/services/create")}
-            disabled={isSubmitting}
-          >
+            disabled={isSubmitting}>
             <Plus className="w-4 h-4 mr-2" />
             Create Service
           </Button>
@@ -561,8 +551,7 @@ const AdminServiceTable: React.FC<AdminServiceTableProps> = ({
                   "services approved"
                 )}
                 disabled={isSubmitting || !selectedServices.size}
-                className="text-green-700 border-green-300 hover:bg-green-50"
-              >
+                className="text-green-700 border-green-300 hover:bg-green-50">
                 <CheckSquare className="w-4 h-4 mr-1" />
                 Approve
               </Button>
@@ -575,8 +564,7 @@ const AdminServiceTable: React.FC<AdminServiceTableProps> = ({
                   "services rejected"
                 )}
                 disabled={isSubmitting || !selectedServices.size}
-                className="text-red-700 border-red-300 hover:bg-red-50"
-              >
+                className="text-red-700 border-red-300 hover:bg-red-50">
                 <X className="w-4 h-4 mr-1" />
                 Reject
               </Button>
@@ -589,8 +577,7 @@ const AdminServiceTable: React.FC<AdminServiceTableProps> = ({
                   "services restored"
                 )}
                 disabled={isSubmitting || !selectedServices.size}
-                className="text-blue-700 border-blue-300 hover:bg-blue-50"
-              >
+                className="text-blue-700 border-blue-300 hover:bg-blue-50">
                 <RotateCcw className="w-4 h-4 mr-1" />
                 Restore
               </Button>
@@ -601,8 +588,7 @@ const AdminServiceTable: React.FC<AdminServiceTableProps> = ({
                     variant="outline"
                     size="sm"
                     disabled={isSubmitting || !selectedServices.size}
-                    className="text-red-700 border-red-300 hover:bg-red-50"
-                  >
+                    className="text-red-700 border-red-300 hover:bg-red-50">
                     <Trash2 className="w-4 h-4 mr-1" />
                     Delete
                   </Button>
@@ -627,8 +613,7 @@ const AdminServiceTable: React.FC<AdminServiceTableProps> = ({
                         batchDeleteServices,
                         "services deleted"
                       )}
-                      className="bg-red-600 hover:bg-red-700 text-white"
-                    >
+                      className="bg-red-600 hover:bg-red-700 text-white">
                       Delete All
                     </AlertDialogAction>
                   </AlertDialogFooter>
@@ -639,8 +624,7 @@ const AdminServiceTable: React.FC<AdminServiceTableProps> = ({
                 variant="outline"
                 size="sm"
                 onClick={() => setSelectedServices(new Set())}
-                disabled={isSubmitting}
-              >
+                disabled={isSubmitting}>
                 Clear
               </Button>
             </div>
@@ -697,8 +681,7 @@ const AdminServiceTable: React.FC<AdminServiceTableProps> = ({
                       "cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800",
                       isSelected && "bg-blue-50 dark:bg-blue-900/20"
                     )}
-                    onClick={() => router.push(`/admin/services/${serviceId}`)}
-                  >
+                    onClick={() => router.push(`/admin/services/${serviceId}`)}>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <Checkbox
                         checked={isSelected}
@@ -746,8 +729,7 @@ const AdminServiceTable: React.FC<AdminServiceTableProps> = ({
                             <Badge
                               key={index}
                               variant="secondary"
-                              className="text-xs"
-                            >
+                              className="text-xs">
                               {tag}
                             </Badge>
                           ))}
@@ -774,8 +756,7 @@ const AdminServiceTable: React.FC<AdminServiceTableProps> = ({
                             statusColor === "orange",
                           "border-gray-300 text-gray-700 bg-gray-50":
                             statusColor === "gray",
-                        })}
-                      >
+                        })}>
                         {statusLabel}
                       </Badge>
                     </TableCell>
@@ -800,8 +781,7 @@ const AdminServiceTable: React.FC<AdminServiceTableProps> = ({
                               e.stopPropagation();
                               router.push(`/admin/users/${submittedById}`);
                             }}
-                            className="text-blue-600 hover:underline capitalize"
-                          >
+                            className="text-blue-600 hover:underline capitalize">
                             {submittedByName}
                           </button>
                         ) : (
@@ -856,8 +836,7 @@ const AdminServiceTable: React.FC<AdminServiceTableProps> = ({
               }
               disabled={!pagination.hasPrevPage || isLoading || isSubmitting}
               variant="outline"
-              size="sm"
-            >
+              size="sm">
               <ChevronLeft className="w-4 h-4 mr-1" />
               Previous
             </Button>
@@ -875,8 +854,7 @@ const AdminServiceTable: React.FC<AdminServiceTableProps> = ({
               }
               disabled={!pagination.hasNextPage || isLoading || isSubmitting}
               variant="outline"
-              size="sm"
-            >
+              size="sm">
               Next
               <ChevronRight className="w-4 h-4 ml-1" />
             </Button>
@@ -890,8 +868,7 @@ const AdminServiceTable: React.FC<AdminServiceTableProps> = ({
         onOpenChange={() => {
           setServiceToReject(null);
           setRejectReason("");
-        }}
-      >
+        }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Reject Service</AlertDialogTitle>
@@ -920,8 +897,7 @@ const AdminServiceTable: React.FC<AdminServiceTableProps> = ({
                 setServiceToReject(null);
                 setRejectReason("");
               }}
-              className="bg-red-600 hover:bg-red-700 text-white"
-            >
+              className="bg-red-600 hover:bg-red-700 text-white">
               Reject Service
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -931,8 +907,7 @@ const AdminServiceTable: React.FC<AdminServiceTableProps> = ({
       {/* Delete Dialog */}
       <AlertDialog
         open={!!serviceToDelete}
-        onOpenChange={() => setServiceToDelete(null)}
-      >
+        onOpenChange={() => setServiceToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Service</AlertDialogTitle>
@@ -959,8 +934,7 @@ const AdminServiceTable: React.FC<AdminServiceTableProps> = ({
                   return newSet;
                 });
               }}
-              className="bg-red-600 hover:bg-red-700 text-white"
-            >
+              className="bg-red-600 hover:bg-red-700 text-white">
               Delete Service
             </AlertDialogAction>
           </AlertDialogFooter>

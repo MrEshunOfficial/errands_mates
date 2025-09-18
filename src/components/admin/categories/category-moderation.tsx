@@ -81,8 +81,7 @@ export function CategoryModerationDetail({
                       : category.moderationStatus === ModerationStatus.REJECTED
                       ? "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200"
                       : "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200"
-                  }`}
-              >
+                  }`}>
                 {category.moderationStatus}
               </span>
             </p>
@@ -116,8 +115,7 @@ export function CategoryModerationDetail({
               }
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 
                          rounded-md bg-white dark:bg-gray-700 
-                         text-gray-900 dark:text-gray-100"
-            >
+                         text-gray-900 dark:text-gray-100">
               <option value={ModerationStatus.APPROVED}>Approve</option>
               <option value={ModerationStatus.REJECTED}>Reject</option>
               <option value={ModerationStatus.HIDDEN}>Hide</option>
@@ -145,8 +143,7 @@ export function CategoryModerationDetail({
               onClick={() => handleModeration(selectedStatus)}
               disabled={moderateLoading}
               className="px-4 py-2 bg-blue-600 text-white rounded-md 
-                         hover:bg-blue-700 disabled:opacity-50"
-            >
+                         hover:bg-blue-700 disabled:opacity-50">
               {moderateLoading ? "Processing..." : "Apply Moderation"}
             </button>
 
@@ -154,8 +151,7 @@ export function CategoryModerationDetail({
               onClick={clearModerateState}
               className="px-4 py-2 bg-gray-300 dark:bg-gray-600 
                          text-gray-700 dark:text-gray-200 
-                         rounded-md hover:bg-gray-400 dark:hover:bg-gray-500"
-            >
+                         rounded-md hover:bg-gray-400 dark:hover:bg-gray-500">
               Reset
             </button>
           </div>

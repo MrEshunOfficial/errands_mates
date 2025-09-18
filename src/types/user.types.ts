@@ -156,4 +156,3 @@ export interface AuthResponse {
   email?: string;
   error?: string;
 }
-
