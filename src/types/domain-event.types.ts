@@ -22,4 +22,3 @@ export interface DomainEventResponse {
   event?: Partial<DomainEvent>;
   error?: string;
 }
-

@@ -1,6 +1,7 @@
 // types/safety.types.ts
 import { Types } from "mongoose";
-import { BaseEntity, FileReference, UserLocation } from "./base.types";
+import { BaseEntity, UserLocation } from "./base.types";
+import { FileReference } from "@/lib/api/categories/categoryImage.api";
 
 export interface SafetyIncident extends BaseEntity {
   incidentType:

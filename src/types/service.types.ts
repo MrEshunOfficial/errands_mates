@@ -81,3 +81,4 @@ export interface ServiceQueryParams {
   status?: ServiceStatus;
   popular?: boolean;
 }
+

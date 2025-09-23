@@ -2,10 +2,10 @@
 import { Types } from "mongoose";
 import {
   BaseEntity,
-  FileReference,
   SoftDeletable,
   UserRole,
 } from "./base.types";
+import { FileReference } from "@/lib/api/categories/categoryImage.api";
 
 export type ReportType = "user_report" | "review_report" | "service_report";
 export type ReportReason = 

@@ -4,7 +4,6 @@ import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 import { toast } from "react-hot-toast";
-import ServiceForm from "@/components/admin/services/service-form";
 import LoadingOverlay from "@/components/ui/LoadingOverlay";
 import { useCategory } from "@/hooks/public/categories/userCategory.hook";
 import { CategoryWithServices } from "@/types/category.types";
@@ -12,12 +11,12 @@ import { Service } from "@/types/service.types";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { useUserService } from "@/hooks/public/services/use-service";
+import ServiceForm from "@/components/user/services/service-form";
 
 const EditServicePage: React.FC = () => {
   const router = useRouter();
   const params = useParams();
   const serviceId = params?.id as string;
-
   // Local state for this component only
   const [service, setService] = useState<Service | null>(null);
   const [categories, setCategories] = useState<CategoryWithServices[]>([]);
@@ -171,14 +170,11 @@ const EditServicePage: React.FC = () => {
         </div>
 
         <ServiceForm
-          service={service}
-          categories={categories}
+          mode="edit"
+          serviceId="123"
+          initialData={service}
           onSuccess={handleSuccess}
           onCancel={handleCancel}
-          mode="edit"
-          showCancelButton={true}
-          submitButtonText="Update Service"
-          className="bg-white dark:bg-gray-800 rounded-xl shadow-sm"
         />
       </div>
     </div>

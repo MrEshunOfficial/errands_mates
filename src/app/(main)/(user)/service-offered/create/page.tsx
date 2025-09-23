@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "react-hot-toast";
-import ServiceForm from "@/components/admin/services/service-form";
+import ServiceForm from "@/components/user/services/service-form";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -37,7 +37,8 @@ const CreateServicePage: React.FC = () => {
           <div className="mb-8">
             <button
               onClick={() => router.back()}
-              className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 mb-4">
+              className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 mb-4"
+            >
               <ArrowLeft size={20} />
               <span>Back</span>
             </button>
@@ -59,12 +60,14 @@ const CreateServicePage: React.FC = () => {
               <div className="space-x-4">
                 <button
                   onClick={handleRetry}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
                   Try Again
                 </button>
                 <button
                   onClick={handleCancel}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                >
                   Go Back
                 </button>
               </div>
@@ -82,13 +85,15 @@ const CreateServicePage: React.FC = () => {
         <nav className="flex items-center space-x-2 text-sm text-muted-foreground">
           <Link
             href="/admin"
-            className="hover:text-foreground transition-colors">
+            className="hover:text-foreground transition-colors"
+          >
             Admin
           </Link>
           <span>/</span>
           <Link
             href="/admin/services"
-            className="hover:text-foreground transition-colors">
+            className="hover:text-foreground transition-colors"
+          >
             Services
           </Link>
           <span>/</span>
@@ -100,7 +105,8 @@ const CreateServicePage: React.FC = () => {
         <div className="mb-8">
           <button
             onClick={handleCancel}
-            className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 mb-4 transition-colors">
+            className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 mb-4 transition-colors"
+          >
             <ArrowLeft size={20} />
             <span>Back</span>
           </button>
@@ -115,14 +121,7 @@ const CreateServicePage: React.FC = () => {
 
         <div className="container mx-auto max-w-4xl">
           {/* Service Form */}
-          <ServiceForm
-            onSuccess={handleSuccess}
-            onCancel={handleCancel}
-            mode="create"
-            showCancelButton={true}
-            submitButtonText="Create Service"
-            className="bg-white dark:bg-gray-800 rounded-xl shadow-sm"
-          />
+          <ServiceForm mode="create" onSuccess={handleSuccess} />
         </div>
       </div>
     </div>

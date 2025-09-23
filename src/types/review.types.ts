@@ -2,11 +2,11 @@
 import { HydratedDocument, Types } from "mongoose";
 import {
   BaseEntity,
-  FileReference,
   ModerationStatus,
   SoftDeletable,
   UserRole,
 } from "./base.types";
+import { FileReference } from "@/lib/api/categories/categoryImage.api";
 
 export interface Review extends BaseEntity, SoftDeletable {
   // Core Relationships (auto-populated from context)

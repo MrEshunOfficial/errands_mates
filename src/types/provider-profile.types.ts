@@ -3,11 +3,11 @@ import { Types } from "mongoose";
 import {
   BaseEntity,
   SoftDeletable,
-  FileReference,
   ProviderContactInfo,
   ProviderOperationalStatus,
   RiskLevel,
 } from "./base.types";
+import { FileReference } from "@/lib/api/categories/categoryImage.api";
 
 export interface ProviderProfile extends BaseEntity, SoftDeletable {
   profileId: Types.ObjectId;
