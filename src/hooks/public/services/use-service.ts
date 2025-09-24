@@ -437,7 +437,7 @@ export const useUserService = (): UserServiceState & UserServiceActions => {
       const response = await handleServiceAction(
         () => serviceAPI.getAllServices(params),
         {
-          showLoading: false,
+          showLoading: true, // Changed from false to true
           onSuccess: (res) => {
             const paginatedResponse = res as PaginatedServiceResponse;
             updateState({
