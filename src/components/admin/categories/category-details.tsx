@@ -116,7 +116,8 @@ const ServiceItem = ({
               className={cn(
                 "font-medium text-sm truncate",
                 isDeleted && "text-muted-foreground"
-              )}>
+              )}
+            >
               {service.title}
             </h3>
             <Badge
@@ -126,7 +127,8 @@ const ServiceItem = ({
                   : service.status === "rejected"
                   ? "destructive"
                   : "secondary"
-              }>
+              }
+            >
               {service.status}
             </Badge>
             {isDeleted && (
@@ -139,7 +141,8 @@ const ServiceItem = ({
             className={cn(
               "text-xs text-muted-foreground truncate mb-2",
               isDeleted && "opacity-75"
-            )}>
+            )}
+          >
             {service.description}
           </p>
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
@@ -433,7 +436,8 @@ const CategoryDetailsComponent: React.FC<CategoryDetailsProps> = ({
             variant="ghost"
             size="sm"
             onClick={handleBackNavigation}
-            className="px-2">
+            className="px-2"
+          >
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <div>
@@ -442,13 +446,15 @@ const CategoryDetailsComponent: React.FC<CategoryDetailsProps> = ({
                 className={cn(
                   "text-2xl font-bold",
                   isDeleted && "text-muted-foreground"
-                )}>
+                )}
+              >
                 {categoryDetails.name}
               </h1>
               {!categoryDetails.isActive && !categoryDetails.isDeleted && (
                 <Badge
                   variant="secondary"
-                  className="bg-orange-100 text-orange-700">
+                  className="bg-orange-100 text-orange-700"
+                >
                   Inactive
                 </Badge>
               )}
@@ -467,7 +473,8 @@ const CategoryDetailsComponent: React.FC<CategoryDetailsProps> = ({
             variant="outline"
             size="sm"
             onClick={handleRefresh}
-            disabled={categoryLoading}>
+            disabled={categoryLoading}
+          >
             <RefreshCw
               className={cn("w-4 h-4 mr-2", categoryLoading && "animate-spin")}
             />
@@ -484,12 +491,14 @@ const CategoryDetailsComponent: React.FC<CategoryDetailsProps> = ({
               {!categoryDetails.isDeleted && (
                 <>
                   <DropdownMenuItem
-                    onClick={navigationHandlers.handleCategoryEdit}>
+                    onClick={navigationHandlers.handleCategoryEdit}
+                  >
                     <Edit className="w-4 h-4 mr-2" />
                     Edit Category
                   </DropdownMenuItem>
                   <DropdownMenuItem
-                    onClick={navigationHandlers.handleCategoryModerate}>
+                    onClick={navigationHandlers.handleCategoryModerate}
+                  >
                     <Settings className="w-4 h-4 mr-2" />
                     Moderate
                   </DropdownMenuItem>
@@ -502,7 +511,8 @@ const CategoryDetailsComponent: React.FC<CategoryDetailsProps> = ({
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={() => setShowDeleteDialog(true)}
-                    className="text-destructive">
+                    className="text-destructive"
+                  >
                     <Trash2 className="w-4 h-4 mr-2" />
                     Delete Category
                   </DropdownMenuItem>
@@ -512,7 +522,8 @@ const CategoryDetailsComponent: React.FC<CategoryDetailsProps> = ({
               {categoryDetails.isDeleted && (
                 <DropdownMenuItem
                   onClick={() => setShowRestoreDialog(true)}
-                  className="text-green-600">
+                  className="text-green-600"
+                >
                   <RotateCcw className="w-4 h-4 mr-2" />
                   Restore Category
                 </DropdownMenuItem>
@@ -547,7 +558,8 @@ const CategoryDetailsComponent: React.FC<CategoryDetailsProps> = ({
                 variant="outline"
                 size="sm"
                 onClick={() => setShowRestoreDialog(true)}
-                className="ml-auto">
+                className="ml-auto"
+              >
                 <RotateCcw className="w-4 h-4 mr-2" />
                 Restore
               </Button>
@@ -580,7 +592,8 @@ const CategoryDetailsComponent: React.FC<CategoryDetailsProps> = ({
         onValueChange={(value) =>
           setActiveTab(value as "overview" | "services" | "subcategories")
         }
-        className="w-full">
+        className="w-full"
+      >
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
           <TabsList>
             <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -594,7 +607,8 @@ const CategoryDetailsComponent: React.FC<CategoryDetailsProps> = ({
             </TabsTrigger>
             <TabsTrigger
               value="subcategories"
-              className="flex items-center gap-2">
+              className="flex items-center gap-2"
+            >
               Subcategories
               {subcategories.length > 0 && (
                 <Badge variant="secondary" className="ml-1 text-xs">
@@ -621,20 +635,23 @@ const CategoryDetailsComponent: React.FC<CategoryDetailsProps> = ({
                   variant={viewMode === "list" ? "default" : "ghost"}
                   size="sm"
                   onClick={() => setViewMode("list")}
-                  className="px-3">
+                  className="px-3"
+                >
                   <List className="w-4 h-4" />
                 </Button>
                 <Button
                   variant={viewMode === "grid" ? "default" : "ghost"}
                   size="sm"
                   onClick={() => setViewMode("grid")}
-                  className="px-3">
+                  className="px-3"
+                >
                   <Grid className="w-4 h-4" />
                 </Button>
               </div>
               <Button
                 onClick={navigationHandlers.handleCreateService}
-                size="sm">
+                size="sm"
+              >
                 <Plus className="w-4 h-4 mr-2" />
                 Add Service
               </Button>
@@ -658,14 +675,16 @@ const CategoryDetailsComponent: React.FC<CategoryDetailsProps> = ({
                   variant={viewMode === "list" ? "default" : "ghost"}
                   size="sm"
                   onClick={() => setViewMode("list")}
-                  className="px-3">
+                  className="px-3"
+                >
                   <List className="w-4 h-4" />
                 </Button>
                 <Button
                   variant={viewMode === "grid" ? "default" : "ghost"}
                   size="sm"
                   onClick={() => setViewMode("grid")}
-                  className="px-3">
+                  className="px-3"
+                >
                   <Grid className="w-4 h-4" />
                 </Button>
               </div>
@@ -675,7 +694,8 @@ const CategoryDetailsComponent: React.FC<CategoryDetailsProps> = ({
           {activeTab === "subcategories" && !categoryDetails.isDeleted && (
             <Button
               onClick={navigationHandlers.handleCreateSubcategory}
-              size="sm">
+              size="sm"
+            >
               <Plus className="w-4 h-4 mr-2" />
               Add Subcategory
             </Button>
@@ -694,7 +714,8 @@ const CategoryDetailsComponent: React.FC<CategoryDetailsProps> = ({
                     className={cn(
                       "text-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg",
                       categoryDetails.isDeleted && "opacity-60"
-                    )}>
+                    )}
+                  >
                     <Package className="w-8 h-8 text-blue-600 dark:text-blue-400 mx-auto mb-2" />
                     <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                       {serviceCount}
@@ -707,7 +728,8 @@ const CategoryDetailsComponent: React.FC<CategoryDetailsProps> = ({
                     className={cn(
                       "text-center p-4 bg-green-50 dark:bg-green-900/20 rounded-lg",
                       categoryDetails.isDeleted && "opacity-60"
-                    )}>
+                    )}
+                  >
                     <Grid className="w-8 h-8 text-green-600 dark:text-green-400 mx-auto mb-2" />
                     <div className="text-2xl font-bold text-green-600 dark:text-green-400">
                       {subcategories.length}
@@ -720,7 +742,8 @@ const CategoryDetailsComponent: React.FC<CategoryDetailsProps> = ({
                     className={cn(
                       "text-center p-4 bg-purple-50 dark:bg-purple-900/20 rounded-lg",
                       categoryDetails.isDeleted && "opacity-60"
-                    )}>
+                    )}
+                  >
                     <Calendar className="w-8 h-8 text-purple-600 dark:text-purple-400 mx-auto mb-2" />
                     <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
                       {new Date(categoryDetails.createdAt).toLocaleDateString(
@@ -887,7 +910,8 @@ const CategoryDetailsComponent: React.FC<CategoryDetailsProps> = ({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleCategoryDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Delete Category
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -910,7 +934,8 @@ const CategoryDetailsComponent: React.FC<CategoryDetailsProps> = ({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleCategoryRestore}
-              className="bg-green-600 text-white hover:bg-green-700">
+              className="bg-green-600 text-white hover:bg-green-700"
+            >
               <RotateCcw className="w-4 h-4 mr-2" />
               Restore Category
             </AlertDialogAction>

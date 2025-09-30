@@ -147,6 +147,7 @@ export enum ServiceStatus {
   REJECTED = "rejected",
   SUSPENDED = "suspended",
   INACTIVE = "inactive",
+  ACTIVATE = "activate",
 }
 
 // Preferences interfaces
@@ -160,6 +161,17 @@ export interface NotificationPreferences {
   providerMessages: boolean;
   systemAlerts: boolean;
   weeklyDigest: boolean;
+}
+
+export interface ProviderPerformanceMetrics {
+    completionRate: number;
+    averageRating: number;
+    totalJobs: number;
+    responseTimeMinutes: number;
+    averageResponseTime: number;
+    cancellationRate: number;
+    disputeRate: number;
+    clientRetentionRate: number;
 }
 
 export interface PrivacySettings {
@@ -232,4 +244,3 @@ export interface ServiceUser extends BaseEntity, SoftDeletable {
   moderationNotes?: string;
   warningsCount: number;
 }
-

@@ -37,6 +37,8 @@ export interface Service extends BaseEntity, SoftDeletable {
     max: number;
     currency: string;
   };
+  providerCount?: number;
+  providers?: Types.ObjectId[];
   slug: string;
   submittedBy?: SubmittedBy;
   approvedBy?: SubmittedBy;
@@ -45,6 +47,7 @@ export interface Service extends BaseEntity, SoftDeletable {
   rejectedAt?: Date;
   rejectionReason?: string;
   moderationNotes?: string;
+  metaDescription?: string;
 }
 
 
@@ -81,4 +84,5 @@ export interface ServiceQueryParams {
   status?: ServiceStatus;
   popular?: boolean;
 }
+
 

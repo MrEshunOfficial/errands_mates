@@ -6,16 +6,15 @@ import {
   ProviderContactInfo,
   ProviderOperationalStatus,
   RiskLevel,
+  ProviderPerformanceMetrics,
 } from "./base.types";
 import { FileReference } from "@/lib/api/categories/categoryImage.api";
+import { Service } from "./service.types";
 
 export interface ProviderProfile extends BaseEntity, SoftDeletable {
-  profileId: Types.ObjectId;
-
   providerContactInfo: ProviderContactInfo;
-
   operationalStatus: ProviderOperationalStatus;
-  serviceOfferings: Types.ObjectId[];
+  serviceOfferings: Service[];
   workingHours?: Record<
     string,
     {
@@ -24,10 +23,8 @@ export interface ProviderProfile extends BaseEntity, SoftDeletable {
       isAvailable: boolean;
     }
   >;
-
   isAvailableForWork: boolean;
   isAlwaysAvailable: boolean;
-
   businessName?: string;
   businessRegistration?: {
     registrationNumber: string;
@@ -50,16 +47,7 @@ export interface ProviderProfile extends BaseEntity, SoftDeletable {
     emergencyContactVerified: boolean;
   };
 
-  performanceMetrics: {
-    completionRate: number;
-    averageRating: number;
-    totalJobs: number;
-    responseTimeMinutes: number;
-    averageResponseTime: number;
-    cancellationRate: number;
-    disputeRate: number;
-    clientRetentionRate: number;
-  };
+  performanceMetrics: ProviderPerformanceMetrics;
 
   riskLevel: RiskLevel;
   lastRiskAssessmentDate?: Date;
@@ -80,4 +68,8 @@ export interface ProviderProfileResponse {
   providerProfile?: Partial<ProviderProfile>;
   error?: string;
 }
-
+export interface ProviderProfileResponse {
+  message: string;
+  providerProfile?: Partial<ProviderProfile>;
+  error?: string;
+}

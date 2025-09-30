@@ -16,10 +16,12 @@ import {
   Check,
   ArrowLeft,
   Info,
+  ChevronRight,
+  Upload,
+  Star,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
 
-// Mock imports - replace with actual imports in your project
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,7 +42,6 @@ import { Service } from "@/types/service.types";
 import { useCategories } from "@/hooks/public/categories/userCategory.hook";
 import ServiceImageUpload from "./ServiceImageUpload";
 
-// Enhanced validation schema
 const ImageSchema = z.object({
   url: z.string().url("Must be a valid URL"),
   fileName: z
@@ -126,7 +127,6 @@ const ServiceFormSchema = z
   })
   .refine(
     (data) => {
-      // If priceBasedOnServiceType is false, basePrice is required
       if (!data.priceBasedOnServiceType) {
         return data.basePrice !== undefined && data.basePrice > 0;
       }
@@ -177,7 +177,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
     watch,
     setValue,
     getValues,
-    formState: { errors, isValid, isDirty },
+    formState: { errors, isValid },
     reset,
   } = useForm<ServiceFormData>({
     resolver: zodResolver(ServiceFormSchema),
@@ -209,6 +209,7 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
   const [newTag, setNewTag] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
 
   // Custom hooks
   const {
@@ -218,6 +219,14 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
   } = useCategories({}, { includeServices: false });
 
   const { createService, updateService, currentService } = useUserService();
+
+  // Form steps for better organization
+  const steps = [
+    { title: "Basic Info", icon: FileText },
+    { title: "Images", icon: ImageIcon },
+    { title: "Pricing", icon: DollarSign },
+    { title: "Tags", icon: Tag },
+  ];
 
   // Handle tag management
   const handleAddTag = useCallback(() => {
@@ -258,7 +267,6 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
         newImages[index] = imageData;
         setValue("images", newImages, { shouldValidate: true });
       } else if (currentImages.length > 1) {
-        // Remove image only if we have more than one
         const newImages = currentImages.filter((_, i) => i !== index);
         setValue("images", newImages, { shouldValidate: true });
       }
@@ -266,23 +274,19 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
     [getValues, setValue]
   );
 
-  // Handle image upload error
   const handleImageError = useCallback((error: string) => {
     toast.error(`Image upload error: ${error}`);
   }, []);
 
-  // Add new image slot
   const handleAddImageSlot = useCallback(() => {
     const currentImages = getValues("images");
     if (currentImages.length < 10) {
-      // Add a placeholder that the ServiceImageUpload component will handle
       setValue("images", [...currentImages, {} as FileReference], {
-        shouldValidate: false, // Don't validate until user uploads
+        shouldValidate: false,
       });
     }
   }, [getValues, setValue]);
 
-  // Remove image slot
   const handleRemoveImageSlot = useCallback(
     (index: number) => {
       const currentImages = getValues("images");
@@ -300,7 +304,6 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
     setSubmitSuccess(false);
 
     try {
-      // Filter out empty image objects
       const validImages = data.images.filter((img) => img.url && img.fileName);
 
       const serviceData = {
@@ -328,7 +331,6 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
       setSubmitSuccess(true);
       onSuccess?.(result);
 
-      // Reset form after successful creation (not update)
       if (mode === "create") {
         setTimeout(() => {
           reset();
@@ -345,12 +347,30 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
     }
   };
 
+  // Calculate form completion percentage
+  const getCompletionPercentage = () => {
+    let completed = 0;
+    const total = 4;
+
+    if (
+      watchedValues.title &&
+      watchedValues.description &&
+      watchedValues.categoryId
+    )
+      completed++;
+    if (images.filter((img) => img.url).length > 0) completed++;
+    if (priceBasedOnServiceType || watchedValues.basePrice) completed++;
+    if (tags.length > 0) completed++;
+
+    return Math.round((completed / total) * 100);
+  };
+
   if (categoriesLoading) {
     return (
-      <div className="flex items-center justify-center min-h-64">
-        <div className="flex items-center gap-3">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
+        <div className="flex items-center gap-3 bg-white dark:bg-gray-800 px-6 py-4 rounded-2xl shadow-lg">
           <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
-          <span className="text-lg text-gray-600 dark:text-gray-300">
+          <span className="text-lg font-medium text-gray-700 dark:text-gray-300">
             Loading categories...
           </span>
         </div>
@@ -359,609 +379,924 @@ const ServiceForm: React.FC<ServiceFormProps> = ({
   }
 
   const isEditMode = mode === "edit";
-  const title = isEditMode ? "Edit Service" : "Create New Service";
-  const subtitle = isEditMode
-    ? "Update your service information"
-    : "Fill out the form below to list your service on our marketplace";
+  const completionPercentage = getCompletionPercentage();
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between py-6">
+      <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-lg border-b border-gray-200/50 dark:border-gray-700/50 sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-6 lg:px-8">
+          <div className="flex items-center justify-between py-4">
             <div className="flex items-center gap-4">
               {isEditMode && onCancel && (
-                <Button variant="ghost" size="sm" onClick={onCancel}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onCancel}
+                  className="hover:bg-gray-100 dark:hover:bg-gray-700"
+                >
                   <ArrowLeft className="w-4 h-4 mr-2" />
                   Back
                 </Button>
               )}
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-                  {title}
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-white dark:to-gray-300 bg-clip-text text-transparent">
+                  {isEditMode ? "Edit Service" : "Create New Service"}
                 </h1>
                 <p className="text-gray-600 dark:text-gray-400 mt-1">
-                  {subtitle}
+                  {isEditMode
+                    ? "Update your service information"
+                    : "Showcase your skills to potential customers"}
                 </p>
               </div>
             </div>
 
-            {/* Form Status Indicator */}
-            <div className="flex items-center gap-2">
-              {isDirty && (
-                <div className="flex items-center gap-2 text-sm">
-                  <div className="w-2 h-2 bg-orange-500 rounded-full"></div>
-                  <span className="text-gray-600 dark:text-gray-400">
-                    Unsaved changes
-                  </span>
-                </div>
-              )}
+            {/* Progress Indicator */}
+            <div className="hidden md:flex items-center gap-3">
+              <div className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                {completionPercentage}% Complete
+              </div>
+              <div className="w-32 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-500 ease-out"
+                  style={{ width: `${completionPercentage}%` }}
+                />
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {categoriesError && (
-          <div className="mb-6 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-5 h-5 text-red-500" />
+      {/* Error Alert */}
+      {categoriesError && (
+        <div className="max-w-7xl mx-auto px-6 lg:px-8 pt-6">
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
               <span className="text-red-700 dark:text-red-300">
                 Failed to load categories: {categoriesError}
               </span>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Form Content */}
-          <div className="lg:col-span{keyword:1,span:2} space-y-8">
-            {/* Basic Information */}
-            <Card>
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+          {/* Step Navigation - Mobile Horizontal, Desktop Vertical */}
+          <div className="lg:col-span-1">
+            <Card className="sticky top-28 bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg border-gray-200/50 dark:border-gray-700/50 shadow-xl">
               <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <FileText className="w-5 h-5 text-blue-500" />
-                  Basic Information
+                <CardTitle className="text-lg font-semibold">
+                  Progress
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Service Title */}
-                <div>
-                  <Label
-                    htmlFor="title"
-                    className="text-sm font-medium mb-2 block"
-                  >
-                    Service Title *
-                  </Label>
-                  <Controller
-                    name="title"
-                    control={control}
-                    render={({ field }) => (
-                      <Input
-                        {...field}
-                        id="title"
-                        placeholder="Enter a clear, descriptive title for your service"
-                        className={`h-11 ${
-                          errors.title ? "border-red-500" : ""
-                        }`}
-                      />
-                    )}
-                  />
-                  {errors.title && (
-                    <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
-                      <AlertCircle className="w-3 h-3" />
-                      {errors.title.message}
-                    </p>
-                  )}
-                </div>
+              <CardContent className="space-y-3">
+                {steps.map((step, index) => {
+                  const Icon = step.icon;
+                  const isActive = currentStep === index;
+                  const isCompleted =
+                    index < currentStep ||
+                    (index === 0 &&
+                      watchedValues.title &&
+                      watchedValues.description &&
+                      watchedValues.categoryId) ||
+                    (index === 1 &&
+                      images.filter((img) => img.url).length > 0) ||
+                    (index === 2 &&
+                      (priceBasedOnServiceType || watchedValues.basePrice)) ||
+                    (index === 3 && tags.length > 0);
 
-                {/* Service Description */}
-                <div>
-                  <Label
-                    htmlFor="description"
-                    className="text-sm font-medium mb-2 block"
-                  >
-                    Service Description *
-                  </Label>
-                  <Controller
-                    name="description"
-                    control={control}
-                    render={({ field }) => (
-                      <Textarea
-                        {...field}
-                        id="description"
-                        rows={6}
-                        placeholder="Provide a detailed description of your service, including what's included, your experience, and any special features..."
-                        className={`resize-none ${
-                          errors.description ? "border-red-500" : ""
-                        }`}
-                      />
-                    )}
-                  />
-                  <div className="flex items-center justify-between mt-1">
-                    {errors.description ? (
-                      <p className="text-sm text-red-600 flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3" />
-                        {errors.description.message}
-                      </p>
-                    ) : (
-                      <div />
-                    )}
-                    <p className="text-xs text-gray-500">
-                      {watchedValues.description?.length || 0} / 5000
-                    </p>
-                  </div>
-                </div>
-
-                {/* Category Selection */}
-                <div>
-                  <Label
-                    htmlFor="categoryId"
-                    className="text-sm font-medium mb-2 block"
-                  >
-                    Service Category *
-                  </Label>
-                  <Controller
-                    name="categoryId"
-                    control={control}
-                    render={({ field }) => (
-                      <Select
-                        onValueChange={field.onChange}
-                        value={field.value}
-                      >
-                        <SelectTrigger
-                          className={`h-11 ${
-                            errors.categoryId ? "border-red-500" : ""
-                          }`}
-                        >
-                          <SelectValue placeholder="Select a category for your service" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {categories.map((category) => (
-                            <SelectItem
-                              key={category._id.toString()}
-                              value={category._id.toString()}
-                            >
-                              {category.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  />
-                  {errors.categoryId && (
-                    <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
-                      <AlertCircle className="w-3 h-3" />
-                      {errors.categoryId.message}
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Service Images */}
-            <Card>
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <ImageIcon className="w-5 h-5 text-blue-500" />
-                    Service Images *
-                    <span className="text-sm font-normal text-gray-500">
-                      ({images.filter((img) => img.url).length}/{images.length})
-                    </span>
-                  </div>
-                  {images.length < 10 && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleAddImageSlot}
+                  return (
+                    <div
+                      key={index}
+                      className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all ${
+                        isActive
+                          ? "bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800"
+                          : isCompleted
+                          ? "bg-green-50 dark:bg-green-900/20 hover:bg-green-100 dark:hover:bg-green-900/30"
+                          : "hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                      }`}
+                      onClick={() => setCurrentStep(index)}
                     >
-                      <Plus className="w-4 h-4 mr-1" />
-                      Add Image
-                    </Button>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-6">
-                  {images.map((image, index) => (
-                    <div key={index} className="relative">
-                      <div className="flex items-start gap-4">
-                        <div className="flex-1">
-                          <ServiceImageUpload
-                            service={currentService}
-                            imageIndex={index}
-                            onSuccess={(imageData) =>
-                              handleImageUpload(imageData, index)
-                            }
-                            onError={handleImageError}
-                            showLabel={index === 0}
-                            allowRemove={images.length > 1}
-                            size={index === 0 ? "xl" : "lg"}
-                            shape="rounded"
-                          />
-                        </div>
-                        {index > 0 && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleRemoveImageSlot(index)}
-                            className="mt-2 text-gray-500 hover:text-red-500"
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
+                      <div
+                        className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                          isActive
+                            ? "bg-blue-500 text-white"
+                            : isCompleted
+                            ? "bg-green-500 text-white"
+                            : "bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300"
+                        }`}
+                      >
+                        {isCompleted ? (
+                          <Check className="w-4 h-4" />
+                        ) : (
+                          <Icon className="w-4 h-4" />
                         )}
                       </div>
-                      {index === 0 && (
-                        <div className="mt-2 flex items-center gap-2 text-xs text-blue-600 dark:text-blue-400">
-                          <Info className="w-3 h-3" />
-                          Primary image - will be featured in search results
-                        </div>
+                      <span
+                        className={`font-medium ${
+                          isActive
+                            ? "text-blue-700 dark:text-blue-300"
+                            : isCompleted
+                            ? "text-green-700 dark:text-green-300"
+                            : "text-gray-600 dark:text-gray-400"
+                        }`}
+                      >
+                        {step.title}
+                      </span>
+                      {isActive && (
+                        <ChevronRight className="w-4 h-4 text-blue-500 ml-auto" />
                       )}
                     </div>
-                  ))}
-                </div>
-                {errors.images && (
-                  <p className="text-sm text-red-600 mt-4 flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" />
-                    {errors.images.message}
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Tags */}
-            <Card>
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Tag className="w-5 h-5 text-blue-500" />
-                  Service Tags
-                  <span className="text-sm font-normal text-gray-500">
-                    ({tags.length}/20)
-                  </span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <div className="flex gap-2">
-                    <Input
-                      value={newTag}
-                      onChange={(e) => setNewTag(e.target.value)}
-                      onKeyPress={handleKeyPress}
-                      placeholder="Enter a tag..."
-                      disabled={tags.length >= 20}
-                      className="h-11"
-                    />
-                    <Button
-                      type="button"
-                      onClick={handleAddTag}
-                      disabled={
-                        !newTag.trim() ||
-                        tags.includes(newTag.trim()) ||
-                        tags.length >= 20
-                      }
-                      className="px-6"
-                    >
-                      Add
-                    </Button>
-                  </div>
-                  <p className="text-sm text-gray-500 mt-2">
-                    Tags help customers find your service more easily
-                  </p>
-                </div>
-
-                {/* Display Tags */}
-                {tags.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {tags.map((tag, index) => (
-                      <Badge
-                        key={index}
-                        variant="secondary"
-                        className="flex items-center gap-1 py-1 px-3"
-                      >
-                        {tag}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveTag(tag)}
-                          className="ml-1 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-full p-0.5 transition-colors"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                )}
-
-                {errors.tags && (
-                  <p className="text-sm text-red-600 flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" />
-                    {errors.tags.message}
-                  </p>
-                )}
+                  );
+                })}
               </CardContent>
             </Card>
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Pricing Information */}
-            <Card>
-              <CardHeader className="pb-4">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <DollarSign className="w-5 h-5 text-green-500" />
-                  Pricing
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-6">
-                {/* Price Type Toggle */}
-                <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border">
-                  <div className="flex items-center justify-between">
+          {/* Form Content */}
+          <div className="lg:col-span-3 space-y-8">
+            {/* Basic Information Step */}
+            {currentStep === 0 && (
+              <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg border-gray-200/50 dark:border-gray-700/50 shadow-xl">
+                <CardHeader className="border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-gray-800 dark:to-gray-800 rounded-t-xl">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center">
+                      <FileText className="w-5 h-5 text-white" />
+                    </div>
                     <div>
-                      <Label
-                        htmlFor="priceBasedOnServiceType"
-                        className="text-sm font-medium"
-                      >
-                        Variable Pricing
-                      </Label>
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                        Price varies by service type
+                      <CardTitle className="text-xl">
+                        Basic Information
+                      </CardTitle>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        Tell customers what service you&apos;re offering
                       </p>
                     </div>
-                    <Controller
-                      name="priceBasedOnServiceType"
-                      control={control}
-                      render={({ field }) => (
-                        <Switch
-                          id="priceBasedOnServiceType"
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      )}
-                    />
                   </div>
-                </div>
-
-                {/* Base Price */}
-                {!priceBasedOnServiceType && (
-                  <div>
+                </CardHeader>
+                <CardContent className="p-8 space-y-8">
+                  {/* Service Title */}
+                  <div className="space-y-3">
                     <Label
-                      htmlFor="basePrice"
-                      className="text-sm font-medium mb-2 block"
+                      htmlFor="title"
+                      className="text-base font-semibold flex items-center gap-2"
                     >
-                      Base Price (GHS) *
+                      Service Title
+                      <span className="text-red-500">*</span>
                     </Label>
                     <Controller
-                      name="basePrice"
+                      name="title"
                       control={control}
                       render={({ field }) => (
                         <Input
                           {...field}
-                          id="basePrice"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          placeholder="0.00"
-                          onChange={(e) =>
-                            field.onChange(
-                              e.target.value
-                                ? parseFloat(e.target.value)
-                                : undefined
-                            )
-                          }
-                          value={field.value ?? ""}
-                          className={`h-11 ${
-                            errors.basePrice ? "border-red-500" : ""
+                          id="title"
+                          placeholder="e.g., Professional Photography for Events"
+                          className={`h-12 text-lg bg-gray-50 dark:bg-gray-900 border-2 transition-all focus:bg-white dark:focus:bg-gray-800 ${
+                            errors.title
+                              ? "border-red-300 focus:border-red-500"
+                              : "border-gray-200 dark:border-gray-600 focus:border-blue-500"
                           }`}
                         />
                       )}
                     />
-                    {errors.basePrice && (
-                      <p className="text-sm text-red-600 mt-1 flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3" />
-                        {errors.basePrice.message}
-                      </p>
+                    {errors.title && (
+                      <div className="flex items-center gap-2 text-red-600 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg">
+                        <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                        <span className="text-sm">{errors.title.message}</span>
+                      </div>
                     )}
                   </div>
-                )}
 
-                {/* Price Range */}
-                <div className="space-y-4">
-                  <Label className="text-sm font-medium">
-                    Price Range (GHS)
-                  </Label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <Label
-                        htmlFor="priceRange.min"
-                        className="text-xs text-gray-500 mb-1 block"
-                      >
-                        Minimum
-                      </Label>
-                      <Controller
-                        name="priceRange.min"
-                        control={control}
-                        render={({ field }) => (
-                          <Input
-                            {...field}
-                            id="priceRange.min"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            placeholder="0"
-                            onChange={(e) =>
-                              field.onChange(parseFloat(e.target.value) || 0)
-                            }
-                            className={`h-10 ${
-                              errors.priceRange?.min ? "border-red-500" : ""
+                  {/* Category Selection */}
+                  <div className="space-y-3">
+                    <Label
+                      htmlFor="categoryId"
+                      className="text-base font-semibold flex items-center gap-2"
+                    >
+                      Service Category
+                      <span className="text-red-500">*</span>
+                    </Label>
+                    <Controller
+                      name="categoryId"
+                      control={control}
+                      render={({ field }) => (
+                        <Select
+                          onValueChange={field.onChange}
+                          value={field.value}
+                        >
+                          <SelectTrigger
+                            className={`h-12 bg-gray-50 dark:bg-gray-900 border-2 transition-all focus:bg-white dark:focus:bg-gray-800 ${
+                              errors.categoryId
+                                ? "border-red-300"
+                                : "border-gray-200 dark:border-gray-600"
                             }`}
-                          />
-                        )}
-                      />
+                          >
+                            <SelectValue placeholder="Choose the category that best fits your service" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {categories.map((category) => (
+                              <SelectItem
+                                key={category._id.toString()}
+                                value={category._id.toString()}
+                                className="py-3"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center">
+                                    <span className="text-white text-xs font-bold">
+                                      {category.name.charAt(0)}
+                                    </span>
+                                  </div>
+                                  {category.name}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                    {errors.categoryId && (
+                      <div className="flex items-center gap-2 text-red-600 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg">
+                        <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                        <span className="text-sm">
+                          {errors.categoryId.message}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Service Description */}
+                  <div className="space-y-3">
+                    <Label
+                      htmlFor="description"
+                      className="text-base font-semibold flex items-center gap-2"
+                    >
+                      Service Description
+                      <span className="text-red-500">*</span>
+                    </Label>
+                    <Controller
+                      name="description"
+                      control={control}
+                      render={({ field }) => (
+                        <Textarea
+                          {...field}
+                          id="description"
+                          rows={6}
+                          placeholder="Describe your service in detail. What do you offer? What makes you unique? Include your experience, process, and what customers can expect..."
+                          className={`text-base bg-gray-50 dark:bg-gray-900 border-2 transition-all focus:bg-white dark:focus:bg-gray-800 resize-none ${
+                            errors.description
+                              ? "border-red-300 focus:border-red-500"
+                              : "border-gray-200 dark:border-gray-600 focus:border-blue-500"
+                          }`}
+                        />
+                      )}
+                    />
+                    <div className="flex items-center justify-between">
+                      {errors.description ? (
+                        <div className="flex items-center gap-2 text-red-600">
+                          <AlertCircle className="w-4 h-4" />
+                          <span className="text-sm">
+                            {errors.description.message}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="text-sm text-gray-500">
+                          A detailed description helps customers understand your
+                          service better
+                        </div>
+                      )}
+                      <div className="text-sm text-gray-500 bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full">
+                        {watchedValues.description?.length || 0} / 5000
+                      </div>
                     </div>
-                    <div>
-                      <Label
-                        htmlFor="priceRange.max"
-                        className="text-xs text-gray-500 mb-1 block"
+                  </div>
+
+                  {/* Navigation */}
+                  <div className="flex justify-end pt-4">
+                    <Button
+                      onClick={() => setCurrentStep(1)}
+                      size="lg"
+                      className="px-8 bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
+                      disabled={
+                        !watchedValues.title ||
+                        !watchedValues.description ||
+                        !watchedValues.categoryId
+                      }
+                    >
+                      Continue to Images
+                      <ChevronRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Images Step */}
+            {currentStep === 1 && (
+              <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg border-gray-200/50 dark:border-gray-700/50 shadow-xl">
+                <CardHeader className="border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-gray-800 dark:to-gray-800 rounded-t-xl">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-purple-500 rounded-xl flex items-center justify-center">
+                        <ImageIcon className="w-5 h-5 text-white" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-xl">
+                          Service Images
+                        </CardTitle>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                          Showcase your work with high-quality images (
+                          {images.filter((img) => img.url).length}/10)
+                        </p>
+                      </div>
+                    </div>
+
+                    {images.length < 10 && (
+                      <Button
+                        variant="outline"
+                        onClick={handleAddImageSlot}
+                        className="gap-2"
                       >
-                        Maximum
-                      </Label>
-                      <Controller
-                        name="priceRange.max"
-                        control={control}
-                        render={({ field }) => (
-                          <Input
-                            {...field}
-                            id="priceRange.max"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            placeholder="1000"
-                            onChange={(e) =>
-                              field.onChange(parseFloat(e.target.value) || 1000)
-                            }
-                            className={`h-10 ${
-                              errors.priceRange?.max ? "border-red-500" : ""
-                            }`}
-                          />
-                        )}
-                      />
-                    </div>
-                  </div>
-                  {(errors.priceRange?.min || errors.priceRange?.max) && (
-                    <p className="text-sm text-red-600 flex items-center gap-1">
-                      <AlertCircle className="w-3 h-3" />
-                      {errors.priceRange?.min?.message ||
-                        errors.priceRange?.max?.message}
-                    </p>
-                  )}
-                </div>
-
-                {/* Price Description */}
-                <div>
-                  <Label
-                    htmlFor="priceDescription"
-                    className="text-sm font-medium mb-2 block"
-                  >
-                    Price Description
-                  </Label>
-                  <Controller
-                    name="priceDescription"
-                    control={control}
-                    render={({ field }) => (
-                      <Textarea
-                        {...field}
-                        id="priceDescription"
-                        rows={3}
-                        placeholder="Explain your pricing structure..."
-                        className={`resize-none ${
-                          errors.priceDescription ? "border-red-500" : ""
-                        }`}
-                      />
+                        <Upload className="w-4 h-4" />
+                        Add Image
+                      </Button>
                     )}
-                  />
-                  <div className="flex items-center justify-between mt-1">
-                    {errors.priceDescription ? (
-                      <p className="text-sm text-red-600 flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3" />
-                        {errors.priceDescription.message}
+                  </div>
+                </CardHeader>
+                <CardContent className="p-8">
+                  {images.length === 0 ? (
+                    <div className="text-center py-16 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-900">
+                      <ImageIcon className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold text-gray-600 dark:text-gray-400 mb-2">
+                        No images added yet
+                      </h3>
+                      <p className="text-gray-500 dark:text-gray-500 mb-6">
+                        Add at least one image to showcase your service
                       </p>
-                    ) : (
-                      <div />
-                    )}
-                    <p className="text-xs text-gray-500">
-                      {watchedValues.priceDescription?.length || 0} / 500
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Submit Button */}
-            <Card>
-              <CardContent className="pt-6">
-                <Button
-                  type="submit"
-                  onClick={handleSubmit(onSubmit)}
-                  size="lg"
-                  disabled={!isValid || isSubmitting}
-                  className="w-full h-12"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                      {isEditMode ? "Updating..." : "Creating..."}
-                    </>
-                  ) : submitSuccess ? (
-                    <>
-                      <Check className="w-5 h-5 mr-2" />
-                      {isEditMode ? "Updated!" : "Created!"}
-                    </>
+                      <Button
+                        onClick={handleAddImageSlot}
+                        size="lg"
+                        className="gap-2"
+                      >
+                        <Upload className="w-5 h-5" />
+                        Upload First Image
+                      </Button>
+                    </div>
                   ) : (
-                    <>
-                      <Save className="w-5 h-5 mr-2" />
-                      {isEditMode ? "Update Service" : "Create Service"}
-                    </>
-                  )}
-                </Button>
+                    <div className="space-y-6">
+                      {/* Primary Image */}
+                      {images[0] && (
+                        <div className="relative">
+                          <div className="absolute -top-2 -left-2 z-10 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
+                            <Star className="w-3 h-3" />
+                            Primary Image
+                          </div>
+                          <ServiceImageUpload
+                            service={currentService}
+                            imageIndex={0}
+                            onSuccess={(imageData) =>
+                              handleImageUpload(imageData, 0)
+                            }
+                            onError={handleImageError}
+                            showLabel={false}
+                            allowRemove={false}
+                            size="xl"
+                            shape="rounded"
+                          />
+                        </div>
+                      )}
 
-                {/* Form Status */}
-                <div className="mt-4 text-center text-sm">
-                  {!isValid && isDirty && (
-                    <p className="text-red-600 flex items-center justify-center gap-1">
-                      <AlertCircle className="w-3 h-3" />
-                      Please fix the errors above to continue
-                    </p>
+                      {/* Additional Images Grid */}
+                      {images.length > 1 && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                          {images.slice(1).map((image, index) => (
+                            <div key={index + 1} className="relative group">
+                              <ServiceImageUpload
+                                service={currentService}
+                                imageIndex={index + 1}
+                                onSuccess={(imageData) =>
+                                  handleImageUpload(imageData, index + 1)
+                                }
+                                onError={handleImageError}
+                                showLabel={false}
+                                allowRemove={true}
+                                size="lg"
+                                shape="rounded"
+                              />
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleRemoveImageSlot(index + 1)}
+                                className="absolute -top-2 -right-2 w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   )}
-                  {isValid && !isDirty && (
-                    <p className="text-gray-500">
-                      {isEditMode
-                        ? "Make changes to update your service"
-                        : "Fill out the form to create your service"}
-                    </p>
-                  )}
-                  {isValid && isDirty && !isSubmitting && (
-                    <p className="text-green-600 flex items-center justify-center gap-1">
-                      <Check className="w-3 h-3" />
-                      Form is ready to submit
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
 
-            {/* Help Card */}
-            <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
-              <CardHeader className="pb-3">
-                <CardTitle className="flex items-center gap-2 text-base text-blue-900 dark:text-blue-100">
-                  <Info className="w-4 h-4" />
-                  Tips for Success
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-2">
-                  <li className="flex items-start gap-2">
-                    <div className="w-1 h-1 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                    Use high-quality, professional images
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <div className="w-1 h-1 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                    Write a detailed, clear description
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <div className="w-1 h-1 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                    Set competitive, fair pricing
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <div className="w-1 h-1 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-                    Add relevant tags for discoverability
-                  </li>
-                </ul>
-              </CardContent>
-            </Card>
+                  {errors.images && (
+                    <div className="flex items-center gap-2 text-red-600 bg-red-50 dark:bg-red-900/20 p-4 rounded-lg mt-6">
+                      <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                      <span>{errors.images.message}</span>
+                    </div>
+                  )}
+
+                  {/* Tips */}
+                  <div className="mt-8 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
+                    <div className="flex items-start gap-3">
+                      <Info className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                          Image Tips
+                        </h4>
+                        <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
+                          <li>
+                            • Use high-resolution images (at least 1200x800
+                            pixels)
+                          </li>
+                          <li>
+                            • Show your work in action or completed results
+                          </li>
+                          <li>• Include before/after photos if applicable</li>
+                          <li>• Keep images professional and well-lit</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Navigation */}
+                  <div className="flex justify-between pt-8">
+                    <Button
+                      variant="outline"
+                      onClick={() => setCurrentStep(0)}
+                      size="lg"
+                      className="px-8"
+                    >
+                      <ArrowLeft className="w-4 h-4 mr-2" />
+                      Back to Basic Info
+                    </Button>
+                    <Button
+                      onClick={() => setCurrentStep(2)}
+                      size="lg"
+                      className="px-8 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+                      disabled={images.filter((img) => img.url).length === 0}
+                    >
+                      Continue to Pricing
+                      <ChevronRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Pricing Step */}
+            {currentStep === 2 && (
+              <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg border-gray-200/50 dark:border-gray-700/50 shadow-xl">
+                <CardHeader className="border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-green-50 to-teal-50 dark:from-gray-800 dark:to-gray-800 rounded-t-xl">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-green-500 rounded-xl flex items-center justify-center">
+                      <DollarSign className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-xl">
+                        Pricing Strategy
+                      </CardTitle>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        Set competitive and fair pricing for your service
+                      </p>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-8 space-y-8">
+                  {/* Pricing Type Toggle */}
+                  <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label
+                          htmlFor="priceBasedOnServiceType"
+                          className="text-base font-semibold"
+                        >
+                          Variable Pricing
+                        </Label>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
+                          Enable this if your pricing varies significantly based
+                          on specific requirements, project scope, or different
+                          service types. Customers will need to contact you for
+                          quotes.
+                        </p>
+                      </div>
+                      <div className="ml-6">
+                        <Controller
+                          name="priceBasedOnServiceType"
+                          control={control}
+                          render={({ field }) => (
+                            <Switch
+                              id="priceBasedOnServiceType"
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              className="scale-125"
+                            />
+                          )}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Fixed Price Section */}
+                  {!priceBasedOnServiceType && (
+                    <div className="space-y-6 bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-600">
+                      <div className="flex items-center gap-2 mb-4">
+                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <h3 className="text-lg font-semibold">
+                          Fixed Base Price
+                        </h3>
+                      </div>
+
+                      <div className="space-y-3">
+                        <Label
+                          htmlFor="basePrice"
+                          className="text-base font-medium flex items-center gap-2"
+                        >
+                          Starting Price (GHS)
+                          <span className="text-red-500">*</span>
+                        </Label>
+                        <Controller
+                          name="basePrice"
+                          control={control}
+                          render={({ field }) => (
+                            <div className="relative">
+                              <DollarSign className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-500 w-5 h-5" />
+                              <Input
+                                {...field}
+                                id="basePrice"
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                placeholder="Enter your base price"
+                                onChange={(e) =>
+                                  field.onChange(
+                                    e.target.value
+                                      ? parseFloat(e.target.value)
+                                      : undefined
+                                  )
+                                }
+                                value={field.value ?? ""}
+                                className={`h-14 pl-12 text-xl font-semibold bg-gray-50 dark:bg-gray-900 border-2 transition-all ${
+                                  errors.basePrice
+                                    ? "border-red-300"
+                                    : "border-gray-200 dark:border-gray-600 focus:border-green-500"
+                                }`}
+                              />
+                            </div>
+                          )}
+                        />
+                        {errors.basePrice && (
+                          <div className="flex items-center gap-2 text-red-600 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg">
+                            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                            <span className="text-sm">
+                              {errors.basePrice.message}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      {/* Price Range */}
+                      <div className="space-y-6">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          <h3 className="text-lg font-semibold">Price Range</h3>
+                          <span className="text-sm text-gray-500">
+                            (Helps customers set expectations)
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-3">
+                            <Label
+                              htmlFor="priceRange.min"
+                              className="text-sm font-medium text-gray-600 dark:text-gray-400"
+                            >
+                              Minimum Price (GHS)
+                            </Label>
+                            <Controller
+                              name="priceRange.min"
+                              control={control}
+                              render={({ field }) => (
+                                <Input
+                                  {...field}
+                                  id="priceRange.min"
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  placeholder="Minimum"
+                                  onChange={(e) =>
+                                    field.onChange(
+                                      parseFloat(e.target.value) || 0
+                                    )
+                                  }
+                                  className={`h-12 text-lg bg-gray-50 dark:bg-gray-900 border-2 ${
+                                    errors.priceRange?.min
+                                      ? "border-red-300"
+                                      : "border-gray-200 dark:border-gray-600 focus:border-blue-500"
+                                  }`}
+                                />
+                              )}
+                            />
+                          </div>
+                          <div className="space-y-3">
+                            <Label
+                              htmlFor="priceRange.max"
+                              className="text-sm font-medium text-gray-600 dark:text-gray-400"
+                            >
+                              Maximum Price (GHS)
+                            </Label>
+                            <Controller
+                              name="priceRange.max"
+                              control={control}
+                              render={({ field }) => (
+                                <Input
+                                  {...field}
+                                  id="priceRange.max"
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  placeholder="Maximum"
+                                  onChange={(e) =>
+                                    field.onChange(
+                                      parseFloat(e.target.value) || 1000
+                                    )
+                                  }
+                                  className={`h-12 text-lg bg-gray-50 dark:bg-gray-900 border-2 ${
+                                    errors.priceRange?.max
+                                      ? "border-red-300"
+                                      : "border-gray-200 dark:border-gray-600 focus:border-blue-500"
+                                  }`}
+                                />
+                              )}
+                            />
+                          </div>
+                        </div>
+                        {(errors.priceRange?.min || errors.priceRange?.max) && (
+                          <div className="flex items-center gap-2 text-red-600 bg-red-50 dark:bg-red-900/20 p-3 rounded-lg">
+                            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                            <span className="text-sm">
+                              {errors.priceRange?.min?.message ||
+                                errors.priceRange?.max?.message}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Price Description */}
+                      <div className="space-y-3">
+                        <Label
+                          htmlFor="priceDescription"
+                          className="text-base font-medium"
+                        >
+                          Pricing Details
+                          <span className="text-sm font-normal text-gray-500 ml-2">
+                            (Optional)
+                          </span>
+                        </Label>
+                        <Controller
+                          name="priceDescription"
+                          control={control}
+                          render={({ field }) => (
+                            <Textarea
+                              {...field}
+                              id="priceDescription"
+                              rows={4}
+                              placeholder="Explain your pricing structure, what's included, additional costs, payment terms, etc..."
+                              className={`bg-gray-50 dark:bg-gray-900 border-2 transition-all resize-none ${
+                                errors.priceDescription
+                                  ? "border-red-300"
+                                  : "border-gray-200 dark:border-gray-600 focus:border-green-500"
+                              }`}
+                            />
+                          )}
+                        />
+                        <div className="flex items-center justify-between">
+                          {errors.priceDescription ? (
+                            <div className="flex items-center gap-2 text-red-600">
+                              <AlertCircle className="w-4 h-4" />
+                              <span className="text-sm">
+                                {errors.priceDescription.message}
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="text-sm text-gray-500">
+                              Help customers understand your pricing structure
+                            </div>
+                          )}
+                          <div className="text-sm text-gray-500 bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full">
+                            {watchedValues.priceDescription?.length || 0} / 500
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Navigation */}
+                  <div className="flex justify-between pt-8">
+                    <Button
+                      variant="outline"
+                      onClick={() => setCurrentStep(1)}
+                      size="lg"
+                      className="px-8"
+                    >
+                      <ArrowLeft className="w-4 h-4 mr-2" />
+                      Back to Images
+                    </Button>
+                    <Button
+                      onClick={() => setCurrentStep(3)}
+                      size="lg"
+                      className="px-8 bg-gradient-to-r from-green-500 to-teal-500 hover:from-green-600 hover:to-teal-600"
+                      disabled={
+                        !priceBasedOnServiceType && !watchedValues.basePrice
+                      }
+                    >
+                      Continue to Tags
+                      <ChevronRight className="w-4 h-4 ml-2" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Tags Step */}
+            {currentStep === 3 && (
+              <Card className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-lg border-gray-200/50 dark:border-gray-700/50 shadow-xl">
+                <CardHeader className="border-b border-gray-100 dark:border-gray-700 bg-gradient-to-r from-orange-50 to-red-50 dark:from-gray-800 dark:to-gray-800 rounded-t-xl">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center">
+                      <Tag className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-xl">Service Tags</CardTitle>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        Help customers discover your service ({tags.length}/20)
+                      </p>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-8 space-y-8">
+                  {/* Tag Input */}
+                  <div className="space-y-4">
+                    <div className="flex gap-3">
+                      <div className="flex-1">
+                        <Input
+                          value={newTag}
+                          onChange={(e) => setNewTag(e.target.value)}
+                          onKeyPress={handleKeyPress}
+                          placeholder="Enter a tag (e.g., photography, weddings, professional)..."
+                          disabled={tags.length >= 20}
+                          className="h-12 text-base bg-gray-50 dark:bg-gray-900 border-2 border-gray-200 dark:border-gray-600 focus:border-orange-500"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        onClick={handleAddTag}
+                        disabled={
+                          !newTag.trim() ||
+                          tags.includes(newTag.trim()) ||
+                          tags.length >= 20
+                        }
+                        size="lg"
+                        className="px-6 bg-orange-500 hover:bg-orange-600"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Tag
+                      </Button>
+                    </div>
+
+                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                      <div className="flex items-start gap-3">
+                        <Info className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                        <div className="text-sm text-blue-800 dark:text-blue-200">
+                          <p className="font-medium mb-2">Tag suggestions:</p>
+                          <p>
+                            Include skills, specialties, tools you use,
+                            industries you serve, and service types. Examples:
+                            &quot;wedding photography&quot;, &quot;adobe
+                            photoshop&quot;, &quot;portrait&quot;,
+                            &quot;commercial&quot;, &quot;editing&quot;
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Display Tags */}
+                  {tags.length > 0 ? (
+                    <div className="space-y-4">
+                      <h3 className="text-base font-semibold">Your Tags</h3>
+                      <div className="flex flex-wrap gap-3">
+                        {tags.map((tag, index) => (
+                          <Badge
+                            key={index}
+                            variant="secondary"
+                            className="flex items-center gap-2 py-2 px-4 text-sm bg-gradient-to-r from-orange-100 to-red-100 dark:from-orange-900/30 dark:to-red-900/30 border border-orange-200 dark:border-orange-800 hover:from-orange-200 hover:to-red-200 dark:hover:from-orange-900/50 dark:hover:to-red-900/50 transition-all"
+                          >
+                            <span className="font-medium">{tag}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveTag(tag)}
+                              className="ml-1 hover:bg-red-200 dark:hover:bg-red-800 rounded-full p-1 transition-colors"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-xl bg-gray-50 dark:bg-gray-900">
+                      <Tag className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-semibold text-gray-600 dark:text-gray-400 mb-2">
+                        No tags added yet
+                      </h3>
+                      <p className="text-gray-500">
+                        Add some tags to help customers find your service
+                      </p>
+                    </div>
+                  )}
+
+                  {errors.tags && (
+                    <div className="flex items-center gap-2 text-red-600 bg-red-50 dark:bg-red-900/20 p-4 rounded-lg">
+                      <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                      <span>{errors.tags.message}</span>
+                    </div>
+                  )}
+
+                  {/* Navigation & Submit */}
+                  <div className="flex justify-between pt-8">
+                    <Button
+                      variant="outline"
+                      onClick={() => setCurrentStep(2)}
+                      size="lg"
+                      className="px-8"
+                    >
+                      <ArrowLeft className="w-4 h-4 mr-2" />
+                      Back to Pricing
+                    </Button>
+
+                    <Button
+                      type="submit"
+                      onClick={handleSubmit(onSubmit)}
+                      size="lg"
+                      disabled={!isValid || isSubmitting}
+                      className="px-8 h-12 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white font-semibold"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                          {isEditMode
+                            ? "Updating Service..."
+                            : "Creating Service..."}
+                        </>
+                      ) : submitSuccess ? (
+                        <>
+                          <Check className="w-5 h-5 mr-2" />
+                          {isEditMode ? "Service Updated!" : "Service Created!"}
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-5 h-5 mr-2" />
+                          {isEditMode ? "Update Service" : "Create Service"}
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </div>
+
+        {/* Floating Action Button for Mobile */}
+        <div className="lg:hidden fixed bottom-6 right-6 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-full shadow-2xl border border-gray-200 dark:border-gray-700 p-1">
+            <Button
+              type="submit"
+              onClick={handleSubmit(onSubmit)}
+              size="lg"
+              disabled={!isValid || isSubmitting}
+              className="w-14 h-14 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 p-0"
+            >
+              {isSubmitting ? (
+                <Loader2 className="w-6 h-6 animate-spin" />
+              ) : submitSuccess ? (
+                <Check className="w-6 h-6" />
+              ) : (
+                <Save className="w-6 h-6" />
+              )}
+            </Button>
           </div>
         </div>
       </div>

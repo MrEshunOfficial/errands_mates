@@ -1,7 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { Home } from "lucide-react";
-import PublicServiceList from "@/components/public/services/service-list";
+import UserServiceList from "@/components/user/services/service-list";
 
 export default function PublicServicePage() {
   return (
@@ -18,12 +18,12 @@ export default function PublicServicePage() {
           </Link>
           <span>/</span>
           <span className="hover:text-foreground transition-colors">
-            Services
+            My Services
           </span>
         </nav>
       </div>
       <main className="min-h-[90vh] w-full">
-        <PublicServiceList />
+        <UserServiceList />
       </main>
     </div>
   );

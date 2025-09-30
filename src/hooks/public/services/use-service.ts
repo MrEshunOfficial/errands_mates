@@ -765,6 +765,7 @@ export const useUserService = (): UserServiceState & UserServiceActions => {
       [ServiceStatus.REJECTED]: "red",
       [ServiceStatus.SUSPENDED]: "orange",
       [ServiceStatus.INACTIVE]: "gray",
+      [ServiceStatus.ACTIVATE]: "teal",
     };
     return colors[status] || "gray";
   }, []);
@@ -777,6 +778,7 @@ export const useUserService = (): UserServiceState & UserServiceActions => {
       [ServiceStatus.REJECTED]: "Rejected",
       [ServiceStatus.SUSPENDED]: "Suspended",
       [ServiceStatus.INACTIVE]: "Inactive",
+      [ServiceStatus.ACTIVATE]: "teal",
     };
     return labels[status] || status;
   }, []);

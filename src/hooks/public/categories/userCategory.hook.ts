@@ -16,8 +16,8 @@ interface CategoryState {
   category: Category | null;
   categories: Category[];
   searchResults: Category[];
-  featuredCategories: Category[]; // NEW: For homepage/landing pages
-  navigationCategories: Category[]; // NEW: For navigation menus
+  featuredCategories: Category[];
+  navigationCategories: Category[];
   pagination?: {
     page: number;
     limit: number;

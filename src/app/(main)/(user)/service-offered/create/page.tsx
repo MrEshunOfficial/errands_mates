@@ -22,7 +22,6 @@ const CreateServicePage: React.FC = () => {
 
   const handleRetry = () => {
     setError(null);
-    // Re-fetch categories
     setTimeout(() => {
       window.location.reload();
     }, 100);
@@ -100,29 +99,9 @@ const CreateServicePage: React.FC = () => {
           <span className="text-foreground">create</span>
         </nav>
       </div>
-      <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <button
-            onClick={handleCancel}
-            className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200 mb-4 transition-colors"
-          >
-            <ArrowLeft size={20} />
-            <span>Back</span>
-          </button>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">
-            Create New Service
-          </h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Add a new service to the marketplace and start connecting with
-            customers.
-          </p>
-        </div>
-
-        <div className="container mx-auto max-w-4xl">
-          {/* Service Form */}
-          <ServiceForm mode="create" onSuccess={handleSuccess} />
-        </div>
+      <div className="container mx-auto p-4">
+        {/* Service Form */}
+        <ServiceForm mode="create" onSuccess={handleSuccess} />
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import React from "react";
 
 export default function page() {
-  return <div>provider public profile</div>;
+  return <div>list all providers offering this service</div>;
 }
