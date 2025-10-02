@@ -1,7 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { Home } from "lucide-react";
-import PublicServiceList from "@/components/public/services/service-list";
+import PublicServiceList from "@/components/services/service-list";
 
 export default function PublicServicePage() {
   return (

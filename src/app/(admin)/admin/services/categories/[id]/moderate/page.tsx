@@ -1,6 +1,6 @@
 "use client";
 
-import { CategoryModerationDetail } from "@/components/admin/categories/category-moderation";
+import { CategoryModerationDetail } from "@/components/categories/category-moderation";
 import { ErrorState } from "@/components/ui/ErrorState";
 import LoadingOverlay from "@/components/ui/LoadingOverlay";
 import { useAdminCategoryManager } from "@/hooks/admin/admin.category.hook";
@@ -35,25 +35,29 @@ export default function CategoryModerationDetailPage({ params }: PageProps) {
         <nav className="flex items-center space-x-2 text-sm text-muted-foreground">
           <Link
             href="/admin"
-            className="hover:text-foreground transition-colors">
+            className="hover:text-foreground transition-colors"
+          >
             Admin
           </Link>
           <span>/</span>
           <Link
             href="/admin/services"
-            className="hover:text-foreground transition-colors">
+            className="hover:text-foreground transition-colors"
+          >
             Services
           </Link>
           <span>/</span>
           <Link
             href="/admin/services/categories"
-            className="hover:text-foreground transition-colors">
+            className="hover:text-foreground transition-colors"
+          >
             Categories
           </Link>
           <span>/</span>
           <Link
             href={`/admin/services/categories/${id}`}
-            className="hover:text-foreground transition-colors">
+            className="hover:text-foreground transition-colors"
+          >
             {id}
           </Link>
           <span>/</span>

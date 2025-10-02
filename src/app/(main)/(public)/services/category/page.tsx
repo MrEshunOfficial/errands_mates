@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import PublicCategoryList from "@/components/admin/categories/PublicCategoryList";
+import PublicCategoryList from "@/components/categories/PublicCategoryList";
 
 export default function CategoryPage() {
   return (

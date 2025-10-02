@@ -2,15 +2,7 @@ import { Types } from "mongoose";
 import { BaseEntity, SoftDeletable, ServiceStatus, ModerationStatus } from "./base.types";
 import { FileReference } from "@/lib/api/categories/categoryImage.api";
 import { IUser } from "./user.types";
-
-
-export interface Category {
-  _id: string;
-  name: string;
-  slug: string;
-  description?: string;
-}
-
+import { Category } from "./category.types";
 export interface SubmittedBy {
   _id: string;
   name?: string;
@@ -25,8 +17,8 @@ export interface Service extends BaseEntity, SoftDeletable {
   description: string;
   priceDescription?: string;
   priceBasedOnServiceType: boolean;
-  categoryId: Types.ObjectId;
-  category?: Category;
+ categoryId: Types.ObjectId;
+  category?: Category; 
   images: FileReference[];
   isPopular: boolean;
   status: ServiceStatus;
@@ -84,5 +76,3 @@ export interface ServiceQueryParams {
   status?: ServiceStatus;
   popular?: boolean;
 }
-
-

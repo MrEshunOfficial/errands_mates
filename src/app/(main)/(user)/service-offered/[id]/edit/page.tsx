@@ -1,10 +1,10 @@
+// Updated edit_service_page.txt (EditServicePage component)
 "use client";
 
 import React, { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 import { toast } from "react-hot-toast";
-import LoadingOverlay from "@/components/ui/LoadingOverlay";
 import { useCategory } from "@/hooks/public/categories/userCategory.hook";
 import { CategoryWithServices } from "@/types/category.types";
 import { Service } from "@/types/service.types";
@@ -21,7 +21,7 @@ const EditServicePage: React.FC = () => {
   const [service, setService] = useState<Service | null>(null);
   const [categories, setCategories] = useState<CategoryWithServices[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true); // Start with true since we're fetching data
+  const [isLoading, setIsLoading] = useState(true);
   const [isInitialized, setIsInitialized] = useState(false);
 
   const { getServiceById } = useUserService();
@@ -59,17 +59,10 @@ const EditServicePage: React.FC = () => {
             throw new Error("Service not found");
           }
 
-          // Filter and validate categories
-          const validCategories = (categoriesData ?? []).filter(
-            (cat): cat is CategoryWithServices =>
-              "services" in cat &&
-              Array.isArray(cat.services) &&
-              "servicesCount" in cat &&
-              typeof cat.servicesCount === "number"
-          );
-
+          // Removed unnecessary filter - assume categoriesData is usable as-is
           setService(serviceData);
-          setCategories(validCategories);
+          setCategories(categoriesData as CategoryWithServices[]);
+
           setIsInitialized(true);
         }
       } catch (err) {
@@ -112,11 +105,6 @@ const EditServicePage: React.FC = () => {
     window.location.reload();
   };
 
-  // Loading state - show while fetching data
-  if (isLoading && !isInitialized) {
-    return <LoadingOverlay message="Loading service data..." />;
-  }
-
   // Error state
   if (error) {
     return (
@@ -133,8 +121,8 @@ const EditServicePage: React.FC = () => {
     return <EmptyState message="Service not found or has been deleted" />;
   }
 
-  // Don't render form until we have both service and categories
-  if (!service || categories.length === 0) {
+  // Fallback if categories are empty (but proceed anyway if service is loaded)
+  if (isLoading && !isInitialized) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="text-center">
@@ -165,14 +153,15 @@ const EditServicePage: React.FC = () => {
             Update your service information and settings.
           </p>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            Editing: {service.title}
+            Editing: {service?.title}
           </p>
         </div>
 
         <ServiceForm
           mode="edit"
-          serviceId="123"
-          initialData={service}
+          serviceId={serviceId}
+          initialData={service ?? undefined}
+          categories={categories}
           onSuccess={handleSuccess}
           onCancel={handleCancel}
         />

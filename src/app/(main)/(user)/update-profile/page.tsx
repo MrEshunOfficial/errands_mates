@@ -12,10 +12,10 @@ import {
 } from "@/lib/utils/schemas/profile.schemas";
 import { toast } from "sonner";
 import { ProfilePicture, UserRole } from "@/types/base.types";
-import BasicInfoFormStep from "@/components/profile/form/BasicInformationStep";
-import ContactFormStep from "@/components/profile/form/ContactFormStep";
-import LocationFormStep from "@/components/profile/form/LocationFormStep";
-import ReviewFormStep from "@/components/profile/form/ReviewFormStep";
+import BasicInfoFormStep from "@/components/providers/profile/form/BasicInformationStep";
+import ContactFormStep from "@/components/providers/profile/form/ContactFormStep";
+import LocationFormStep from "@/components/providers/profile/form/LocationFormStep";
+import ReviewFormStep from "@/components/providers/profile/form/ReviewFormStep";
 
 export enum FormStep {
   BASIC_INFO = "basic-info",
@@ -78,7 +78,7 @@ interface ProfileFormPageProps {
 import type { UpdateProfileData } from "@/lib/api/profiles/profile.api";
 import { IUserProfile } from "@/types";
 import { useIdDetails } from "@/hooks/id-details/useIdDetails";
-import ProfileCard from "@/components/profile/form/ProfileCard";
+import ProfileCard from "@/components/providers/profile/form/ProfileCard";
 import LoadingOverlay from "@/components/ui/LoadingOverlay";
 
 interface FallbackUpdateProfileData {

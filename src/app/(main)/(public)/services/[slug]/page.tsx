@@ -1,12 +1,13 @@
+"use client";
+import ServiceDetails from "@/components/services/service-details";
 // app/(main)/(public)/services/[slug]/page.tsx
-import PublicServiceList from "@/components/public/services/service-list";
 import { Home, ToolCase } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
 export default function CategoryServicesPage() {
   const params = useParams();
-  const categorySlug = params.slug as string;
+  const serviceSlug = params.slug as string;
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
@@ -30,19 +31,14 @@ export default function CategoryServicesPage() {
           </Link>
           <span>/</span>
           <span className="hover:text-foreground transition-colors">
-            {categorySlug}
+            {serviceSlug}
           </span>
         </nav>
       </div>
       <main className="min-h-[90vh] w-full">
         <section>
-          <h2 className="text-2xl font-semibold mb-4">Services</h2>
-          <PublicServiceList
-            title={`Services in ${categorySlug}`}
-            subtitle="Explore services in this category"
-            initialFilters={{ category: categorySlug }}
-            showFilters={true}
-          />
+          <h2 className="text-2xl font-semibold mb-4">{serviceSlug} Service</h2>
+          <ServiceDetails />
         </section>
       </main>
     </div>

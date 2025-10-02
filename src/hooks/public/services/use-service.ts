@@ -1,4 +1,4 @@
-// hooks/useUserService.ts - User-focused service management hook
+// hooks/useUserService.ts - Fixed version with proper loading states
 
 import { useState, useEffect, useCallback } from "react";
 import type { Service } from "@/types/service.types";
@@ -23,20 +23,13 @@ import {
 } from "@/lib/api/services/services.api";
 
 interface UserServiceState {
-  // Current service data
   currentService?: Service | null;
-
-  // User collections
   userServices: Service[];
   popularServices: Service[];
-
-  // User service summary
   userServicesSummary: {
     statusCounts: Record<string, number>;
     totalServices: number;
   } | null;
-
-  // Public services with pagination
   services: Service[];
   pagination: {
     currentPage: number;
@@ -45,19 +38,14 @@ interface UserServiceState {
     hasNextPage: boolean;
     hasPrevPage: boolean;
   } | null;
-
-  // State flags
   isLoading: boolean;
   isSubmitting: boolean;
   error: string | null;
   isInitialized: boolean;
-
-  // Search state
   lastSearchParams: ServiceSearchParams | null;
 }
 
 interface UserServiceActions {
-  // Core service management
   createService: (data: CreateServiceData) => Promise<Service>;
   getServiceById: (
     serviceId: string,
@@ -69,22 +57,16 @@ interface UserServiceActions {
     data: UpdateServiceData
   ) => Promise<Service>;
   deleteService: (serviceId: string) => Promise<void>;
-
-  // Service file management
   uploadServiceImages: (
     serviceId: string,
     data: ServiceImageUploadData
   ) => Promise<ServiceImageResponse>;
   getServiceImages: (serviceId: string) => Promise<ServiceImagesResponse>;
   deleteServiceImages: (serviceId: string) => Promise<ServiceImagesResponse>;
-
-  // User service operations
   getUserServices: (
     params?: UserServiceSearchParams
   ) => Promise<UserServiceResponse>;
   refreshUserServices: () => Promise<void>;
-
-  // User-specific status methods
   getUserServicesByStatus: (
     status: ServiceStatus,
     params?: Omit<UserServiceSearchParams, "status">
@@ -104,8 +86,6 @@ interface UserServiceActions {
   getUserDeletedServices: (
     params?: UserServiceSearchParams
   ) => Promise<UserServiceResponse>;
-
-  // Public service listing operations
   getAllServices: (
     params?: ServiceSearchParams
   ) => Promise<PaginatedServiceResponse>;
@@ -113,8 +93,6 @@ interface UserServiceActions {
   getApprovedServices: (
     params?: ServiceSearchParams
   ) => Promise<PaginatedServiceResponse>;
-
-  // Category and filtering operations
   getServicesByCategory: (
     categoryId: string,
     params?: Omit<ServiceSearchParams, "category">
@@ -137,8 +115,6 @@ interface UserServiceActions {
   getServicesWithServiceTypePricing: (
     params?: ServiceSearchParams
   ) => Promise<PaginatedServiceResponse>;
-
-  // Sorting and filtering
   getServicesByTags: (
     tags: string[],
     params?: Omit<ServiceSearchParams, "tags">
@@ -154,18 +130,12 @@ interface UserServiceActions {
     params?: ServiceSearchParams
   ) => Promise<PaginatedServiceResponse>;
   getTopPopularServices: (limit?: number) => Promise<Service[]>;
-
-  // Convenience methods
   getServiceWithFullDetails: (serviceId: string) => Promise<Service>;
   refreshPopularServices: () => Promise<void>;
-
-  // State management
   setCurrentService: (service: Service | null) => void;
   clearServices: () => void;
   clearError: () => void;
   clearSearch: () => void;
-
-  // Utility functions
   isServiceOwner: (service: Service, userId: string) => boolean;
   canEditService: (service: Service, userId: string) => boolean;
   getServiceStatusColor: (status: ServiceStatus) => string;
@@ -221,7 +191,6 @@ export const useUserService = (): UserServiceState & UserServiceActions => {
 
         const response = await action();
 
-        // Update current service if response contains service data
         if (
           updateCurrentService &&
           response &&
@@ -268,7 +237,7 @@ export const useUserService = (): UserServiceState & UserServiceActions => {
   );
 
   // ====================================================================
-  // USER SERVICE OPERATIONS
+  // USER SERVICE OPERATIONS - FIXED
   // ====================================================================
 
   const getUserServices = useCallback(
@@ -276,7 +245,7 @@ export const useUserService = (): UserServiceState & UserServiceActions => {
       const response = await handleServiceAction(
         () => serviceAPI.getUserServices(params),
         {
-          showLoading: false,
+          showLoading: true, // FIXED: Changed from false to true
           onSuccess: (res) => {
             const userResponse = res as UserServiceResponse;
             updateState({
@@ -303,7 +272,6 @@ export const useUserService = (): UserServiceState & UserServiceActions => {
         {
           showSubmitting: true,
           onSuccess: () => {
-            // Refresh user services to include the new service
             getUserServices().catch(console.error);
           },
         }
@@ -346,7 +314,6 @@ export const useUserService = (): UserServiceState & UserServiceActions => {
           updateCurrentService: true,
           showSubmitting: true,
           onSuccess: () => {
-            // Refresh user services to reflect the update
             getUserServices().catch(console.error);
           },
         }
@@ -359,12 +326,11 @@ export const useUserService = (): UserServiceState & UserServiceActions => {
   const deleteService = useCallback(
     async (serviceId: string): Promise<void> => {
       await handleServiceAction(() => serviceAPI.deleteService(serviceId), {
+        showSubmitting: true,
         onSuccess: () => {
-          // Clear current service if it was deleted
           if (state.currentService?._id.toString() === serviceId) {
             updateState({ currentService: null });
           }
-          // Refresh user services
           getUserServices().catch(console.error);
         },
       });
@@ -391,7 +357,6 @@ export const useUserService = (): UserServiceState & UserServiceActions => {
         {
           showSubmitting: true,
           onSuccess: () => {
-            // Optionally refresh the current service if it matches
             if (state.currentService?._id.toString() === serviceId) {
               getServiceById(serviceId).catch(console.error);
             }
@@ -416,8 +381,8 @@ export const useUserService = (): UserServiceState & UserServiceActions => {
       return handleServiceAction(
         () => serviceAPI.deleteServiceImages(serviceId),
         {
+          showSubmitting: true,
           onSuccess: () => {
-            // Optionally refresh the current service if it matches
             if (state.currentService?._id.toString() === serviceId) {
               getServiceById(serviceId).catch(console.error);
             }
@@ -437,7 +402,7 @@ export const useUserService = (): UserServiceState & UserServiceActions => {
       const response = await handleServiceAction(
         () => serviceAPI.getAllServices(params),
         {
-          showLoading: true, // Changed from false to true
+          showLoading: true,
           onSuccess: (res) => {
             const paginatedResponse = res as PaginatedServiceResponse;
             updateState({
@@ -502,10 +467,6 @@ export const useUserService = (): UserServiceState & UserServiceActions => {
     [handleServiceAction]
   );
 
-  // ====================================================================
-  // CONVENIENCE METHODS
-  // ====================================================================
-
   const getServiceWithFullDetails = useCallback(
     async (serviceId: string): Promise<Service> => {
       return handleServiceAction(
@@ -564,7 +525,7 @@ export const useUserService = (): UserServiceState & UserServiceActions => {
   );
 
   // ====================================================================
-  // USER-SPECIFIC STATUS METHODS
+  // USER-SPECIFIC STATUS METHODS - FIXED
   // ====================================================================
 
   const getUserServicesByStatus = useCallback(
@@ -572,59 +533,114 @@ export const useUserService = (): UserServiceState & UserServiceActions => {
       status: ServiceStatus,
       params?: Omit<UserServiceSearchParams, "status">
     ): Promise<UserServiceResponse> => {
-      return handleServiceAction(
+      const response = await handleServiceAction(
         () => serviceAPI.getUserServicesByStatus(status, params),
-        { showLoading: false }
-      ) as Promise<UserServiceResponse>;
+        {
+          showLoading: true, // FIXED: Changed from false to true
+          onSuccess: (res) => {
+            const userResponse = res as UserServiceResponse;
+            updateState({
+              userServices: userResponse.data,
+              userServicesSummary: userResponse.summary,
+              pagination: userResponse.pagination,
+            });
+          },
+        }
+      );
+      return response as UserServiceResponse;
     },
-    [handleServiceAction]
+    [handleServiceAction, updateState]
   );
 
   const getUserDraftServices = useCallback(
     async (params?: UserServiceSearchParams): Promise<UserServiceResponse> => {
-      return handleServiceAction(
+      const response = await handleServiceAction(
         () => serviceAPI.getUserDraftServices(params),
-        { showLoading: false }
-      ) as Promise<UserServiceResponse>;
+        {
+          showLoading: true, // FIXED: Changed from false to true
+          onSuccess: (res) => {
+            const userResponse = res as UserServiceResponse;
+            updateState({
+              userServices: userResponse.data,
+              userServicesSummary: userResponse.summary,
+              pagination: userResponse.pagination,
+            });
+          },
+        }
+      );
+      return response as UserServiceResponse;
     },
-    [handleServiceAction]
+    [handleServiceAction, updateState]
   );
 
   const getUserPendingServices = useCallback(
     async (params?: UserServiceSearchParams): Promise<UserServiceResponse> => {
-      return handleServiceAction(
+      const response = await handleServiceAction(
         () => serviceAPI.getUserPendingServices(params),
-        { showLoading: false }
-      ) as Promise<UserServiceResponse>;
+        {
+          showLoading: true, // FIXED: Changed from false to true
+          onSuccess: (res) => {
+            const userResponse = res as UserServiceResponse;
+            updateState({
+              userServices: userResponse.data,
+              userServicesSummary: userResponse.summary,
+              pagination: userResponse.pagination,
+            });
+          },
+        }
+      );
+      return response as UserServiceResponse;
     },
-    [handleServiceAction]
+    [handleServiceAction, updateState]
   );
 
   const getUserApprovedServices = useCallback(
     async (params?: UserServiceSearchParams): Promise<UserServiceResponse> => {
-      return handleServiceAction(
+      const response = await handleServiceAction(
         () => serviceAPI.getUserApprovedServices(params),
-        { showLoading: false }
-      ) as Promise<UserServiceResponse>;
+        {
+          showLoading: true, // FIXED: Changed from false to true
+          onSuccess: (res) => {
+            const userResponse = res as UserServiceResponse;
+            updateState({
+              userServices: userResponse.data,
+              userServicesSummary: userResponse.summary,
+              pagination: userResponse.pagination,
+            });
+          },
+        }
+      );
+      return response as UserServiceResponse;
     },
-    [handleServiceAction]
+    [handleServiceAction, updateState]
   );
 
   const getUserRejectedServices = useCallback(
     async (params?: UserServiceSearchParams): Promise<UserServiceResponse> => {
-      return handleServiceAction(
+      const response = await handleServiceAction(
         () => serviceAPI.getUserRejectedServices(params),
-        { showLoading: false }
-      ) as Promise<UserServiceResponse>;
+        {
+          showLoading: true, // FIXED: Changed from false to true
+          onSuccess: (res) => {
+            const userResponse = res as UserServiceResponse;
+            updateState({
+              userServices: userResponse.data,
+              userServicesSummary: userResponse.summary,
+              pagination: userResponse.pagination,
+            });
+          },
+        }
+      );
+      return response as UserServiceResponse;
     },
-    [handleServiceAction]
+    [handleServiceAction, updateState]
   );
 
   const getUserDeletedServices = useCallback(
     async (params?: UserServiceSearchParams): Promise<UserServiceResponse> => {
       return handleServiceAction(
         () => serviceAPI.getUserDeletedServices(params),
-        { showLoading: false }
+        { showLoading: true }
       ) as Promise<UserServiceResponse>;
     },
     [handleServiceAction]
@@ -747,7 +763,6 @@ export const useUserService = (): UserServiceState & UserServiceActions => {
 
   const canEditService = useCallback(
     (service: Service, userId: string): boolean => {
-      // User can edit if they own the service and it's in an editable state
       if (!isServiceOwner(service, userId)) return false;
 
       return [ServiceStatus.DRAFT, ServiceStatus.REJECTED].includes(
@@ -778,7 +793,7 @@ export const useUserService = (): UserServiceState & UserServiceActions => {
       [ServiceStatus.REJECTED]: "Rejected",
       [ServiceStatus.SUSPENDED]: "Suspended",
       [ServiceStatus.INACTIVE]: "Inactive",
-      [ServiceStatus.ACTIVATE]: "teal",
+      [ServiceStatus.ACTIVATE]: "Active",
     };
     return labels[status] || status;
   }, []);
@@ -789,7 +804,6 @@ export const useUserService = (): UserServiceState & UserServiceActions => {
 
     const initializeServices = async () => {
       try {
-        // Fetch popular services on initialization
         const popularResponse = await serviceAPI.getPopularServices(10);
 
         if (!mounted) return;
@@ -822,45 +836,32 @@ export const useUserService = (): UserServiceState & UserServiceActions => {
 
   return {
     ...state,
-    // Core CRUD operations
     createService,
     getServiceById,
     getServiceBySlug,
     updateService,
     deleteService,
-
-    // File management operations
     uploadServiceImages,
     getServiceImages,
     deleteServiceImages,
-
-    // Public listing operations
     getAllServices,
     getPopularServices,
     getApprovedServices,
     getServicesWithPricing,
     getServicesByCategory,
-
-    // User-specific operations
     getUserServices,
     refreshUserServices,
-
-    // Convenience methods
     getServiceWithFullDetails,
     getServicesByStatus,
     getServicesInPriceRange,
     getServicesWithFixedPricing,
     getServicesWithServiceTypePricing,
-
-    // User service status methods
     getUserServicesByStatus,
     getUserDraftServices,
     getUserPendingServices,
     getUserApprovedServices,
     getUserRejectedServices,
     getUserDeletedServices,
-
-    // Sorting and filtering
     getServicesByTags,
     getRecentServices,
     getServicesByPriceLowToHigh,

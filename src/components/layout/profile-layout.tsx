@@ -6,16 +6,11 @@ import {
   User,
   Settings,
   Edit,
-  HelpCircle,
   LogOut,
   Shield,
   Activity,
-  MessageCircle,
   Bell,
-  UserCheck,
-  Lock,
   Store,
-  BarChart3,
   Users,
 } from "lucide-react";
 
@@ -39,13 +34,6 @@ interface NavigationItem {
   description?: string;
 }
 
-interface QuickAction {
-  label: string;
-  action: () => void;
-  priority: "high" | "normal";
-  icon: React.ComponentType<{ size?: number; className?: string }>;
-}
-
 interface RoleIndicator {
   label: string;
   className: string;
@@ -64,46 +52,26 @@ const navigationItems: NavigationItem[] = [
     icon: Edit,
     description: "Update your profile details",
   },
+
   {
-    href: "/settings",
-    label: "Preferences",
-    icon: Settings,
-    description: "Manage your account preferences",
-  },
-  {
-    href: "/activity",
+    href: "/dashboard",
     label: "Dashboard",
     icon: Activity,
-    description: "View your recent activity",
-    separator: true,
-  },
-  {
-    href: "/notifications",
-    label: "Notifications",
-    icon: Bell,
-    description: "Your notifications",
-  },
-  {
-    href: "/provider-dashboard",
-    label: "Provider Dashboard",
-    icon: BarChart3,
-    userRoles: [UserRole.PROVIDER],
     requiresMarketplaceActive: true,
     description: "Service provider dashboard",
     separator: true,
   },
+
   {
     href: "/service-offered",
     label: "My Services",
     icon: Store,
-    userRoles: [UserRole.PROVIDER],
     description: "Manage your services",
   },
   {
     href: "/client-requested",
-    label: "Requests",
+    label: "Requests Received",
     icon: Users,
-    userRoles: [UserRole.PROVIDER],
     description: "View and manage requests",
   },
   {
@@ -115,16 +83,16 @@ const navigationItems: NavigationItem[] = [
     separator: true,
   },
   {
-    href: "/privacy",
-    label: "Privacy",
-    icon: Lock,
-    description: "Privacy and security settings",
+    href: "/notifications",
+    label: "Notifications",
+    icon: Bell,
+    description: "Your notifications",
   },
   {
-    href: "/help",
-    label: "Help & Support",
-    icon: HelpCircle,
-    description: "Get help and support",
+    href: "/settings",
+    label: "Preferences",
+    icon: Settings,
+    description: "Manage your account preferences",
   },
   {
     href: "/admin",
@@ -348,7 +316,8 @@ const ProfileNavigation: React.FC = () => {
                     <svg
                       className="w-3 h-3 animate-pulse"
                       fill="currentColor"
-                      viewBox="0 0 20 20">
+                      viewBox="0 0 20 20"
+                    >
                       <path
                         fillRule="evenodd"
                         d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
@@ -393,7 +362,8 @@ const ProfileNavigation: React.FC = () => {
           <nav
             className="space-y-1 p-2"
             role="navigation"
-            aria-label="Dashboard navigation">
+            aria-label="Dashboard navigation"
+          >
             {filteredItems.map((item, index) => {
               const Icon = item.icon;
               const isActive = isActiveRoute(item.href);
@@ -413,7 +383,8 @@ const ProfileNavigation: React.FC = () => {
                         : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100"
                     }`}
                     title={item.description}
-                    aria-current={isActive ? "page" : undefined}>
+                    aria-current={isActive ? "page" : undefined}
+                  >
                     <Icon
                       size={18}
                       className={`flex-shrink-0 transition-colors ${
@@ -429,7 +400,8 @@ const ProfileNavigation: React.FC = () => {
                     {roleIndicator && (
                       <span
                         className={`ml-auto flex-shrink-0 text-xs px-2 py-1 rounded-full font-medium ${roleIndicator.className}`}
-                        aria-label={`Requires ${roleIndicator.label} role`}>
+                        aria-label={`Requires ${roleIndicator.label} role`}
+                      >
                         {roleIndicator.label}
                       </span>
                     )}
@@ -441,10 +413,6 @@ const ProfileNavigation: React.FC = () => {
         </ScrollArea>
       </>
 
-      <div className="my-2 w-full">
-        <QuickActions />
-      </div>
-
       {/* Fixed Logout Button at Bottom */}
       <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-700 mt-2 pt-3 px-1">
         <Button
@@ -452,134 +420,12 @@ const ProfileNavigation: React.FC = () => {
           variant={"outline"}
           className="flex items-center gap-3 w-full px-3 py-2.5 rounded-lg text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20 transition-all duration-200 font-medium text-sm group focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-1"
           title="Sign out of your account"
-          aria-label="Sign out of your account">
+          aria-label="Sign out of your account"
+        >
           <LogOut size={18} className="flex-shrink-0" aria-hidden="true" />
           <span>Logout</span>
         </Button>
       </div>
-    </div>
-  );
-};
-
-export const QuickActions: React.FC = () => {
-  const router = useRouter();
-  const { profile, completeness, activitySummary } = useProfile();
-  const { user } = useAuth();
-
-  const generateQuickActions = useCallback((): QuickAction[] => {
-    const actions: QuickAction[] = [];
-
-    if (!user || !profile) return actions;
-
-    // Add complete profile action if profile is incomplete
-    if (completeness !== undefined && completeness < 100) {
-      actions.push({
-        label: `Complete Profile (${completeness}%)`,
-        action: () => router.push("/profile/edit"),
-        priority: "high",
-        icon: Edit,
-      });
-    }
-
-    // Add verification action if not verified
-    if (profile.verificationStatus !== "verified") {
-      actions.push({
-        label: "Verify Account",
-        action: () => router.push("/profile/verification"),
-        priority: "high",
-        icon: UserCheck,
-      });
-    }
-
-    // Add marketplace activation for providers
-    if (profile.role === UserRole.PROVIDER && !profile.isActiveInMarketplace) {
-      actions.push({
-        label: "Activate Marketplace",
-        action: () => router.push("/provider/activate"),
-        priority: "high",
-        icon: Store,
-      });
-    }
-
-    // Add activity-based quick actions
-    if (activitySummary) {
-      // Fix the type comparison and provide meaningful message count
-      const messageCount = activitySummary.accountAge || 0;
-      if (messageCount > 0) {
-        actions.push({
-          label: `${messageCount} Unread Message${
-            messageCount !== 1 ? "s" : ""
-          }`,
-          action: () => router.push("/profile/messages"),
-          priority: "normal",
-          icon: MessageCircle,
-        });
-      }
-
-      // Fix notification count logic
-      if (activitySummary.isActiveInMarketplace) {
-        const notificationCount = activitySummary.warningsCount || 0;
-        if (notificationCount > 0) {
-          actions.push({
-            label: `${notificationCount} Notification${
-              notificationCount !== 1 ? "s" : ""
-            }`,
-            action: () => router.push("/profile/notifications"),
-            priority: "normal",
-            icon: Bell,
-          });
-        }
-      }
-    }
-
-    // Add privacy settings action
-    actions.push({
-      label: "Privacy Settings",
-      action: () => router.push("/profile/privacy"),
-      priority: "normal",
-      icon: Lock,
-    });
-
-    return actions;
-  }, [user, profile, completeness, activitySummary, router]);
-
-  const actions = useMemo(() => generateQuickActions(), [generateQuickActions]);
-
-  if (actions.length === 0) return null;
-
-  return (
-    <div className="flex-shrink-0 mt-2 p-2 border-gray-200 dark:border-gray-700">
-      <h4 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3 px-3">
-        Quick Actions
-      </h4>
-      <>
-        <ScrollArea className="max-h-min overflow-auto">
-          <div className="space-y-1 p-1" role="list" aria-label="Quick actions">
-            {actions.map((action, index) => {
-              const Icon = action.icon;
-              return (
-                <button
-                  key={`${action.label}-${index}`}
-                  onClick={action.action}
-                  className={`w-full text-left px-3 py-2.5 mx-1 text-sm rounded-lg transition-all duration-200 flex items-center gap-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
-                    action.priority === "high"
-                      ? "bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-300 dark:hover:bg-blue-900/30 font-medium"
-                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100"
-                  }`}
-                  role="listitem"
-                  aria-label={action.label}>
-                  <Icon
-                    size={16}
-                    className="flex-shrink-0"
-                    aria-hidden="true"
-                  />
-                  <span className="truncate">{action.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </ScrollArea>
-      </>
     </div>
   );
 };

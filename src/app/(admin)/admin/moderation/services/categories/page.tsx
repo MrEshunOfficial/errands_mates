@@ -4,7 +4,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import LoadingOverlay from "@/components/ui/LoadingOverlay";
 import { useAdminCategoryManager } from "@/hooks/admin/admin.category.hook";
 import Link from "next/link";
-import { CategoryModerationBulk } from "@/components/admin/categories/bulk-moderation";
+import { CategoryModerationBulk } from "@/components/categories/bulk-moderation";
 
 export default function CategoryModerationPage() {
   const { isLoading, error } = useAdminCategoryManager({
@@ -26,19 +26,22 @@ export default function CategoryModerationPage() {
         <nav className="flex items-center space-x-2 text-sm text-muted-foreground">
           <Link
             href="/admin"
-            className="hover:text-foreground transition-colors">
+            className="hover:text-foreground transition-colors"
+          >
             Admin
           </Link>
           <span>/</span>
           <Link
             href="/admin/services"
-            className="hover:text-foreground transition-colors">
+            className="hover:text-foreground transition-colors"
+          >
             Services
           </Link>
           <span>/</span>
           <Link
             href="/admin/services/categories"
-            className="hover:text-foreground transition-colors">
+            className="hover:text-foreground transition-colors"
+          >
             Categories
           </Link>
           <span>/</span>

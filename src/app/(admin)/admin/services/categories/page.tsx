@@ -1,5 +1,5 @@
 import React from "react";
-import AdminCategoryListPage from "@/components/admin/categories/CategoryList";
+import AdminCategoryListPage from "@/components/categories/CategoryList";
 import Link from "next/link";
 
 export default function CategoryPage() {

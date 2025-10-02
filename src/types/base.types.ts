@@ -47,8 +47,8 @@ export interface ContactDetails {
 }
 
 export interface ProviderContactInfo extends ContactDetails {
-  emergencyContact?: string;
   businessEmail?: string;
+  emergencyContact?: string;
 }
 
 export interface IdDetails {
@@ -244,3 +244,4 @@ export interface ServiceUser extends BaseEntity, SoftDeletable {
   moderationNotes?: string;
   warningsCount: number;
 }
+

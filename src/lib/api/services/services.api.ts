@@ -202,9 +202,14 @@ type ErrorResponse = {
 class ServiceAPI {
   private baseURL: string;
 
-  constructor(baseURL: string = "/api/services") {
-    this.baseURL = baseURL;
-  }
+  constructor(baseURL?: string) {
+  this.baseURL =
+    baseURL ||
+    (process.env.NODE_ENV === "development"
+      ? "/api/services"
+      : `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/services`);
+}
+
 
   private async makeRequest<T = AuthResponse>(
     endpoint: string,
@@ -333,7 +338,7 @@ class ServiceAPI {
     data: ServiceImageUploadData
   ): Promise<ServiceImageResponse> {
     return this.makeRequest<ServiceImageResponse>(`/${serviceId}/images`, {
-      method: "POST",
+      method: "PUT",
       body: JSON.stringify(data),
     });
   }
@@ -426,24 +431,30 @@ class ServiceAPI {
    * Get all services with filtering and pagination
    * GET /api/services/
    */
-  async getAllServices(
-    params: ServiceSearchParams = {}
-  ): Promise<PaginatedServiceResponse> {
-    const queryString = new URLSearchParams();
+async getAllServices(
+  params: ServiceSearchParams = {}
+): Promise<PaginatedServiceResponse> {
+  const queryString = new URLSearchParams();
 
-    Object.entries(params).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        if (Array.isArray(value)) {
-          value.forEach((v) => queryString.append(key, v.toString()));
-        } else {
-          queryString.append(key, value.toString());
-        }
+  // Add includeProviders: false by default for better performance
+  const searchParams = {
+    includeProviders: 'true', // Default to false
+    ...params
+  };
+
+  Object.entries(searchParams).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      if (Array.isArray(value)) {
+        value.forEach((v) => queryString.append(key, v.toString()));
+      } else {
+        queryString.append(key, value.toString());
       }
-    });
+    }
+  });
 
-    const endpoint = queryString.toString() ? `/?${queryString}` : "/";
-    return this.makeRequest<PaginatedServiceResponse>(endpoint);
-  }
+  const endpoint = queryString.toString() ? `/?${queryString}` : "/";
+  return this.makeRequest<PaginatedServiceResponse>(endpoint);
+}
 
   /**
    * Get popular services

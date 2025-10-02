@@ -741,9 +741,10 @@ export const useMyProviderProfile = (options?: {
           profile: {
             ...localState.profile,
             serviceOfferings: [
-              ...localState.profile.serviceOfferings,
-              new Types.ObjectId(data.serviceId),
-            ],
+  ...(localState?.profile?.serviceOfferings ?? []),
+  new Types.ObjectId(data.serviceId),
+],
+
           } as ProviderProfile,
         });
       }
@@ -759,7 +760,7 @@ export const useMyProviderProfile = (options?: {
         updateLocalState({
           profile: {
             ...localState.profile,
-            serviceOfferings: localState.profile.serviceOfferings.filter(
+            serviceOfferings: localState?.profile?.serviceOfferings?.filter(
               id => id.toString() !== serviceId,
             ),
           } as ProviderProfile,
@@ -830,7 +831,7 @@ export const useMyProviderProfile = (options?: {
     if (autoLoad && !localState.initialized && !localState.profileLoading) {
       loadProfile();
     }
-  }, [autoLoad]); // Removed dependencies that could cause infinite loops
+  }, [autoLoad, loadProfile, localState.initialized, localState.profileLoading]); // Removed dependencies that could cause infinite loops
 
   return {
     profile: localState.profile,

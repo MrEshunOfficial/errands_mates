@@ -14,7 +14,7 @@ import { Service } from "./service.types";
 export interface ProviderProfile extends BaseEntity, SoftDeletable {
   providerContactInfo: ProviderContactInfo;
   operationalStatus: ProviderOperationalStatus;
-  serviceOfferings: Service[];
+  serviceOfferings?: Service[];
   workingHours?: Record<
     string,
     {

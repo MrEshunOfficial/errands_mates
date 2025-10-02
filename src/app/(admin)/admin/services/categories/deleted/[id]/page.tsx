@@ -1,7 +1,7 @@
 // app/admin/services/categories/[id]/page.tsx
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import CategoryDetailsComponent from "@/components/admin/categories/category-details";
+import CategoryDetailsComponent from "@/components/categories/category-details";
 
 interface PageProps {
   params: {
@@ -27,19 +27,22 @@ export default function CategoryDetailPage({ params }: PageProps) {
         <nav className="flex items-center space-x-2 text-sm text-muted-foreground">
           <Link
             href="/admin"
-            className="hover:text-foreground transition-colors">
+            className="hover:text-foreground transition-colors"
+          >
             Admin
           </Link>
           <span>/</span>
           <Link
             href="/admin/services"
-            className="hover:text-foreground transition-colors">
+            className="hover:text-foreground transition-colors"
+          >
             Services
           </Link>
           <span>/</span>
           <Link
             href="/admin/services/categories"
-            className="hover:text-foreground transition-colors">
+            className="hover:text-foreground transition-colors"
+          >
             Categories
           </Link>
           <span>/</span>

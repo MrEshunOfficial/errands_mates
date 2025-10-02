@@ -1,6 +1,5 @@
-import { z } from "zod";
+import z from "zod";
 
-// Enhanced Image Schema with better validation
 const ImageSchema = z.object({
   url: z.string().url("Must be a valid URL"),
   fileName: z
@@ -26,7 +25,6 @@ const ImageSchema = z.object({
     .optional(),
 });
 
-// Enhanced Price Range Schema with validation
 const PriceRangeSchema = z
   .object({
     min: z.number().min(0, "Minimum price cannot be negative"),
@@ -38,38 +36,31 @@ const PriceRangeSchema = z
         /^[A-Z]{3}$/,
         "Currency must be uppercase ISO 4217 code (e.g., USD, EUR)"
       )
-      .default("USD")
-      .optional(),
+      .default("GHS"),
   })
   .refine((data) => data.max >= data.min, {
     message: "Maximum price must be greater than or equal to minimum price",
     path: ["max"],
   });
 
-// Enhanced Product Schema with comprehensive validation
-const ProductSchema = z
+export const ServiceFormSchema = z
   .object({
     title: z
       .string()
       .min(1, "Title is required")
       .max(200, "Title cannot exceed 200 characters")
       .trim(),
-
     description: z
       .string()
       .min(10, "Description must be at least 10 characters")
       .max(5000, "Description cannot exceed 5000 characters")
       .trim(),
-
-    priceBasedOnServiceType: z.boolean(),
-
-    categoryId: z.string().min(1, "Category ID is required"),
-
+    priceBasedOnServiceType: z.boolean().default(false),
+    categoryId: z.string().min(1, "Category selection is required"),
     images: z
       .array(ImageSchema)
       .min(1, "At least one image is required")
       .max(10, "Maximum 10 images allowed"),
-
     tags: z
       .array(
         z
@@ -80,26 +71,22 @@ const ProductSchema = z
       )
       .max(20, "Maximum 20 tags allowed")
       .default([]),
-
     basePrice: z
       .number()
       .min(0, "Base price cannot be negative")
       .multipleOf(0.01, "Price must have at most 2 decimal places")
       .optional(),
-
     priceDescription: z
       .string()
       .max(500, "Price description cannot exceed 500 characters")
       .trim()
       .optional(),
-
     priceRange: PriceRangeSchema,
   })
   .refine(
     (data) => {
-      // If not price-based on service type, basePrice should be provided
-      if (!data.priceBasedOnServiceType && data.basePrice === undefined) {
-        return false;
+      if (!data.priceBasedOnServiceType) {
+        return data.basePrice !== undefined && data.basePrice > 0;
       }
       return true;
     },
@@ -110,7 +97,6 @@ const ProductSchema = z
   )
   .refine(
     (data) => {
-      // If basePrice is provided, it should be within the price range
       if (data.basePrice !== undefined) {
         return (
           data.basePrice >= data.priceRange.min &&
@@ -125,9 +111,26 @@ const ProductSchema = z
     }
   );
 
-// Type inference for TypeScript usage
-export type Product = z.infer<typeof ProductSchema>;
-export type Image = z.infer<typeof ImageSchema>;
-export type PriceRange = z.infer<typeof PriceRangeSchema>;
-
-export default ProductSchema;
+// define your type somewhere
+export type ServiceFormData = {
+  title: string;
+  description: string;
+  priceBasedOnServiceType: boolean;
+   usePriceRange?: boolean;
+  categoryId: string;
+  images: {
+    url: string;
+    fileName: string;
+    fileSize: number;
+    mimeType?: string;
+    uploadedAt?: string | Date;
+  }[];
+  tags: string[];
+  priceRange: {
+    min: number;
+    max: number;
+    currency: string;
+  };
+  basePrice?: number;
+  priceDescription?: string;
+};

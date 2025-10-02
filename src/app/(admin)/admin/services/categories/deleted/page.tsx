@@ -1,4 +1,4 @@
-import DeletedCategoriesPage from "@/components/admin/categories/DeletedCategory";
+import DeletedCategoriesPage from "@/components/categories/DeletedCategory";
 import Link from "next/link";
 import React from "react";
 
@@ -14,13 +14,15 @@ export default function page() {
           <span>/</span>
           <Link
             href="/admin/services"
-            className="hover:text-foreground transition-colors">
+            className="hover:text-foreground transition-colors"
+          >
             Services
           </Link>
           <span>/</span>
           <Link
             href="/admin/services/categories"
-            className="hover:text-foreground transition-colors">
+            className="hover:text-foreground transition-colors"
+          >
             Categories
           </Link>
           <span>/</span>

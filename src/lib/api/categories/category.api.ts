@@ -189,9 +189,13 @@ type ErrorResponse = {
 class CategoryAPI {
   private baseURL: string;
 
-  constructor(baseURL: string = "/api/categories") {
-    this.baseURL = baseURL;
-  }
+ constructor(
+  baseURL: string = process.env.NEXT_PUBLIC_BACKEND_URL 
+    ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/categories`
+    : "/api/categories"
+) {
+  this.baseURL = baseURL;
+}
 
   private async makeRequest<T = AuthResponse>(
     endpoint: string,

@@ -18,6 +18,13 @@ const nextConfig: NextConfig = {
         ? "http://localhost:5000"
         : process.env.NEXT_PUBLIC_BACKEND_URL,
   },
+   // Increase timeout
+  serverRuntimeConfig: {
+    httpAgentOptions: {
+      keepAlive: true,
+      timeout: 60000, // 60 seconds
+    },
+  },
 };
 
 export default nextConfig;

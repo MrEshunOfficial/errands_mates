@@ -18,15 +18,29 @@ import {
   Trash2,
   FileImage,
   MoreVertical,
+  Navigation,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { useUserService } from "@/hooks/public/services/use-service";
 import { ServiceStatus } from "@/types/base.types";
 import type { Service } from "@/types/service.types";
-import type { UserServiceSearchParams } from "@/lib/api/services/services.api";
-import ServiceCard from "@/components/public/services/service-card";
+import type {
+  ServiceImageUploadData,
+  UserServiceSearchParams,
+} from "@/lib/api/services/services.api";
+import ServiceCard, {
+  ServiceWithProviders,
+} from "@/components/services/service-card";
 import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
 type ViewMode = "grid" | "list";
 type SortOrder = "asc" | "desc";
@@ -55,6 +69,7 @@ export default function EnhancedUserServiceList() {
     new Set()
   );
   const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Hook usage
   const {
@@ -71,11 +86,9 @@ export default function EnhancedUserServiceList() {
     getUserRejectedServices,
     deleteService,
     uploadServiceImages,
-    refreshUserServices,
     clearError,
     getServiceStatusColor,
     getServiceStatusLabel,
-    canEditService,
   } = useUserService();
 
   // Filtered and sorted services
@@ -105,7 +118,8 @@ export default function EnhancedUserServiceList() {
 
     // Apply sorting
     filtered.sort((a, b) => {
-      let aValue: unknown, bValue: unknown;
+      let aValue: string | number;
+      let bValue: string | number;
 
       switch (filters.sortField) {
         case "title":
@@ -113,12 +127,12 @@ export default function EnhancedUserServiceList() {
           bValue = b.title.toLowerCase();
           break;
         case "createdAt":
-          aValue = new Date(a.createdAt);
-          bValue = new Date(b.createdAt);
+          aValue = new Date(a.createdAt).getTime();
+          bValue = new Date(b.createdAt).getTime();
           break;
         case "updatedAt":
-          aValue = new Date(a.updatedAt);
-          bValue = new Date(b.updatedAt);
+          aValue = new Date(a.updatedAt).getTime();
+          bValue = new Date(b.updatedAt).getTime();
           break;
         case "status":
           aValue = a.status;
@@ -136,27 +150,26 @@ export default function EnhancedUserServiceList() {
     return filtered;
   }, [userServices, filters]);
 
-  // Handle service actions
   const handleView = useCallback(
-    (service: Service) => {
+    (service: Service | ServiceWithProviders) => {
       const serviceId =
         typeof service._id === "string" ? service._id : service._id.toString();
-      router.push(`/services/${service.slug || serviceId}`);
+      router.push(`/service-offered/${service.slug || serviceId}`);
     },
     [router]
   );
 
   const handleEdit = useCallback(
-    (service: Service) => {
+    (service: Service | ServiceWithProviders) => {
       const serviceId =
         typeof service._id === "string" ? service._id : service._id.toString();
-      router.push(`/service-offered/edit/${serviceId}`);
+      router.push(`/service-offered/${serviceId}/edit`);
     },
     [router]
   );
 
   const handleContact = useCallback(
-    (service: Service) => {
+    (service: Service | ServiceWithProviders) => {
       const serviceId =
         typeof service._id === "string" ? service._id : service._id.toString();
       router.push(`/services/${service.slug || serviceId}/providers`);
@@ -165,30 +178,24 @@ export default function EnhancedUserServiceList() {
   );
 
   const handleDelete = useCallback(
-    async (service: Service) => {
-      if (
-        !confirm(
-          "Are you sure you want to delete this service? This action cannot be undone."
-        )
-      ) {
-        return;
-      }
-
+    async (service: Service | ServiceWithProviders) => {
       try {
         const serviceId =
           typeof service._id === "string"
             ? service._id
             : service._id.toString();
         await deleteService(serviceId);
+        toast.success("service deleted successfully");
+        setActionMenuOpen(null);
       } catch (error) {
-        console.error("Failed to delete service:", error);
+        toast.error(`Failed to delete service: ${error}`);
       }
     },
     [deleteService]
   );
 
   const handleImageUpload = useCallback(
-    async (service: Service, files: FileList) => {
+    async (service: Service | ServiceWithProviders, files: FileList) => {
       try {
         const serviceId =
           typeof service._id === "string"
@@ -200,13 +207,20 @@ export default function EnhancedUserServiceList() {
           formData.append("images", file);
         });
 
-        await uploadServiceImages(serviceId, formData as any);
-        await refreshUserServices();
+        await uploadServiceImages(
+          serviceId,
+          formData as unknown as ServiceImageUploadData
+        );
+
+        // Refresh user services after upload
+        await getUserServices({});
+        toast.success(`Image added successfully`);
+        setActionMenuOpen(null);
       } catch (error) {
-        console.error("Failed to upload images:", error);
+        toast.error(`Failed to upload images:, ${error}`);
       }
     },
-    [uploadServiceImages, refreshUserServices]
+    [uploadServiceImages, getUserServices]
   );
 
   // Filter handlers
@@ -215,7 +229,7 @@ export default function EnhancedUserServiceList() {
       setFilters((prev) => ({ ...prev, status }));
 
       if (status === "all") {
-        await getUserServices();
+        await getUserServices({});
       } else {
         await getUserServicesByStatus(status);
       }
@@ -237,22 +251,25 @@ export default function EnhancedUserServiceList() {
   }, []);
 
   // Quick filter actions
-  const loadDrafts = useCallback(
-    () => getUserDraftServices(),
-    [getUserDraftServices]
-  );
-  const loadPending = useCallback(
-    () => getUserPendingServices(),
-    [getUserPendingServices]
-  );
-  const loadApproved = useCallback(
-    () => getUserApprovedServices(),
-    [getUserApprovedServices]
-  );
-  const loadRejected = useCallback(
-    () => getUserRejectedServices(),
-    [getUserRejectedServices]
-  );
+  const loadDrafts = useCallback(async () => {
+    await getUserDraftServices();
+    setFilters((prev) => ({ ...prev, status: ServiceStatus.DRAFT }));
+  }, [getUserDraftServices]);
+
+  const loadPending = useCallback(async () => {
+    await getUserPendingServices();
+    setFilters((prev) => ({ ...prev, status: ServiceStatus.PENDING_APPROVAL }));
+  }, [getUserPendingServices]);
+
+  const loadApproved = useCallback(async () => {
+    await getUserApprovedServices();
+    setFilters((prev) => ({ ...prev, status: ServiceStatus.APPROVED }));
+  }, [getUserApprovedServices]);
+
+  const loadRejected = useCallback(async () => {
+    await getUserRejectedServices();
+    setFilters((prev) => ({ ...prev, status: ServiceStatus.REJECTED }));
+  }, [getUserRejectedServices]);
 
   // Bulk actions
   const handleSelectAll = useCallback(() => {
@@ -281,12 +298,12 @@ export default function EnhancedUserServiceList() {
 
   // Handle pagination
   const handlePageChange = useCallback(
-    (page: number) => {
+    async (page: number) => {
       const params: UserServiceSearchParams = {
         page,
         ...(filters.status !== "all" && { status: filters.status }),
       };
-      getUserServices(params);
+      await getUserServices(params);
       window.scrollTo({ top: 0, behavior: "smooth" });
     },
     [filters.status, getUserServices]
@@ -295,10 +312,20 @@ export default function EnhancedUserServiceList() {
   // Retry on error
   const handleRetry = useCallback(() => {
     clearError();
-    refreshUserServices();
-  }, [clearError, refreshUserServices]);
+    getUserServices({});
+  }, [clearError, getUserServices]);
 
-  // Initial load
+  // Manual refresh handler
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await getUserServices({});
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [getUserServices]);
+
+  // Initial load - Fixed to run only once
   useEffect(() => {
     getUserServices({});
   }, [getUserServices]);
@@ -400,13 +427,13 @@ export default function EnhancedUserServiceList() {
 
             <Button
               variant="outline"
-              onClick={refreshUserServices}
-              disabled={isLoading}
+              onClick={handleRefresh}
+              disabled={isLoading || isRefreshing}
               className="flex items-center gap-2"
             >
               <RefreshCw
                 size={16}
-                className={isLoading ? "animate-spin" : ""}
+                className={isLoading || isRefreshing ? "animate-spin" : ""}
               />
               Refresh
             </Button>
@@ -607,64 +634,68 @@ export default function EnhancedUserServiceList() {
 
                   return (
                     <div key={serviceId} className="relative group">
-                      {/* Selection checkbox */}
-                      <div className="absolute top-2 left-2 z-10">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => handleServiceSelect(serviceId)}
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 bg-white/90 backdrop-blur-sm"
-                        />
-                      </div>
-
                       {/* Action menu */}
                       <div className="absolute top-2 right-2 z-10">
-                        <div className="relative">
-                          <button
-                            onClick={() =>
-                              setActionMenuOpen(
-                                actionMenuOpen === serviceId ? null : serviceId
-                              )
-                            }
-                            className="p-1 rounded-lg bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-sm border border-gray-200/50 dark:border-gray-700/50 hover:bg-white dark:hover:bg-gray-800 transition-colors"
+                        <Popover>
+                          <PopoverTrigger
+                            className="p-2 rounded-xl bg-white/80 dark:bg-gray-800/80 backdrop-blur-md shadow-md border border-gray-200/50 dark:border-gray-700/50 
+                 hover:bg-white/90 dark:hover:bg-gray-800/90 
+                 transition-all duration-200 flex items-center justify-center"
                           >
-                            <MoreVertical size={16} />
-                          </button>
+                            <MoreVertical
+                              size={18}
+                              className="text-gray-600 dark:text-gray-300"
+                            />
+                          </PopoverTrigger>
 
-                          {actionMenuOpen === serviceId && (
-                            <div className="absolute right-0 top-8 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 min-w-[150px] z-20">
-                              <button
-                                onClick={() => {
-                                  handleView(service);
-                                  setActionMenuOpen(null);
-                                }}
-                                className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2"
+                          <PopoverContent
+                            align="end"
+                            sideOffset={8}
+                            className="p-1 w-36 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 
+                 bg-white/95 dark:bg-gray-800/95 backdrop-blur-md"
+                          >
+                            <div className="flex flex-col">
+                              {/* Explore */}
+                              <Button
+                                onClick={() => handleView(service)}
+                                className="w-full justify-start gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 
+                     hover:bg-gray-100 dark:hover:bg-gray-700/70 rounded-lg transition-colors"
+                                variant="ghost"
                               >
-                                <Eye size={14} />
-                                View
-                              </button>
+                                <Navigation
+                                  size={16}
+                                  className="text-blue-500"
+                                />
+                                Explore
+                              </Button>
 
-                              {canEditService(service, "current-user-id") && (
-                                <button
-                                  onClick={() => {
-                                    handleEdit(service);
-                                    setActionMenuOpen(null);
-                                  }}
-                                  className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2"
-                                >
-                                  <Edit size={14} />
-                                  Edit
-                                </button>
-                              )}
+                              {/* Edit */}
+                              <Button
+                                onClick={() => handleEdit(service)}
+                                className="w-full justify-start gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 
+                     hover:bg-gray-100 dark:hover:bg-gray-700/70 rounded-lg transition-colors"
+                                variant="ghost"
+                              >
+                                <Edit size={16} className="text-green-500" />
+                                Edit
+                              </Button>
 
-                              <label className="w-full px-3 py-2 text-left text-sm hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 cursor-pointer">
-                                <FileImage size={14} />
+                              {/* Add Images */}
+                              <Label
+                                className="w-full justify-start gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 
+                     hover:bg-gray-100 dark:hover:bg-gray-700/70 rounded-lg cursor-pointer flex items-center transition-colors"
+                              >
+                                <FileImage
+                                  size={16}
+                                  className="text-purple-500"
+                                />
                                 Add Images
-                                <input
+                                <Input
                                   type="file"
                                   multiple
                                   accept="image/*"
                                   className="hidden"
+                                  onClick={(e) => e.stopPropagation()}
                                   onChange={(e) => {
                                     if (e.target.files) {
                                       handleImageUpload(
@@ -672,24 +703,23 @@ export default function EnhancedUserServiceList() {
                                         e.target.files
                                       );
                                     }
-                                    setActionMenuOpen(null);
                                   }}
                                 />
-                              </label>
+                              </Label>
 
-                              <button
-                                onClick={() => {
-                                  handleDelete(service);
-                                  setActionMenuOpen(null);
-                                }}
-                                className="w-full px-3 py-2 text-left text-sm hover:bg-red-50 dark:hover:bg-red-900/20 text-red-600 flex items-center gap-2"
+                              {/* Delete */}
+                              <Button
+                                onClick={() => handleDelete(service)}
+                                className="w-full justify-start gap-2 px-3 py-2 text-sm font-medium text-red-600 dark:text-red-400 
+                     hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"
+                                variant="ghost"
                               >
-                                <Trash2 size={14} />
+                                <Trash2 size={16} />
                                 Delete
-                              </button>
+                              </Button>
                             </div>
-                          )}
-                        </div>
+                          </PopoverContent>
+                        </Popover>
                       </div>
 
                       <ServiceCard
@@ -769,15 +799,13 @@ export default function EnhancedUserServiceList() {
                             >
                               <Eye size={14} />
                             </Button>
-                            {canEditService(service, "current-user-id") && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleEdit(service)}
-                              >
-                                <Edit size={14} />
-                              </Button>
-                            )}
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEdit(service)}
+                            >
+                              <Edit size={14} />
+                            </Button>
                             <Button
                               variant="outline"
                               size="sm"
@@ -835,7 +863,7 @@ export default function EnhancedUserServiceList() {
             <button
               onClick={() => handlePageChange(pagination.currentPage + 1)}
               disabled={!pagination.hasNextPage || isLoading}
-              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-unavailable transition-colors"
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               Next
             </button>

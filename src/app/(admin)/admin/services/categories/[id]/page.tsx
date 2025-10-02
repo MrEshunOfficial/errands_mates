@@ -1,7 +1,7 @@
 // app/admin/services/categories/[id]/page.tsx
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import CategoryDetailsComponent from "@/components/admin/categories/category-details";
+import CategoryDetailsComponent from "@/components/categories/category-details";
 
 interface PageProps {
   params: {

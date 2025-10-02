@@ -1,6 +1,6 @@
 "use client";
 import * as React from "react";
-import PublicServiceList from "@/components/public/services/service-list";
+import PublicServiceList from "@/components/services/service-list";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -8,11 +8,11 @@ import {
   CategoryDetails,
   CategoryWithServices,
 } from "@/types/category.types";
-import { CategoryCardAction } from "@/components/public/SharedCategoryCard";
+import { CategoryCardAction } from "@/components/categories/SharedCategoryCard";
 import { useCategories } from "@/hooks/public/categories/userCategory.hook";
 import { AlertCircle, ArrowRight, Sparkles } from "lucide-react";
 import { useUserService } from "@/hooks/public/services/use-service";
-import { AutoScrollCategoryCarousel } from "@/components/public/CategoryCarousel";
+import { AutoScrollCategoryCarousel } from "@/components/categories/CategoryCarousel";
 
 export default function HomePage() {
   const router = useRouter();
@@ -40,9 +40,8 @@ export default function HomePage() {
       category: Category | CategoryWithServices | CategoryDetails
     ) => {
       switch (action) {
-        case "view":
         case "explore":
-          router.push(`/categories/${category.slug || category._id}`);
+          router.push(`services/category/${category.slug || category._id}`);
           break;
         case "share":
           if (navigator.share) {

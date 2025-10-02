@@ -1,5 +1,5 @@
 // app/(main)/(public)/services/popular/page.tsx
-import PopularServices from "@/components/public/services/popular-services";
+import PopularServices from "@/components/services/popular-services";
 import { Home, ToolCase, TrendingUp } from "lucide-react";
 import Link from "next/link";
 

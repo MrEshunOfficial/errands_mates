@@ -1,11 +1,12 @@
-import { idType, UserRole, FileReference, IdDetails } from "@/types";
+import { FileReference } from "@/lib/api/categories/categoryImage.api";
+import { idType, UserRole, IdDetails } from "@/types";
 import { z } from "zod";
 
 // =============================================================================
 // ID DETAILS VALIDATION SCHEMAS
 // =============================================================================
 
-// ID type configurations - now properly typed with the enum
+// ID type configurations - typed with idType enum
 export const idTypeConfigs: Record<
   idType,
   {
@@ -24,8 +25,11 @@ export const idTypeConfigs: Record<
     description: "National identification card",
     placeholder: "GHA-123456789-0",
     example: "GHA-123456789-0",
-    helpText: "Your Ghana Card number",
-    validation: z.string().min(1, "Ghana Card number is required"),
+    helpText: "Enter your Ghana Card number (e.g., GHA-123456789-0)",
+    validation: z
+      .string()
+      .min(1, "Ghana Card number is required")
+      .regex(/^GHA-\d{9}-\d$/, "Invalid Ghana Card number format"),
   },
   [idType.VOTERS_ID]: {
     label: "Voter's ID",
@@ -33,8 +37,10 @@ export const idTypeConfigs: Record<
     description: "Electoral Commission voter ID",
     placeholder: "1234567890",
     example: "1234567890",
-    helpText: "10-digit voter ID number",
-    validation: z.string().regex(/^\d{10}$/, "Voter ID must be 10 digits"),
+    helpText: "Enter your 10-digit Voter ID number",
+    validation: z
+      .string()
+      .regex(/^\d{10}$/, "Voter ID must be exactly 10 digits"),
   },
   [idType.PASSPORT]: {
     label: "Ghana Passport",
@@ -42,8 +48,11 @@ export const idTypeConfigs: Record<
     description: "Ghana passport",
     placeholder: "A1234567",
     example: "A1234567",
-    helpText: "Passport number",
-    validation: z.string().min(1, "Passport number is required"),
+    helpText: "Enter your passport number (e.g., A1234567)",
+    validation: z
+      .string()
+      .min(1, "Passport number is required")
+      .regex(/^[A-Z]\d{7}$/, "Invalid passport number format"),
   },
   [idType.DRIVERS_LICENSE]: {
     label: "Driver's License",
@@ -51,8 +60,11 @@ export const idTypeConfigs: Record<
     description: "DVLA driving license",
     placeholder: "DL1234567",
     example: "DL1234567",
-    helpText: "DVLA license number",
-    validation: z.string().min(1, "Driver's license number is required"),
+    helpText: "Enter your DVLA license number (e.g., DL1234567)",
+    validation: z
+      .string()
+      .min(1, "Driver's license number is required")
+      .regex(/^DL\d{7}$/, "Invalid driver's license number format"),
   },
   [idType.NHIS]: {
     label: "NHIS Card",
@@ -60,8 +72,10 @@ export const idTypeConfigs: Record<
     description: "National Health Insurance card",
     placeholder: "1234567890",
     example: "1234567890",
-    helpText: "10-digit NHIS number",
-    validation: z.string().regex(/^\d{10}$/, "NHIS number must be 10 digits"),
+    helpText: "Enter your 10-digit NHIS number",
+    validation: z
+      .string()
+      .regex(/^\d{10}$/, "NHIS number must be exactly 10 digits"),
   },
   [idType.OTHER]: {
     label: "Other ID",
@@ -69,12 +83,12 @@ export const idTypeConfigs: Record<
     description: "Other government-issued ID",
     placeholder: "Enter ID number",
     example: "Various formats",
-    helpText: "Any valid government ID",
+    helpText: "Enter any valid government-issued ID number",
     validation: z.string().min(1, "ID number is required"),
   },
 } as const;
 
-// File reference schema for ID documents - matching your FileReference interface
+// File reference schema - aligned with FileReference interface
 export const fileReferenceSchema = z.object({
   url: z.string().url("Invalid file URL"),
   fileName: z
@@ -84,8 +98,7 @@ export const fileReferenceSchema = z.object({
   fileSize: z
     .number()
     .positive("File size must be positive")
-    .max(10 * 1024 * 1024, "File too large")
-    .optional(),
+    .max(10 * 1024 * 1024, "File size must be less than 10MB"), // Required to match FileReference
   mimeType: z
     .enum([
       "image/jpeg",
@@ -99,62 +112,120 @@ export const fileReferenceSchema = z.object({
   uploadedAt: z.date().optional(),
 }) satisfies z.ZodType<FileReference>;
 
-// ID details schema - matching your IdDetails interface exactly
-export const idDetailsSchema = z.object({
-  idType: z.nativeEnum(idType, {
-    message: "Please select a valid ID type",
-  }),
-  idNumber: z
-    .string()
-    .trim()
-    .min(1, "ID number is required")
-    .max(50, "ID number cannot exceed 50 characters"),
-  idFile: fileReferenceSchema,
-}) satisfies z.ZodType<IdDetails>;
+// ID details schema - matches IdDetails interface
+export const idDetailsSchema = z
+  .object({
+    idType: z.nativeEnum(idType, {
+      message: "Please select a valid ID type",
+    }),
+    idNumber: z
+      .string()
+      .trim()
+      .min(1, "ID number is required")
+      .max(50, "ID number cannot exceed 50 characters"),
+    idFile: fileReferenceSchema,
+  })
+  .superRefine((data, ctx) => {
+    // now you have access to both fields
+    const { idType: type, idNumber } = data;
+
+    if (type && idTypeConfigs[type]) {
+      const result = idTypeConfigs[type].validation.safeParse(idNumber);
+
+      if (!result.success) {
+        result.error.issues.forEach((issue) => {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: issue.message,
+            path: ["idNumber"], // target the correct field
+          });
+        });
+      }
+    }
+  }) satisfies z.ZodType<IdDetails>;
+
 
 // ID details form schema (for form handling before file upload)
-export const idDetailsFormSchema = z.object({
-  idType: z.nativeEnum(idType, {
-    message: "Please select a valid ID type",
-  }),
-  idNumber: z
-    .string()
-    .trim()
-    .min(1, "ID number is required")
-    .max(50, "ID number cannot exceed 50 characters"),
-  idFile: fileReferenceSchema.optional(), // Optional for partial forms
-});
+export const idDetailsFormSchema = z
+  .object({
+    idType: z.nativeEnum(idType, {
+      message: "Please select a valid ID type",
+    }),
+    idNumber: z
+      .string()
+      .trim()
+      .min(1, "ID number is required")
+      .max(50, "ID number cannot exceed 50 characters"),
+    idFile: fileReferenceSchema.optional(),
+  })
+  .superRefine((data, ctx) => {
+    const { idType: type, idNumber } = data;
+
+    if (type && idTypeConfigs[type]) {
+      const result = idTypeConfigs[type].validation.safeParse(idNumber);
+
+      if (!result.success) {
+        result.error.issues.forEach((issue) => {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: issue.message,
+            path: ["idNumber"], // point error at the idNumber field
+          });
+        });
+      }
+    }
+  });
+
 
 // ID details form with file upload (for form handling with File objects)
-export const idDetailsFormWithFileSchema = z.object({
-  idType: z.nativeEnum(idType, {
-    message: "Please select a valid ID type",
-  }),
-  idNumber: z
-    .string()
-    .trim()
-    .min(1, "ID number is required")
-    .max(50, "ID number cannot exceed 50 characters"),
-  file: z
-    .instanceof(File)
-    .refine(
-      (file) => file.size <= 10 * 1024 * 1024,
-      "File size must be less than 10MB"
-    )
-    .refine(
-      (file) =>
-        [
-          "image/jpeg",
-          "image/jpg",
-          "image/png",
-          "image/webp",
-          "application/pdf",
-          "image/tiff",
-        ].includes(file.type),
-      "Only JPEG, PNG, WebP, PDF, and TIFF files are allowed"
-    )
-    .optional(),
-});
+export const idDetailsFormWithFileSchema = z
+  .object({
+    idType: z.nativeEnum(idType, {
+      message: "Please select a valid ID type",
+    }),
+    idNumber: z
+      .string()
+      .trim()
+      .min(1, "ID number is required")
+      .max(50, "ID number cannot exceed 50 characters"),
+    file: z
+      .instanceof(File)
+      .refine(
+        (file) => file.size <= 10 * 1024 * 1024,
+        "File size must be less than 10MB"
+      )
+      .refine(
+        (file) =>
+          [
+            "image/jpeg",
+            "image/jpg",
+            "image/png",
+            "image/webp",
+            "application/pdf",
+            "image/tiff",
+          ].includes(file.type),
+        "Only JPEG, PNG, WebP, PDF, and TIFF files are allowed"
+      )
+      .optional(),
+  })
+  .superRefine((data, ctx) => {
+    const { idType, idNumber } = data;
+
+    if (idType && idTypeConfigs[idType]) {
+      const result = idTypeConfigs[idType].validation.safeParse(idNumber);
+
+      if (!result.success) {
+        result.error.issues.forEach((issue) => {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: issue.message,
+            path: ["idNumber"], // mark error against idNumber
+          });
+        });
+      }
+    }
+  });
+
 
 // Partial update schema for ID details
 export const updateIdDetailsSchema = idDetailsSchema.partial();
@@ -188,7 +259,7 @@ export const idVerificationFormSteps = {
 } as const;
 
 // =============================================================================
-// TYPE EXPORTS - Now properly inferred from schemas
+// TYPE EXPORTS
 // =============================================================================
 
 export type IdDetailsType = z.infer<typeof idDetailsSchema>;
@@ -248,7 +319,7 @@ export const idDetailsFieldConfigs = {
     maxSize: 10 * 1024 * 1024, // 10MB
     maxSizeLabel: "10MB",
     helpText:
-      "Upload a clear photo or scan of your ID document. PDF, JPEG, PNG, WebP, and TIFF formats accepted.",
+      "Upload a clear photo or scan of your ID document. Accepted formats: PDF, JPEG, PNG, WebP, TIFF.",
     required: true,
     recommendations: [
       "Ensure all text is clearly readable",
@@ -364,7 +435,7 @@ export const getIdVerificationRequirement = (userRole: UserRole): string => {
   if (userRole === UserRole.PROVIDER) {
     return "ID verification is required for service providers to build trust with customers.";
   }
-  return "ID verification is optional for customers but helps build trust in the marketplace.";
+  return "ID verification is optional for customers but enhances trust in the marketplace.";
 };
 
 // =============================================================================

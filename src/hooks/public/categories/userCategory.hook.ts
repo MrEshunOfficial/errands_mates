@@ -718,29 +718,36 @@ export const useCategoryDetail = (
     fetchAllServices?: boolean; // NEW: Option to fetch all services for detailed view
   }
 ) => {
-  const categoryHook = useCategory(categoryId, {
+  // Memoize the options passed to the base hook to ensure stability
+  const hookOptions = useMemo(
+    () => ({
+      includeSubcategories: options?.includeSubcategories ?? true,
+      includeUserData: options?.includeUserData,
+      includeServices: options?.includeServices,
+      servicesLimit: options?.servicesLimit,
+      popularOnly: options?.popularOnly,
+      autoFetch: options?.autoFetch,
+    }),
+    [options]
+  );
+
+  // Memoize fetch options for slug fetching
+  const fetchOptions = useMemo(() => ({
     includeSubcategories: options?.includeSubcategories ?? true,
     includeUserData: options?.includeUserData,
     includeServices: options?.includeServices,
     servicesLimit: options?.servicesLimit,
     popularOnly: options?.popularOnly,
-    autoFetch: options?.autoFetch,
-  });
+  }), [options]);
+
+  const categoryHook = useCategory(categoryId, hookOptions);
 
   // Fetch by slug with enhanced service options
   const fetchBySlug = useCallback(
     async (slug: string) => {
-      const fetchOptions: CategoryFetchOptions = {
-        includeSubcategories: options?.includeSubcategories ?? true,
-        includeUserData: options?.includeUserData,
-        includeServices: options?.includeServices,
-        servicesLimit: options?.servicesLimit,
-        popularOnly: options?.popularOnly,
-      };
-
       await categoryHook.fetchCategoryBySlug(slug, fetchOptions);
     },
-    [categoryHook, options]
+    [categoryHook.fetchCategoryBySlug, fetchOptions]
   );
 
   // NEW: Fetch category with all services for detailed view
@@ -754,7 +761,7 @@ export const useCategoryDetail = (
         );
       }
     },
-    [categoryHook, categoryId]
+    [categoryHook.fetchCategoryWithAllServices, categoryId]
   );
 
   // Auto-fetch by slug if provided instead of categoryId
