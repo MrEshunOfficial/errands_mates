@@ -1,136 +1,114 @@
-// types/client-profile.types.ts
-import { Types } from "mongoose";
-import {
-  BaseEntity,
-  SoftDeletable,
-  RiskLevel,
-  ContactDetails,
-  UserLocation,
-} from "./base.types";
+import { IUserProfile, RiskLevel } from "@/types";
 
-export interface ClientProfile extends BaseEntity, SoftDeletable {
-  profileId: Types.ObjectId; // References UserProfile._id
-
-  // Trust and Risk Management
-  trustScore: number; // 0-100
+export interface ClientProfile {
+  _id: string;
+  id: string;
+  profileId: string | IUserProfile | ProfileIdObject;
+  preferredServices: string[];
+  preferredProviders: string[];
+  trustScore: number;
   riskLevel: RiskLevel;
-  riskFactors?: string[];
-
-  // Preferences
-  preferredServices: Types.ObjectId[];
-  preferredProviders: Types.ObjectId[];
-
-  // Service History and Behavior
-  totalBookings: number;
-  completedBookings: number;
-  cancelledBookings: number;
-  disputedBookings: number;
-
-  // Financial
-  totalSpent: number;
-  averageOrderValue: number;
-  paymentMethods?: string[];
-
-  // Ratings and Reviews
-  averageRating?: number;
-  totalReviews: number;
-
-  // Behavioral Patterns
-  bookingPatterns?: {
-    preferredTimeSlots?: string[];
-    seasonality?: string[];
-    repeatCustomer: boolean;
-  };
-
-  // Communication
-  communicationStyle?: "formal" | "casual" | "direct";
-  preferredContactMethod?: "phone" | "email" | "in-app";
-  responseTime?: number; // Average response time in minutes
-
-  // Special Notes (for providers/admin)
-  notes?: string[];
-  flags?: string[]; // Warning flags
-
-  // Loyalty and Engagement
-  loyaltyTier?: "bronze" | "silver" | "gold" | "platinum";
-  memberSince?: Date;
-  lastActiveDate?: Date;
-
-  // Verification Status
-  isPhoneVerified: boolean;
-  isEmailVerified: boolean;
-  isAddressVerified: boolean;
-
-  // Moderation
+  riskFactors: string[];
+  flags: string[];
+  loyaltyTier: "bronze" | "silver" | "gold" | "platinum";
   warningsCount: number;
-  suspensionHistory?: {
-    date: Date;
-    reason: string;
-    duration: number;
-    resolvedAt?: Date;
-  }[];
+  suspensionHistory: unknown[];
+  totalReviews: number;
+  averageRating?: number;
+  memberSince: string;
+  lastActiveDate: string;
+  preferredContactMethod?: string;
+  notificationPreferences: {
+    email: boolean;
+    sms: boolean;
+    push: boolean;
+    bookingUpdates: boolean;
+    promotions: boolean;
+    newsletter: boolean;
+  };
+  privacySettings: {
+    profileVisibility: "public" | "private" | "connections";
+    showEmail: boolean;
+    showPhone: boolean;
+    showLocation: boolean;
+    allowMessagesFromNonConnections: boolean;
+  };
+  notes: unknown[];
+  isDeleted: boolean;
+  deletedAt?: string;
+  deletedBy?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
-// Request/Response Types
-export interface CreateClientProfileRequestBody {
-  // Optional initial data - most fields will be calculated/set by system
-  preferredServices?: string[];
-  preferredProviders?: string[];
-  communicationStyle?: "formal" | "casual" | "direct";
-  preferredContactMethod?: "phone" | "email" | "in-app";
-  notes?: string[];
+export interface UserIdObject {
+  _id: string;
+  name: string;
+  email: string;
+  isVerified: boolean;
+  createdAt: string;
 }
 
-export interface UpdateClientProfileRequestBody {
+export interface ProfileIdObject {
+  _id: string;
+  id: string;
+  userId: string | UserIdObject;
+  role: string;
+  socialMediaHandles?: Array<{
+    nameOfSocial: string;
+    userName: string;
+    _id: string;
+  }>;
+  profilePicture?: {
+    url: string;
+    fileName: string;
+    fileSize: number;
+    mimeType: string;
+    uploadedAt: string;
+  };
+  bio?: string;
+  location?: {
+    gpsCoordinates?: {
+      latitude: number;
+      longitude: number;
+    };
+    ghanaPostGPS?: string;
+    nearbyLandmark?: string;
+    region?: string;
+    city?: string;
+    district?: string;
+    locality?: string;
+    other?: string;
+  };
+  contactDetails?: {
+    primaryContact?: string;
+    secondaryContact?: string;
+  };
+  createdAt: string;
+}
+
+export interface CreateClientProfileRequest {
   preferredServices?: string[];
   preferredProviders?: string[];
-  communicationStyle?: "formal" | "casual" | "direct";
-  preferredContactMethod?: "phone" | "email" | "in-app";
-  notes?: string[];
-  // Admin-only fields (should be restricted in middleware)
-  trustScore?: number;
-  riskLevel?: RiskLevel;
-  riskFactors?: string[];
-  flags?: string[];
-  loyaltyTier?: "bronze" | "silver" | "gold" | "platinum";
+  preferredContactMethod?: string;
+}
+
+export interface UpdateClientProfileRequest {
+  preferredServices?: string[];
+  preferredProviders?: string[];
+  preferredContactMethod?: string;
 }
 
 export interface ClientProfileResponse {
+  success?: boolean;
   message: string;
-  clientProfile?: Partial<ClientProfile>;
+  clientProfile?: ClientProfile;
   error?: string;
 }
 
-// For populated responses
-export interface ClientProfileWithReferences
-  extends Omit<
-    ClientProfile,
-    "profileId" | "preferredServices" | "preferredProviders"
-  > {
-  profileId: {
-    _id: Types.ObjectId;
-    userId: Types.ObjectId;
-    role?: string;
-    bio?: string;
-    location?: UserLocation;
-    contactDetails?: ContactDetails;
-  };
-  preferredServices: Array<{
-    _id: Types.ObjectId;
-    title: string;
-    description: string;
-    categoryId: Types.ObjectId;
-  }>;
-  preferredProviders: Array<{
-    _id: Types.ObjectId;
-    userId: Types.ObjectId;
-    businessName?: string;
-    contactInfo?: ContactDetails;
-  }>;
-}
-
-// Query filters
-export interface ClientProfileFilters {
+export interface PaginationParams {
+  page?: number;
+  limit?: number;
   riskLevel?: RiskLevel;
   minTrustScore?: number;
   maxTrustScore?: number;
@@ -139,16 +117,56 @@ export interface ClientProfileFilters {
   isVerified?: boolean;
   minBookings?: number;
   minSpent?: number;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
 }
 
-// Dashboard/Analytics types
-export interface ClientAnalytics {
-  totalClients: number;
-  activeClients: number;
-  riskDistribution: Record<RiskLevel, number>;
-  loyaltyDistribution: Record<string, number>;
-  averageTrustScore: number;
-  topSpenders: ClientProfile[];
-  recentlyJoined: ClientProfile[];
+export interface PaginatedResponse<T> {
+  message: string;
+  data: {
+    profiles: T[];
+    pagination: {
+      currentPage: number;
+      totalPages: number;
+      totalCount: number;
+      hasNextPage: boolean;
+      hasPreviousPage: boolean;
+    };
+  };
+}
+
+export interface VerificationStatus {
+  isVerified: boolean;
+  verificationLevel: "none" | "partial" | "full";
+  verifiedAspects: {
+    phone: boolean;
+    email: boolean;
+    address: boolean;
+  };
+  loyaltyTier?: "bronze" | "silver" | "gold" | "platinum";
+  memberSince?: string;
+  averageRating?: number;
+  totalReviews: number;
+}
+
+export interface ReliabilityMetrics {
+  reliabilityScore: number;
+  engagement: {
+    memberSince?: string;
+    lastActiveDate?: string;
+    responseTime?: number;
+    loyaltyTier?: "bronze" | "silver" | "gold" | "platinum";
+  };
+  reputation: {
+    averageRating?: number;
+    totalReviews: number;
+  };
+}
+
+export interface ApiResponse<T> {
+  success: boolean;
+  message: string;
+  data?: T;
+  error?: string;
 }
 

@@ -167,13 +167,14 @@ export const MainProfile: React.FC = () => {
           <ProfileHeader
             profile={profile}
             userEmail={user?.email}
+            userName={user?.name}
             completeness={completeness}
             isLoading={isLoading}
           />
         </motion.div>
 
         {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
           {/* Account Information */}
           <AccountInfoCard profile={profile} />
 

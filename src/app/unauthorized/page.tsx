@@ -22,7 +22,7 @@ export default function UnauthorizedPage() {
   }, []);
 
   if (!mounted) {
-    return null; // Avoid hydration issues
+    return null;
   }
 
   return (

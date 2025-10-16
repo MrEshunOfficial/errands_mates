@@ -154,7 +154,7 @@ export default function EnhancedUserServiceList() {
     (service: Service | ServiceWithProviders) => {
       const serviceId =
         typeof service._id === "string" ? service._id : service._id.toString();
-      router.push(`/service-offered/${service.slug || serviceId}`);
+      router.push(`/service-offered/${serviceId}`);
     },
     [router]
   );

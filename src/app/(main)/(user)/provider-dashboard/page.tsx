@@ -11,7 +11,7 @@ export default function MyProviderProfilePage() {
     useMyProviderProfile({ autoLoad: true });
 
   const handleEdit = () => {
-    router.push("/dashboard/my-profile/edit");
+    router.push(`/profile/provider-profile/${profile?._id}/edit`);
   };
 
   const handleRefresh = async () => {

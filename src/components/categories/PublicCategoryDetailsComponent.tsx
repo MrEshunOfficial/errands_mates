@@ -23,10 +23,10 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { CategoryDetails } from "@/types/category.types";
-import { Service } from "@/types";
 import { useCategoryDetail } from "@/hooks/public/categories/userCategory.hook";
 import Image from "next/image";
 import CategoryCard from "@/components/categories/CategoryCard";
+import { Service } from "@/types/service.types";
 
 interface CategoryDetailsProps {
   className?: string;

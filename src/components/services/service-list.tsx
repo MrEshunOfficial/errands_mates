@@ -10,6 +10,8 @@ import type { Service } from "@/types/service.types";
 import type { ServiceSearchParams } from "@/lib/api/services/services.api";
 import { useCategories } from "@/hooks/public/categories/userCategory.hook";
 import ServiceFilterBar from "./ServiceFilterBar";
+import { Skeleton } from "@/components/ui/skeleton";
+import { ProviderProfile } from "@/types/provider-profile.types";
 
 type SortOption = "createdAt" | "title" | "basePrice" | "updatedAt" | "";
 
@@ -23,38 +25,8 @@ interface FilterState {
 
 type ServiceCardVariant = "default" | "compact" | "featured";
 
-interface ProviderData {
-  _id: string;
-  profileId?: {
-    _id: string;
-    profilePicture?: {
-      url?: string;
-      fileName?: string;
-    };
-  };
-  providerContactInfo?: {
-    businessEmail?: string;
-    emergencyContact?: string;
-    primaryContact?: string;
-    secondaryContact?: string;
-  };
-  operationalStatus: string;
-  serviceOfferings: string[];
-  businessName?: string;
-  performanceMetrics?: {
-    completionRate: number;
-    averageRating: number;
-    totalJobs: number;
-    responseTimeMinutes: number;
-    averageResponseTime: number;
-    cancellationRate: number;
-    disputeRate: number;
-    clientRetentionRate: number;
-  };
-}
-
 interface ServiceWithProviders extends Omit<Service, "providers"> {
-  providers?: ProviderData[];
+  providers?: ProviderProfile[];
 }
 
 interface PublicServiceListProps {
@@ -87,6 +59,66 @@ const initialFilterState: FilterState = {
   sortBy: "",
 };
 
+// Loading Skeleton Component
+interface ServiceCardSkeletonProps {
+  count?: number;
+  gridCols?: {
+    default?: number;
+    md?: number;
+    lg?: number;
+    xl?: number;
+  };
+}
+
+function ServiceCardSkeleton({
+  count = 8,
+  gridCols = {
+    default: 1,
+    md: 2,
+    lg: 3,
+    xl: 5,
+  },
+}: ServiceCardSkeletonProps) {
+  const getGridColsClass = () => {
+    const classes = [];
+    if (gridCols.default) classes.push(`grid-cols-${gridCols.default}`);
+    if (gridCols.md) classes.push(`md:grid-cols-${gridCols.md}`);
+    if (gridCols.lg) classes.push(`lg:grid-cols-${gridCols.lg}`);
+    if (gridCols.xl) classes.push(`xl:grid-cols-${gridCols.xl}`);
+    return classes.join(" ");
+  };
+
+  return (
+    <div className={`grid gap-3 ${getGridColsClass()}`}>
+      {Array.from({ length: count }).map((_, index) => (
+        <div key={index} className="border rounded-lg p-4 space-y-3 h-full">
+          {/* Image skeleton */}
+          <Skeleton className="w-full h-48 rounded-lg" />
+
+          {/* Title skeleton */}
+          <div className="space-y-2">
+            <Skeleton className="h-5 w-3/4" />
+            <Skeleton className="h-4 w-1/2" />
+          </div>
+
+          {/* Description skeleton */}
+          <div className="space-y-2">
+            <Skeleton className="h-3 w-full" />
+            <Skeleton className="h-3 w-5/6" />
+            <Skeleton className="h-3 w-4/5" />
+          </div>
+
+          {/* Footer skeleton */}
+          <div className="flex items-center justify-between pt-2 border-t">
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-9 w-24 rounded-md" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function PublicServiceList({
   showHeader = true,
   showFilters = true,
@@ -100,6 +132,12 @@ export default function PublicServiceList({
   onServiceClick,
   containerClassName = "w-full min-h-screen bg-gray-50 dark:bg-gray-900 p-3",
   cardVariant = "default",
+  gridCols = {
+    default: 1,
+    md: 2,
+    lg: 3,
+    xl: 5,
+  },
 }: PublicServiceListProps = {}) {
   const router = useRouter();
 
@@ -113,6 +151,7 @@ export default function PublicServiceList({
   const [appliedFilters, setAppliedFilters] = useState<ServiceSearchParams>(
     memoizedInitialFilters
   );
+  const [hasInitialLoad, setHasInitialLoad] = useState(false);
 
   const { services, getAllServices, isLoading, error, pagination, clearError } =
     useUserService();
@@ -127,6 +166,10 @@ export default function PublicServiceList({
     }
     return services;
   }, [services, maxItems]);
+
+  // Determine if we should show loading skeleton
+  // Show skeleton only during initial load (when loading and never loaded before)
+  const shouldShowLoadingSkeleton = isLoading && !hasInitialLoad;
 
   const convertFiltersToParams = useCallback(
     (filters: FilterState): ServiceSearchParams => {
@@ -260,10 +303,45 @@ export default function PublicServiceList({
   };
 
   useEffect(() => {
-    getAllServices(memoizedInitialFilters);
+    const loadServices = async () => {
+      await getAllServices(memoizedInitialFilters);
+      setHasInitialLoad(true);
+    };
+
+    loadServices();
   }, [getAllServices, memoizedInitialFilters]);
 
-  // Loading state removed - handled by parent component
+  // Show loading skeleton during initial load
+  if (shouldShowLoadingSkeleton) {
+    return (
+      <div className={containerClassName}>
+        {showHeader && (
+          <div className="mb-4">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-1">
+              {title}
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400">{subtitle}</p>
+          </div>
+        )}
+
+        {showFilters && (
+          <div className="mb-3">
+            <ServiceFilterBar
+              filterState={filterState}
+              onFilterChange={handleFilterChange}
+              onSearchChange={handleSearchChange}
+              onClearFilters={handleClearFilters}
+              categories={categories}
+              activeFilterCount={activeFilterCount}
+              isLoading={isLoading}
+            />
+          </div>
+        )}
+
+        <ServiceCardSkeleton count={maxItems || 8} gridCols={gridCols} />
+      </div>
+    );
+  }
 
   if (error) {
     return <ErrorState message={error} onRetry={handleRetry} />;
@@ -294,7 +372,7 @@ export default function PublicServiceList({
         </div>
       )}
 
-      {showResultsSummary && pagination && (
+      {showResultsSummary && pagination && displayedServices.length > 0 && (
         <div className="flex items-center justify-between mb-3 text-sm text-gray-600 dark:text-gray-400">
           <p>
             Showing {displayedServices.length} of {pagination.totalItems}{" "}
@@ -317,6 +395,13 @@ export default function PublicServiceList({
 
       {!error && !isLoading && services.length === 0 && (
         <EmptyState message={getEmptyStateMessage()} />
+      )}
+
+      {/* Show subtle loading indicator during filter/pagination loads */}
+      {isLoading && hasInitialLoad && (
+        <div className="flex justify-center items-center py-4 mb-3">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
       )}
 
       {displayedServices.length > 0 && (

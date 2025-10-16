@@ -35,14 +35,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { useDeletedCategoryManager } from "@/hooks/admin/admin.category.hook";
-import {
-  CategoryCardConfig,
-  CategoryCardAction,
-  AdminCategoryCard,
-} from "./AdminCategoryCard";
 import { format } from "date-fns";
 import { CategoryDetails, PopulatedUser } from "@/types";
 import { Types } from "mongoose";
+import {
+  CategoryCardConfig,
+  CategoryCardAction,
+  SharedCategoryCard,
+} from "./SharedCategoryCard";
 
 type ViewMode = "grid" | "list";
 
@@ -101,11 +101,11 @@ const DeletedCategoriesPage: React.FC<DeletedCategoriesPageProps> = ({
       showStatus: true,
       showImage: true,
       showDescription: true,
-      availableActions: ["view", "restore"],
-      primaryAction: "view",
+      availableActions: ["explore", "restore"],
+      primaryAction: "explore",
       customLabels: {
         restore: "Restore",
-        view: "View Details",
+        explore: "Explore Details",
       },
       deletedStyle: {
         cardClassName:
@@ -173,7 +173,7 @@ const DeletedCategoriesPage: React.FC<DeletedCategoriesPageProps> = ({
   const handleCategoryAction = useCallback(
     (action: CategoryCardAction, category: CategoryDetails): void => {
       switch (action) {
-        case "view":
+        case "explore":
           router.push(`/admin/services/categories/deleted/${category._id}`);
           break;
         case "restore":
@@ -256,7 +256,7 @@ const DeletedCategoriesPage: React.FC<DeletedCategoriesPageProps> = ({
     () =>
       deletedCategories.map((category) => (
         <div key={category._id.toString()} className="relative">
-          <AdminCategoryCard
+          <SharedCategoryCard
             category={category}
             config={getCardConfigForCategory()}
             isSelected={isSelected(category)}
@@ -361,7 +361,8 @@ const DeletedCategoriesPage: React.FC<DeletedCategoriesPageProps> = ({
             size="sm"
             onClick={refreshDeleted}
             disabled={isLoading}
-            aria-label="Refresh deleted categories">
+            aria-label="Refresh deleted categories"
+          >
             <RefreshCw className={cn("w-4 h-4", isLoading && "animate-spin")} />
           </Button>
 
@@ -374,7 +375,8 @@ const DeletedCategoriesPage: React.FC<DeletedCategoriesPageProps> = ({
                 onClick={() => setViewMode(mode)}
                 className="px-3"
                 disabled={isLoading}
-                aria-label={`Switch to ${mode} view`}>
+                aria-label={`Switch to ${mode} view`}
+              >
                 {mode === "list" ? (
                   <List className="w-4 h-4" />
                 ) : (
@@ -387,7 +389,8 @@ const DeletedCategoriesPage: React.FC<DeletedCategoriesPageProps> = ({
           <Button
             onClick={() => router.back()}
             variant="outline"
-            aria-label="Back to categories">
+            aria-label="Back to categories"
+          >
             Back to Categories
           </Button>
         </div>
@@ -408,7 +411,8 @@ const DeletedCategoriesPage: React.FC<DeletedCategoriesPageProps> = ({
                   onClick={bulkRestoreSelected}
                   disabled={isLoading || updateLoading}
                   className="text-green-600 hover:text-green-700 border-green-300"
-                  aria-label="Restore selected categories">
+                  aria-label="Restore selected categories"
+                >
                   <ArchiveRestore className="w-4 h-4 mr-1" />
                   Restore Selected
                 </Button>
@@ -416,7 +420,8 @@ const DeletedCategoriesPage: React.FC<DeletedCategoriesPageProps> = ({
                   variant="outline"
                   size="sm"
                   onClick={() => setSelectedCategories([])}
-                  aria-label="Clear selection">
+                  aria-label="Clear selection"
+                >
                   Clear Selection
                 </Button>
               </div>
@@ -444,13 +449,15 @@ const DeletedCategoriesPage: React.FC<DeletedCategoriesPageProps> = ({
                     search.setQuery("");
                     search.clearSearch();
                   }}
-                  aria-label="Clear search">
+                  aria-label="Clear search"
+                >
                   Clear search
                 </Button>
               )}
               <Button
                 onClick={() => router.push("/admin/services/categories")}
-                aria-label="View all categories">
+                aria-label="View all categories"
+              >
                 View All Categories
               </Button>
             </div>
@@ -466,7 +473,8 @@ const DeletedCategoriesPage: React.FC<DeletedCategoriesPageProps> = ({
               viewMode === "list"
                 ? "space-y-4 sm:space-y-2"
                 : "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"
-            )}>
+            )}
+          >
             {categoryCards}
           </div>
 
@@ -485,7 +493,8 @@ const DeletedCategoriesPage: React.FC<DeletedCategoriesPageProps> = ({
       {/* Restore Confirmation Dialog */}
       <AlertDialog
         open={!!categoryToRestore}
-        onOpenChange={() => setCategoryToRestore(null)}>
+        onOpenChange={() => setCategoryToRestore(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
@@ -509,7 +518,8 @@ const DeletedCategoriesPage: React.FC<DeletedCategoriesPageProps> = ({
             <AlertDialogAction
               onClick={confirmRestore}
               className="bg-green-600 text-white hover:bg-green-700"
-              aria-label="Restore category">
+              aria-label="Restore category"
+            >
               <ArchiveRestore className="w-4 h-4 mr-1" />
               Restore Category
             </AlertDialogAction>

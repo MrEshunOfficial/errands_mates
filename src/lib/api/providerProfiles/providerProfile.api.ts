@@ -40,12 +40,9 @@ export interface ProviderProfileQueryParams extends QueryParams {
 
 export interface PublicProviderProfileQueryParams extends QueryParams {
   serviceId?: string;
-  businessType?: string;
   minRating?: number;
-  maxServiceRadius?: number;
   available?: boolean;
   search?: string;
-  hasInsurance?: boolean;
 }
 
 export interface LocationSearchParams {
@@ -74,8 +71,6 @@ export interface UpdatePerformanceMetricsData {
 
 export interface UpdateRiskAssessmentData {
   riskLevel?: RiskLevel;
-  riskFactors?: unknown;
-  mitigationMeasures?: unknown;
   notes?: string;
   nextAssessmentDays?: number;
 }
@@ -90,7 +85,6 @@ export interface UpdateWorkingHoursData {
   hours: {
     start: string;
     end: string;
-    isAvailable: boolean;
   };
 }
 
@@ -121,10 +115,6 @@ export interface ProviderStatisticsResponse {
       available: number;
       unavailable: number;
     };
-    assessments: {
-      overdue: number;
-      upToDate: number;
-    };
   };
 }
 
@@ -133,11 +123,10 @@ export interface RiskScoreResponse {
   data: {
     riskScore: number;
     riskLevel: RiskLevel;
-    isRiskAssessmentOverdue: boolean;
     lastAssessmentDate?: Date;
-    nextAssessmentDate?: Date;
-    riskFactors?: unknown;
-    mitigationMeasures?: unknown;
+    riskAssessedBy?: string;
+    penaltiesCount: number;
+    performanceMetrics?: ProviderProfile['performanceMetrics'];
   };
 }
 
@@ -207,7 +196,70 @@ class ProviderProfileAPI {
     }
   }
 
-  // ===== CORE PROVIDER PROFILE MANAGEMENT (Token-based) =====
+  // =============================================================================
+  // PUBLIC ROUTES (No authentication required)
+  // =============================================================================
+
+  /**
+   * Search public providers by location and service
+   */
+  async searchPublicProviders(
+    params?: LocationSearchParams
+  ): Promise<ApiResponse<Partial<ProviderProfile>[]>> {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          searchParams.append(key, value.toString());
+        }
+      });
+    }
+
+    const queryString = searchParams.toString();
+    const endpoint = queryString ? `/public/search?${queryString}` : "/public/search";
+
+    return this.makeRequest<ApiResponse<Partial<ProviderProfile>[]>>(endpoint, {
+      method: "GET",
+    });
+  }
+
+  /**
+   * Get all public provider profiles with filtering
+   */
+  async getPublicProviderProfiles(
+    params?: PublicProviderProfileQueryParams
+  ): Promise<ApiResponse<PaginatedResponse<Partial<ProviderProfile>>>> {
+    const searchParams = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          searchParams.append(key, value.toString());
+        }
+      });
+    }
+
+    const queryString = searchParams.toString();
+    const endpoint = queryString ? `/public/browse?${queryString}` : "/public/browse";
+
+    return this.makeRequest<ApiResponse<PaginatedResponse<Partial<ProviderProfile>>>>(endpoint, {
+      method: "GET",
+    });
+  }
+
+  /**
+   * Get public provider profile by ID
+   */
+  async getPublicProviderProfile(
+    id: string
+  ): Promise<ApiResponse<Partial<ProviderProfile>>> {
+    return this.makeRequest<ApiResponse<Partial<ProviderProfile>>>(`/public/${id}`, {
+      method: "GET",
+    });
+  }
+
+  // =============================================================================
+  // AUTHENTICATED ROUTES (Token required)
+  // =============================================================================
 
   /**
    * Create a new provider profile
@@ -279,30 +331,42 @@ class ProviderProfileAPI {
     data: UpdateWorkingHoursData
   ): Promise<ApiResponse> {
     return this.makeRequest<ApiResponse>("/me/working-hours", {
-      method: "PUT",
+      method: "PATCH",
       body: JSON.stringify(data),
     });
   }
 
-  // ===== PUBLIC PROVIDER PROFILES (No authentication required) =====
+  // =============================================================================
+  // ADMIN ROUTES
+  // =============================================================================
 
   /**
-   * Get public provider profile by ID
+   * Get provider statistics (Super Admin only)
    */
-  async getPublicProviderProfile(
-    id: string
-  ): Promise<ApiResponse<Partial<ProviderProfile>>> {
-    return this.makeRequest<ApiResponse<Partial<ProviderProfile>>>(`/public/${id}`, {
+  async getProviderStatistics(): Promise<ProviderStatisticsResponse> {
+    return this.makeRequest<ProviderStatisticsResponse>("/statistics", {
       method: "GET",
     });
   }
 
   /**
-   * Get all public provider profiles with filtering
+   * Bulk update risk assessments (Super Admin only)
    */
-  async getPublicProviderProfiles(
-    params?: PublicProviderProfileQueryParams
-  ): Promise<ApiResponse<PaginatedResponse<Partial<ProviderProfile>>>> {
+  async bulkUpdateRiskAssessments(
+    data: BulkUpdateRiskAssessmentsData
+  ): Promise<ApiResponse> {
+    return this.makeRequest<ApiResponse>("/bulk/risk-assessments", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
+
+  /**
+   * Get all provider profiles with pagination (Admin use)
+   */
+  async getAllProviderProfiles(
+    params?: ProviderProfileQueryParams
+  ): Promise<ApiResponse<PaginatedResponse<ProviderProfile>>> {
     const searchParams = new URLSearchParams();
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
@@ -313,45 +377,42 @@ class ProviderProfileAPI {
     }
 
     const queryString = searchParams.toString();
-    const endpoint = queryString ? `/public?${queryString}` : "/public";
+    const endpoint = queryString ? `/all?${queryString}` : "/all";
 
-    return this.makeRequest<ApiResponse<PaginatedResponse<Partial<ProviderProfile>>>>(endpoint, {
+    return this.makeRequest<ApiResponse<PaginatedResponse<ProviderProfile>>>(endpoint, {
       method: "GET",
     });
   }
 
   /**
-   * Search public providers by location and service
+   * Get available providers (Admin use)
    */
-  async searchPublicProviders(
-    params?: LocationSearchParams
-  ): Promise<ApiResponse<Partial<ProviderProfile>[]>> {
-    const searchParams = new URLSearchParams();
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          searchParams.append(key, value.toString());
-        }
-      });
-    }
-
-    const queryString = searchParams.toString();
-    const endpoint = queryString ? `/public/search?${queryString}` : "/public/search";
-
-    return this.makeRequest<ApiResponse<Partial<ProviderProfile>[]>>(endpoint, {
+  async getAvailableProviders(
+    serviceRadius?: number
+  ): Promise<ApiResponse<ProviderProfile[]>> {
+    const params = serviceRadius ? `?serviceRadius=${serviceRadius}` : "";
+    return this.makeRequest<ApiResponse<ProviderProfile[]>>(`/available${params}`, {
       method: "GET",
     });
   }
 
-  // ===== ADMIN PROVIDER PROFILE MANAGEMENT =====
+  /**
+   * Get top-rated providers (Admin use)
+   */
+  async getTopRatedProviders(
+    limit?: number
+  ): Promise<ApiResponse<ProviderProfile[]>> {
+    const params = limit ? `?limit=${limit}` : "";
+    return this.makeRequest<ApiResponse<ProviderProfile[]>>(`/top-rated${params}`, {
+      method: "GET",
+    });
+  }
 
   /**
-   * Get provider profile by ID (Admin use)
+   * Get high-risk providers (Admin use)
    */
-  async getProviderProfileById(
-    id: string
-  ): Promise<ApiResponse<ProviderProfile>> {
-    return this.makeRequest<ApiResponse<ProviderProfile>>(`/${id}`, {
+  async getHighRiskProviders(): Promise<ApiResponse<ProviderProfile[]>> {
+    return this.makeRequest<ApiResponse<ProviderProfile[]>>("/high-risk", {
       method: "GET",
     });
   }
@@ -362,7 +423,40 @@ class ProviderProfileAPI {
   async getProviderProfileByProfileId(
     profileId: string
   ): Promise<ApiResponse<ProviderProfile>> {
-    return this.makeRequest<ApiResponse<ProviderProfile>>(`/profile/${profileId}`, {
+    return this.makeRequest<ApiResponse<ProviderProfile>>(`/by-profile/${profileId}`, {
+      method: "GET",
+    });
+  }
+
+  /**
+   * Get providers by operational status (Admin use)
+   */
+  async getProvidersByStatus(
+    status: ProviderOperationalStatus
+  ): Promise<ApiResponse<ProviderProfile[]>> {
+    return this.makeRequest<ApiResponse<ProviderProfile[]>>(`/by-status/${status}`, {
+      method: "GET",
+    });
+  }
+
+  /**
+   * Get providers by risk level (Admin use)
+   */
+  async getProvidersByRiskLevel(
+    riskLevel: RiskLevel
+  ): Promise<ApiResponse<ProviderProfile[]>> {
+    return this.makeRequest<ApiResponse<ProviderProfile[]>>(`/by-risk-level/${riskLevel}`, {
+      method: "GET",
+    });
+  }
+
+  /**
+   * Get provider profile by ID (Admin use)
+   */
+  async getProviderProfileById(
+    id: string
+  ): Promise<ApiResponse<ProviderProfile>> {
+    return this.makeRequest<ApiResponse<ProviderProfile>>(`/${id}`, {
       method: "GET",
     });
   }
@@ -390,90 +484,6 @@ class ProviderProfileAPI {
   }
 
   /**
-   * Get all provider profiles with pagination (Admin use)
-   */
-  async getAllProviderProfiles(
-    params?: ProviderProfileQueryParams
-  ): Promise<ApiResponse<PaginatedResponse<ProviderProfile>>> {
-    const searchParams = new URLSearchParams();
-    if (params) {
-      Object.entries(params).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          searchParams.append(key, value.toString());
-        }
-      });
-    }
-
-    const queryString = searchParams.toString();
-    const endpoint = queryString ? `/all?${queryString}` : "/all";
-
-    return this.makeRequest<ApiResponse<PaginatedResponse<ProviderProfile>>>(endpoint, {
-      method: "GET",
-    });
-  }
-
-  // ===== SPECIALIZED QUERIES =====
-
-  /**
-   * Get available providers
-   */
-  async getAvailableProviders(
-    serviceRadius?: number
-  ): Promise<ApiResponse<ProviderProfile[]>> {
-    const params = serviceRadius
-      ? `?serviceRadius=${serviceRadius}`
-      : "";
-    return this.makeRequest<ApiResponse<ProviderProfile[]>>(`/available${params}`, {
-      method: "GET",
-    });
-  }
-
-  /**
-   * Get top-rated providers
-   */
-  async getTopRatedProviders(
-    limit?: number
-  ): Promise<ApiResponse<ProviderProfile[]>> {
-    const params = limit ? `?limit=${limit}` : "";
-    return this.makeRequest<ApiResponse<ProviderProfile[]>>(`/top-rated${params}`, {
-      method: "GET",
-    });
-  }
-
-  /**
-   * Get high-risk providers
-   */
-  async getHighRiskProviders(): Promise<ApiResponse<ProviderProfile[]>> {
-    return this.makeRequest<ApiResponse<ProviderProfile[]>>("/high-risk", {
-      method: "GET",
-    });
-  }
-
-  /**
-   * Get providers by operational status
-   */
-  async getProvidersByStatus(
-    status: ProviderOperationalStatus
-  ): Promise<ApiResponse<ProviderProfile[]>> {
-    return this.makeRequest<ApiResponse<ProviderProfile[]>>(`/by-status/${status}`, {
-      method: "GET",
-    });
-  }
-
-  /**
-   * Get providers by risk level
-   */
-  async getProvidersByRiskLevel(
-    riskLevel: RiskLevel
-  ): Promise<ApiResponse<ProviderProfile[]>> {
-    return this.makeRequest<ApiResponse<ProviderProfile[]>>(`/by-risk-level/${riskLevel}`, {
-      method: "GET",
-    });
-  }
-
-  // ===== OPERATIONAL STATUS MANAGEMENT =====
-
-  /**
    * Update provider operational status (Admin only)
    */
   async updateOperationalStatus(
@@ -495,8 +505,6 @@ class ProviderProfileAPI {
     });
   }
 
-  // ===== PERFORMANCE METRICS =====
-
   /**
    * Update performance metrics (Admin only)
    */
@@ -505,12 +513,32 @@ class ProviderProfileAPI {
     data: UpdatePerformanceMetricsData
   ): Promise<ApiResponse> {
     return this.makeRequest<ApiResponse>(`/${id}/performance-metrics`, {
-      method: "PUT",
+      method: "PATCH",
       body: JSON.stringify(data),
     });
   }
 
-  // ===== SERVICE OFFERINGS MANAGEMENT (Admin) =====
+  /**
+   * Add penalty to provider (Admin only)
+   */
+  async addPenalty(id: string): Promise<ApiResponse> {
+    return this.makeRequest<ApiResponse>(`/${id}/penalties`, {
+      method: "POST",
+    });
+  }
+
+  /**
+   * Update working hours (Admin use)
+   */
+  async updateWorkingHours(
+    id: string,
+    data: UpdateWorkingHoursData
+  ): Promise<ApiResponse> {
+    return this.makeRequest<ApiResponse>(`/${id}/working-hours`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    });
+  }
 
   /**
    * Add service offering to provider (Admin use)
@@ -537,34 +565,6 @@ class ProviderProfileAPI {
     });
   }
 
-  // ===== PENALTIES & WARNINGS =====
-
-  /**
-   * Add penalty to provider (Admin only)
-   */
-  async addPenalty(id: string): Promise<ApiResponse> {
-    return this.makeRequest<ApiResponse>(`/${id}/penalty`, {
-      method: "POST",
-    });
-  }
-
-  // ===== WORKING HOURS MANAGEMENT (Admin) =====
-
-  /**
-   * Update working hours (Admin use)
-   */
-  async updateWorkingHours(
-    id: string,
-    data: UpdateWorkingHoursData
-  ): Promise<ApiResponse> {
-    return this.makeRequest<ApiResponse>(`/${id}/working-hours`, {
-      method: "PUT",
-      body: JSON.stringify(data),
-    });
-  }
-
-  // ===== RISK ASSESSMENT =====
-
   /**
    * Update risk assessment (Admin only)
    */
@@ -573,13 +573,13 @@ class ProviderProfileAPI {
     data: UpdateRiskAssessmentData
   ): Promise<ApiResponse> {
     return this.makeRequest<ApiResponse>(`/${id}/risk-assessment`, {
-      method: "PUT",
+      method: "PATCH",
       body: JSON.stringify(data),
     });
   }
 
   /**
-   * Get provider risk score
+   * Get provider risk score (Admin use)
    */
   async getProviderRiskScore(id: string): Promise<RiskScoreResponse> {
     return this.makeRequest<RiskScoreResponse>(`/${id}/risk-score`, {
@@ -588,29 +588,7 @@ class ProviderProfileAPI {
   }
 
   /**
-   * Get overdue risk assessments
-   */
-  async getOverdueRiskAssessments(): Promise<ApiResponse<ProviderProfile[]>> {
-    return this.makeRequest<ApiResponse<ProviderProfile[]>>("/overdue-assessments", {
-      method: "GET",
-    });
-  }
-
-  /**
-   * Schedule next assessment
-   */
-  async scheduleNextAssessment(
-    id: string,
-    data: ScheduleAssessmentData
-  ): Promise<ApiResponse> {
-    return this.makeRequest<ApiResponse>(`/${id}/schedule-assessment`, {
-      method: "POST",
-      body: JSON.stringify(data),
-    });
-  }
-
-  /**
-   * Get risk assessment history
+   * Get risk assessment history (Admin use)
    */
   async getRiskAssessmentHistory(id: string): Promise<ApiResponse> {
     return this.makeRequest<ApiResponse>(`/${id}/risk-history`, {
@@ -619,36 +597,15 @@ class ProviderProfileAPI {
   }
 
   /**
-   * Bulk update risk assessments
+   * Schedule next assessment (Admin use)
    */
-  async bulkUpdateRiskAssessments(
-    data: BulkUpdateRiskAssessmentsData
+  async scheduleNextAssessment(
+    id: string,
+    data: ScheduleAssessmentData
   ): Promise<ApiResponse> {
-    return this.makeRequest<ApiResponse>("/bulk-risk-assessments", {
-      method: "PUT",
+    return this.makeRequest<ApiResponse>(`/${id}/schedule-assessment`, {
+      method: "PATCH",
       body: JSON.stringify(data),
-    });
-  }
-
-  // ===== STATISTICS & ANALYTICS =====
-
-  /**
-   * Get provider statistics
-   */
-  async getProviderStatistics(): Promise<ProviderStatisticsResponse> {
-    return this.makeRequest<ProviderStatisticsResponse>("/statistics", {
-      method: "GET",
-    });
-  }
-
-  // ===== HEALTH CHECK =====
-
-  /**
-   * Health check endpoint
-   */
-  async healthCheck(): Promise<ApiResponse<{ timestamp: string }>> {
-    return this.makeRequest<ApiResponse<{ timestamp: string }>>("/health", {
-      method: "GET",
     });
   }
 }
@@ -669,7 +626,7 @@ export const isProviderActive = (
 export const isProviderAvailable = (
   provider: ProviderProfile | null
 ): boolean => {
-  return provider?.isAvailableForWork === true && isProviderActive(provider);
+  return provider?.isCurrentlyAvailable === true && isProviderActive(provider);
 };
 
 export const getProviderRiskColor = (riskLevel: RiskLevel): string => {
@@ -702,5 +659,4 @@ export const getOperationalStatusColor = (
   }
 };
 
-// Export the ProviderProfileAPI class for custom instances
 export { ProviderProfileAPI };

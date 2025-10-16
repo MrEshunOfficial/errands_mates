@@ -23,7 +23,7 @@ import * as AvatarPrimitive from "@radix-ui/react-avatar";
 import { Button } from "../ui/button";
 
 interface NavigationItem {
-  href: string;
+  href: string | ((role?: UserRole) => string);
   label: string;
   icon: React.ComponentType<{ size?: number; className?: string }>;
   systemRoles?: SystemRole[];
@@ -54,11 +54,17 @@ const navigationItems: NavigationItem[] = [
   },
 
   {
-    href: "/dashboard",
+    href: (role?: UserRole) => {
+      if (role === UserRole.PROVIDER) {
+        return "/provider-dashboard";
+      } else if (role === UserRole.CUSTOMER) {
+        return "/client-dashboard";
+      }
+      return "/dashboard";
+    },
     label: "Dashboard",
     icon: Activity,
-    requiresMarketplaceActive: true,
-    description: "Service provider dashboard",
+    description: "Your personalized dashboard",
     separator: true,
   },
 
@@ -66,12 +72,14 @@ const navigationItems: NavigationItem[] = [
     href: "/service-offered",
     label: "My Services",
     icon: Store,
+    userRoles: [UserRole.PROVIDER],
     description: "Manage your services",
   },
   {
     href: "/client-requested",
     label: "Requests Received",
     icon: Users,
+    userRoles: [UserRole.PROVIDER],
     description: "View and manage requests",
   },
   {
@@ -96,7 +104,7 @@ const navigationItems: NavigationItem[] = [
   },
   {
     href: "/admin",
-    label: "Admin Dashboard",
+    label: "Admin Console",
     icon: Shield,
     systemRoles: [SystemRole.ADMIN, SystemRole.SUPER_ADMIN],
     separator: true,
@@ -113,17 +121,26 @@ const ProfileNavigation: React.FC = () => {
   const displayName = user?.name || "Unknown User";
   const displayAvatar = user?.avatar || profile?.profilePicture?.url;
 
-  // Move all hooks before any conditional returns
-
   const handleLogout = () => {
     router.push("/logout");
   };
 
+  const getItemHref = useCallback(
+    (item: NavigationItem): string => {
+      if (typeof item.href === "function") {
+        return item.href(profile?.role as UserRole);
+      }
+      return item.href;
+    },
+    [profile?.role]
+  );
+
   const isActiveRoute = useCallback(
-    (href: string): boolean => {
+    (item: NavigationItem): boolean => {
+      const href = getItemHref(item);
       return pathname === href || pathname.startsWith(href + "/");
     },
-    [pathname]
+    [pathname, getItemHref]
   );
 
   const canAccessRoute = useCallback(
@@ -228,10 +245,15 @@ const ProfileNavigation: React.FC = () => {
 
   const handleNavigation = useCallback(
     (item: NavigationItem) => {
-      const href = user && canAccessRoute(item) ? item.href : "/login";
+      if (!user || !canAccessRoute(item)) {
+        router.push("/login");
+        return;
+      }
+
+      const href = getItemHref(item);
       router.push(href);
     },
-    [user, canAccessRoute, router]
+    [user, canAccessRoute, router, getItemHref]
   );
 
   const filteredItems = useMemo(
@@ -366,12 +388,18 @@ const ProfileNavigation: React.FC = () => {
           >
             {filteredItems.map((item, index) => {
               const Icon = item.icon;
-              const isActive = isActiveRoute(item.href);
+              const isActive = isActiveRoute(item);
               const showSeparator = item.separator && index > 0;
               const roleIndicator = getRoleIndicator(item);
 
               return (
-                <React.Fragment key={item.href}>
+                <React.Fragment
+                  key={
+                    typeof item.href === "string"
+                      ? item.href
+                      : `${item.label}-${index}`
+                  }
+                >
                   {showSeparator && (
                     <div className="border-t border-gray-200 dark:border-gray-700 my-2" />
                   )}

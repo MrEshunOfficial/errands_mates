@@ -38,7 +38,7 @@ export default function CategoryServicesPage() {
       <main className="min-h-[90vh] w-full">
         <section>
           <h2 className="text-2xl font-semibold mb-4">{serviceSlug} Service</h2>
-          <ServiceDetails />
+          <ServiceDetails serviceSlug={serviceSlug} />
         </section>
       </main>
     </div>

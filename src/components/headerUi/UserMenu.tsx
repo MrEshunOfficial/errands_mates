@@ -74,11 +74,6 @@ const ROLE_CONFIG = {
   },
 };
 
-const MENU_ITEMS = [
-  { href: "/profile", icon: UserIcon, label: "Profile", key: "profile" },
-  { href: "/dashboard", icon: BarChart3, label: "Dashboard", key: "dashboard" },
-];
-
 const SETTINGS_ITEMS = [
   { href: "/settings", icon: Settings, label: "Preferences", key: "settings" },
   { href: "/help", icon: HelpCircle, label: "Help & Support", key: "help" },
@@ -247,6 +242,23 @@ export const UserMenu: React.FC<UserMenuProps> = ({
   onLogout,
   notificationCount = 0,
 }) => {
+  const role = profile?.role as UserRole;
+
+  const MENU_ITEMS = React.useMemo(
+    () => [
+      { href: "/profile", icon: UserIcon, label: "Profile", key: "profile" },
+      {
+        href:
+          role === UserRole.PROVIDER
+            ? "/provider-dashboard"
+            : "/client-dashboard",
+        icon: BarChart3,
+        label: "Dashboard",
+        key: "dashboard",
+      },
+    ],
+    [role]
+  );
   // Consolidated display values
   const display = {
     name: user?.name || "Unknown User",

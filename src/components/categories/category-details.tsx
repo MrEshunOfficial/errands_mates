@@ -46,9 +46,9 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { CategoryDetails } from "@/types/category.types";
-import { Service } from "@/types";
 import { useAdminCategory } from "@/hooks/admin/admin.category.hook";
 import CategoryCard from "./CategoryCard";
+import { Service } from "@/types/service.types";
 
 interface CategoryDetailsProps {
   className?: string;
@@ -147,7 +147,10 @@ const ServiceItem = ({
           </p>
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <span>
-              Created: {new Date(service.createdAt).toLocaleDateString()}
+              Created:{" "}
+              {service.createdAt
+                ? new Date(service.createdAt).toLocaleDateString()
+                : "N/A"}
             </span>
             {service.basePrice && <span>Price: GHS {service.basePrice}</span>}
           </div>

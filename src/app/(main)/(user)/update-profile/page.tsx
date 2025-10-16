@@ -12,10 +12,6 @@ import {
 } from "@/lib/utils/schemas/profile.schemas";
 import { toast } from "sonner";
 import { ProfilePicture, UserRole } from "@/types/base.types";
-import BasicInfoFormStep from "@/components/providers/profile/form/BasicInformationStep";
-import ContactFormStep from "@/components/providers/profile/form/ContactFormStep";
-import LocationFormStep from "@/components/providers/profile/form/LocationFormStep";
-import ReviewFormStep from "@/components/providers/profile/form/ReviewFormStep";
 
 export enum FormStep {
   BASIC_INFO = "basic-info",
@@ -78,8 +74,12 @@ interface ProfileFormPageProps {
 import type { UpdateProfileData } from "@/lib/api/profiles/profile.api";
 import { IUserProfile } from "@/types";
 import { useIdDetails } from "@/hooks/id-details/useIdDetails";
-import ProfileCard from "@/components/providers/profile/form/ProfileCard";
 import LoadingOverlay from "@/components/ui/LoadingOverlay";
+import BasicInfoFormStep from "@/components/user/profile/form/BasicInformationStep";
+import ContactFormStep from "@/components/user/profile/form/ContactFormStep";
+import LocationFormStep from "@/components/user/profile/form/LocationFormStep";
+import ReviewFormStep from "@/components/user/profile/form/ReviewFormStep";
+import ProfileCard from "@/components/user/profile/form/ProfileCard";
 
 interface FallbackUpdateProfileData {
   role?: UserRole;
@@ -113,6 +113,20 @@ interface FallbackUpdateProfileData {
 type ApiProfileData = UpdateProfileData extends never
   ? FallbackUpdateProfileData
   : UpdateProfileData;
+
+// Helper function to get role-based dashboard route
+const getRoleBasedDashboard = (role?: UserRole): string => {
+  if (!role) return "/dashboard";
+
+  switch (role) {
+    case UserRole.PROVIDER:
+      return "/provider-dashboard";
+    case UserRole.CUSTOMER:
+      return "/client-dashboard";
+    default:
+      return "/dashboard";
+  }
+};
 
 // Progressive Step Completion Component
 interface ProgressiveStepProps {
@@ -254,8 +268,8 @@ const SkipWarningModal: React.FC<SkipWarningModalProps> = ({
 
 export default function ProgressiveProfileForm({
   isEditing = false,
-  redirectOnSuccess = "/dashboard",
-}: ProfileFormPageProps) {
+}: // redirectOnSuccess = "/dashboard",
+ProfileFormPageProps) {
   const router = useRouter();
   const {
     profile,
@@ -482,19 +496,22 @@ export default function ProgressiveProfileForm({
   const confirmSkip = useCallback((): void => {
     setShowSkipWarning(false);
 
-    // If this is the last required step, go to dashboard with warning
     const currentIndex = FORM_STEPS.findIndex(
       (step) => step.key === currentStep
     );
+
     if (currentIndex < FORM_STEPS.length - 1) {
       setCurrentStep(FORM_STEPS[currentIndex + 1].key);
     } else {
       toast.warning(
         "Profile incomplete. Complete it later to unlock all features."
       );
-      router.push(redirectOnSuccess);
+      const dashboardRoute = getRoleBasedDashboard(
+        getValues().role || safeProfile?.role
+      );
+      router.push(dashboardRoute);
     }
-  }, [currentStep, router, redirectOnSuccess]);
+  }, [currentStep, router, getValues, safeProfile?.role]);
 
   const onSubmit = useCallback(
     async (data: UpdateUserProfileFormData): Promise<void> => {
@@ -508,7 +525,12 @@ export default function ProgressiveProfileForm({
         await refreshProfile();
         toast.success("Profile completed successfully!");
         setLastSaved(new Date());
-        router.push(redirectOnSuccess);
+
+        // Use role-based redirect instead of the prop
+        const dashboardRoute = getRoleBasedDashboard(
+          data.role || safeProfile?.role
+        );
+        router.push(dashboardRoute);
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : "Failed to complete profile";
@@ -528,7 +550,7 @@ export default function ProgressiveProfileForm({
       updateProfile,
       refreshProfile,
       router,
-      redirectOnSuccess,
+      safeProfile?.role,
     ]
   );
 
@@ -823,7 +845,7 @@ export default function ProgressiveProfileForm({
                                   d="M5 13l4 4L19 7"
                                 />
                               </svg>
-                              Complete Profile
+                              Profile Completed
                             </>
                           )}
                         </button>
@@ -834,7 +856,10 @@ export default function ProgressiveProfileForm({
                             toast.warning(
                               "Profile incomplete. Complete it later to unlock all features."
                             );
-                            router.push(redirectOnSuccess);
+                            const dashboardRoute = getRoleBasedDashboard(
+                              getValues().role || safeProfile?.role
+                            );
+                            router.push(dashboardRoute);
                           }}
                           disabled={isSubmitting}
                           className="px-6 py-4 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 font-medium transition-colors disabled:opacity-50"

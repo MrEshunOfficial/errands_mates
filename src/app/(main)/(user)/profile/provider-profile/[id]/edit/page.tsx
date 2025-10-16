@@ -3,14 +3,16 @@ import React from "react";
 import Link from "next/link";
 
 interface EditProviderProfilePageProps {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
-export default function EditProviderProfilePage({
+export default async function EditProviderProfilePage({
   params,
 }: EditProviderProfilePageProps) {
+  const { id } = await params;
+
   return (
     <div className="container mx-auto p-6">
       {/* Breadcrumb */}
@@ -27,7 +29,7 @@ export default function EditProviderProfilePage({
             href="/dashboard"
             className="hover:text-foreground transition-colors"
           >
-            {params.id}
+            {id}
           </Link>
           <span>/</span>
           <span className="text-foreground">Edit</span>
@@ -47,7 +49,7 @@ export default function EditProviderProfilePage({
         </div>
       </div>
 
-      <ProviderProfileForm mode="edit" profileId={params.id} />
+      <ProviderProfileForm mode="edit" profileId={id} />
     </div>
   );
 }

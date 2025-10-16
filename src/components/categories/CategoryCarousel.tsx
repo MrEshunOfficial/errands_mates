@@ -18,7 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 interface AutoScrollCategoryCarouselProps {
   categories: (Category | CategoryWithServices | CategoryDetails)[];
   isLoading?: boolean;
-  autoScrollSpeed?: number; // pixels per second
+  autoScrollSpeed?: number;
   onCategoryAction?: (
     action: CategoryCardAction,
     category: Category | CategoryWithServices | CategoryDetails

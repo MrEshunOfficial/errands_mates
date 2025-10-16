@@ -17,41 +17,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import Link from "next/link";
-
-// Type for provider data from API response
-export interface ProviderData {
-  _id: string;
-  profileId?: {
-    _id: string;
-    profilePicture?: {
-      url?: string;
-      fileName?: string;
-    };
-  };
-  providerContactInfo?: {
-    businessEmail?: string;
-    emergencyContact?: string;
-    primaryContact?: string;
-    secondaryContact?: string;
-  };
-  operationalStatus: string;
-  serviceOfferings: string[];
-  businessName?: string;
-  performanceMetrics?: {
-    completionRate: number;
-    averageRating: number;
-    totalJobs: number;
-    responseTimeMinutes: number;
-    averageResponseTime: number;
-    cancellationRate: number;
-    disputeRate: number;
-    clientRetentionRate: number;
-  };
-}
+import { ProviderProfile } from "@/types";
 
 // Extended Service type with populated providers
 export interface ServiceWithProviders extends Omit<Service, "providers"> {
-  providers?: ProviderData[];
+  providers?: ProviderProfile[];
 }
 
 interface ServiceCardProps {
@@ -86,7 +56,6 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
       if (navigator.share && navigator.canShare(shareData)) {
         await navigator.share(shareData);
       } else {
-        // Fallback: copy to clipboard
         await navigator.clipboard.writeText(shareUrl);
         alert("Link copied to clipboard!");
       }
@@ -201,6 +170,16 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
       return service.images[0].fileName;
     }
     return service.title;
+  };
+
+  // Helper function to get provider profile image URL
+  const getProviderImageUrl = (provider: ProviderProfile): string | null => {
+    // @ts-expect-error - API may return a legacy `profile.profileImage` shape not reflected in ProviderProfile types
+    if (provider.profile?.profileImage?.url) {
+      // @ts-expect-error - accessing legacy field `profile.profileImage` which may be absent in current types
+      return provider.profile.profileImage.url;
+    }
+    return null;
   };
 
   const renderTags = () => {
@@ -383,76 +362,97 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
                   service.providers &&
                   service.providers.length > 0 ? (
                     <div className="space-y-1">
-                      {/* Only show the first 5 providers */}
                       {service.providers
                         .slice(0, 5)
-                        .map((provider: ProviderData) => (
-                          <div
-                            key={provider._id}
-                            className="flex gap-3 p-3 my-1.5 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-                          >
-                            <div className="flex-shrink-0">
-                              {provider.profileId?.profilePicture?.url ? (
-                                <div className="relative w-10 h-10">
-                                  <Image
-                                    src={provider.profileId.profilePicture.url}
-                                    alt={provider.businessName || "Provider"}
-                                    className="rounded-full object-cover ring-2 ring-gray-200 dark:ring-gray-700"
-                                    fill
-                                  />
-                                </div>
-                              ) : (
-                                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                        .map((provider: ProviderProfile) => {
+                          const providerImageUrl =
+                            getProviderImageUrl(provider);
+
+                          return (
+                            <div
+                              key={provider._id.toString()}
+                              className="flex gap-3 p-3 my-1.5 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
+                            >
+                              <div className="flex-shrink-0">
+                                {providerImageUrl ? (
+                                  <div className="relative w-10 h-10">
+                                    <Image
+                                      src={providerImageUrl}
+                                      alt={provider.businessName || "Provider"}
+                                      className="rounded-full object-cover ring-2 ring-gray-200 dark:ring-gray-700"
+                                      fill
+                                      onError={(e) => {
+                                        const target =
+                                          e.target as HTMLImageElement;
+                                        target.style.display = "none";
+                                        const fallback =
+                                          target.parentElement
+                                            ?.nextElementSibling;
+                                        if (fallback) {
+                                          (
+                                            fallback as HTMLElement
+                                          ).style.display = "flex";
+                                        }
+                                      }}
+                                    />
+                                  </div>
+                                ) : null}
+                                <div
+                                  className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center"
+                                  style={{
+                                    display: providerImageUrl ? "none" : "flex",
+                                  }}
+                                >
                                   <Users className="w-5 h-5 text-white" />
                                 </div>
-                              )}
-                            </div>
-
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-start justify-between gap-2">
-                                <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
-                                  {provider.businessName || "Service Provider"}
-                                </h4>
-                                <Link
-                                  href={`/providers/${provider._id}`}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline flex-shrink-0"
-                                >
-                                  View
-                                  <ExternalLink size={10} />
-                                </Link>
                               </div>
 
-                              {provider.providerContactInfo && (
-                                <div className="mt-1 space-y-0.5 text-xs text-gray-500 dark:text-gray-400">
-                                  {provider.providerContactInfo
-                                    .businessEmail && (
-                                    <div className="truncate">
-                                      ✉️{" "}
-                                      {
-                                        provider.providerContactInfo
-                                          .businessEmail
-                                      }
-                                    </div>
-                                  )}
-                                  {provider.providerContactInfo
-                                    .emergencyContact && (
-                                    <div className="truncate">
-                                      📞{" "}
-                                      {
-                                        provider.providerContactInfo
-                                          .emergencyContact
-                                      }
-                                    </div>
-                                  )}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start justify-between gap-2">
+                                  <h4 className="font-medium text-sm text-gray-900 dark:text-gray-100 truncate">
+                                    {provider.businessName ||
+                                      "Service Provider"}
+                                  </h4>
+                                  <Link
+                                    href={`/providers/${provider._id}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline flex-shrink-0"
+                                  >
+                                    View
+                                    <ExternalLink size={10} />
+                                  </Link>
                                 </div>
-                              )}
-                            </div>
-                          </div>
-                        ))}
 
-                      {/* Show a 'View all providers' link if there are more than 5 */}
+                                {provider.providerContactInfo && (
+                                  <div className="mt-1 space-y-0.5 text-xs text-gray-500 dark:text-gray-400">
+                                    {provider.providerContactInfo
+                                      .businessEmail && (
+                                      <div className="truncate">
+                                        ✉️{" "}
+                                        {
+                                          provider.providerContactInfo
+                                            .businessEmail
+                                        }
+                                      </div>
+                                    )}
+                                    {provider.providerContactInfo
+                                      .businessContact && (
+                                      <div className="truncate">
+                                        📞{" "}
+                                        {
+                                          provider.providerContactInfo
+                                            .businessContact
+                                        }
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+
                       {service.providers.length > 1 && (
                         <div className="pt-2 text-center">
                           <Link

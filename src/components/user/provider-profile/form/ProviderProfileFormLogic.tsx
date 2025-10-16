@@ -14,58 +14,29 @@ import {
   ProviderProfile,
   UpdateProviderProfileRequestBody,
   CreateProviderProfileRequestBody,
+  ProviderOperationalStatus,
 } from "@/types";
+import { toast } from "sonner";
 
 export interface ProviderProfileFormData {
   providerContactInfo: {
-    primaryContact: string;
-    secondaryContact?: string;
+    businessContact?: string;
     businessEmail?: string;
-    emergencyContact?: string;
   };
-  operationalStatus?: string;
-  serviceOfferings?: Array<{ _id: string }>;
+  operationalStatus: ProviderOperationalStatus;
+  serviceOfferings: Array<{ _id: string }>;
   workingHours?: Record<
     string,
     {
       start: string;
       end: string;
-      isAvailable: boolean;
     }
   >;
-  isAvailableForWork: boolean;
+  isCurrentlyAvailable: boolean;
   isAlwaysAvailable: boolean;
   businessName?: string;
-  businessRegistration?: {
-    registrationNumber: string;
-    registrationDocument: {
-      url: string;
-      fileName: string;
-      fileSize?: number;
-      mimeType?: string;
-      uploadedAt?: string | Date;
-    };
-  };
-  insurance?: {
-    provider: string;
-    policyNumber: string;
-    expiryDate: string | Date;
-    document: {
-      url: string;
-      fileName: string;
-      fileSize?: number;
-      mimeType?: string;
-      uploadedAt?: string | Date;
-    };
-  };
-  safetyMeasures: {
-    requiresDeposit: boolean;
-    depositAmount?: number;
-    hasInsurance: boolean;
-    insuranceProvider?: string;
-    insuranceExpiryDate?: string | Date;
-    emergencyContactVerified: boolean;
-  };
+  requireInitialDeposit: boolean;
+  percentageDeposit?: number;
   performanceMetrics?: {
     completionRate: number;
     averageRating: number;
@@ -76,11 +47,6 @@ export interface ProviderProfileFormData {
     disputeRate: number;
     clientRetentionRate: number;
   };
-  riskLevel?: string;
-  lastRiskAssessmentDate?: string | Date;
-  riskAssessedBy?: string;
-  penaltiesCount?: number;
-  lastPenaltyDate?: string | Date;
 }
 
 export interface ProviderProfileFormState {
@@ -127,7 +93,7 @@ export interface ProviderProfileFormChildProps {
   isLastStep: boolean;
 }
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 4;
 
 const getInitialFormData = (
   mode: "create" | "edit",
@@ -135,44 +101,30 @@ const getInitialFormData = (
 ): Partial<ProviderProfileFormData> => {
   if (mode === "edit" && initialData) {
     return {
-      providerContactInfo: initialData.providerContactInfo || {
-        primaryContact: "",
-      },
-      operationalStatus: initialData.operationalStatus,
-      serviceOfferings: initialData.serviceOfferings?.map((service) => ({
-        _id: typeof service === "string" ? service : service.toString(),
-      })),
+      providerContactInfo: initialData.providerContactInfo || {},
+      operationalStatus:
+        initialData.operationalStatus || ProviderOperationalStatus.PROBATIONARY,
+      serviceOfferings:
+        initialData.serviceOfferings?.map((service) => ({
+          _id: typeof service === "string" ? service : service.toString(),
+        })) || [],
       workingHours: initialData.workingHours,
-      isAvailableForWork: initialData.isAvailableForWork ?? true,
+      isCurrentlyAvailable: initialData.isCurrentlyAvailable ?? false,
       isAlwaysAvailable: initialData.isAlwaysAvailable ?? false,
       businessName: initialData.businessName,
-      businessRegistration: initialData.businessRegistration,
-      insurance: initialData.insurance,
-      safetyMeasures: initialData.safetyMeasures || {
-        requiresDeposit: false,
-        hasInsurance: false,
-        emergencyContactVerified: false,
-      },
+      requireInitialDeposit: initialData.requireInitialDeposit ?? false,
+      percentageDeposit: initialData.percentageDeposit,
       performanceMetrics: initialData.performanceMetrics,
-      riskLevel: initialData.riskLevel,
-      lastRiskAssessmentDate: initialData.lastRiskAssessmentDate,
-      riskAssessedBy: initialData.riskAssessedBy?.toString(),
-      penaltiesCount: initialData.penaltiesCount,
-      lastPenaltyDate: initialData.lastPenaltyDate,
     };
   }
 
   return {
-    providerContactInfo: {
-      primaryContact: "",
-    },
-    isAvailableForWork: true,
+    providerContactInfo: {},
+    operationalStatus: ProviderOperationalStatus.PROBATIONARY,
+    serviceOfferings: [],
+    isCurrentlyAvailable: false,
     isAlwaysAvailable: false,
-    safetyMeasures: {
-      requiresDeposit: false,
-      hasInsurance: false,
-      emergencyContactVerified: false,
-    },
+    requireInitialDeposit: false,
   };
 };
 
@@ -426,11 +378,23 @@ export const ProviderProfileFormLogic: React.FC<ProviderProfileFormProps> = ({
 
   const handleSubmit = useCallback(async () => {
     clearAllErrors();
-
+    // Validate the form data
     if (!validateFormData(formState.formData)) {
+      toast.error("Validation failed. Errors:", formState.validationErrors);
+
+      // Scroll to first error
+      const firstErrorField = Object.keys(formState.validationErrors)[0];
+      toast.error(`First error field: ${firstErrorField}`, {
+        description: formState.validationErrors[firstErrorField],
+      });
+
       setFormState((prev) => ({
         ...prev,
-        submitError: "Please fix validation errors before submitting",
+        submitError: `Please fix validation errors: ${Object.values(
+          prev.validationErrors
+        )
+          .flat()
+          .join(", ")}`,
       }));
       return;
     }
@@ -443,9 +407,14 @@ export const ProviderProfileFormLogic: React.FC<ProviderProfileFormProps> = ({
 
     try {
       if (mode === "create" && createProfile) {
-        const response = await createProfile(
-          formState.formData as CreateProviderProfileRequestBody
-        );
+        // Transform serviceOfferings to just string array of IDs
+        const dataToSubmit = {
+          ...formState.formData,
+          serviceOfferings:
+            formState.formData.serviceOfferings?.map((s) => s._id) || [],
+        } as unknown as CreateProviderProfileRequestBody;
+
+        const response = await createProfile(dataToSubmit);
 
         setFormState((prev) => ({
           ...prev,
@@ -463,12 +432,23 @@ export const ProviderProfileFormLogic: React.FC<ProviderProfileFormProps> = ({
           }, 1500);
         }
       } else if (mode === "edit" && updateProfile) {
-        await updateProfile(
-          formState.formData as UpdateProviderProfileRequestBody
+        // Transform serviceOfferings to just string array of IDs
+        const dataToSubmit = {
+          ...formState.formData,
+          serviceOfferings:
+            formState.formData.serviceOfferings?.map((s) => s._id) || [],
+        } as unknown as UpdateProviderProfileRequestBody;
+
+        console.log(
+          "Updating with data:",
+          JSON.stringify(dataToSubmit, null, 2)
         );
+
+        await updateProfile(dataToSubmit);
         // Success handled in useEffect
       }
     } catch (error) {
+      console.error("Submission error:", error);
       const errorMessage =
         error instanceof Error ? error.message : "An unexpected error occurred";
       setFormState((prev) => ({
@@ -479,16 +459,17 @@ export const ProviderProfileFormLogic: React.FC<ProviderProfileFormProps> = ({
       onError?.(errorMessage);
     }
   }, [
+    clearAllErrors,
     formState.formData,
+    formState.validationErrors,
+    validateFormData,
     mode,
     createProfile,
     updateProfile,
-    onSuccess,
-    onError,
     redirectOnSuccess,
+    onSuccess,
     router,
-    validateFormData,
-    clearAllErrors,
+    onError,
   ]);
 
   const resetForm = useCallback(() => {

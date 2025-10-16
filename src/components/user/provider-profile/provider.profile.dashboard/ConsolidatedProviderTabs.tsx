@@ -1,4 +1,4 @@
-// OverviewTab.tsx
+// ConsolidatedProviderTabs.tsx
 import React from "react";
 import {
   TrendingUp,
@@ -36,18 +36,18 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { ContactDetails, RiskLevel, Service, ServiceStatus } from "@/types";
+import { ProviderProfile, RiskLevel, Service, ServiceStatus } from "@/types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@radix-ui/react-dropdown-menu";
+import { Separator } from "@/components/ui/separator";
 import Image from "next/image";
 import { Badge } from "@/components/ui/badge";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from "recharts";
 import { useRouter } from "next/navigation";
-import { ExtendedProviderProfile } from "./ProviderDashboard";
+import { FileReference } from "@/lib/api/categories/categoryImage.api";
 
 interface OverviewTabProps {
-  profile: ExtendedProviderProfile;
+  profile: ProviderProfile;
   performanceData: Array<{
     month: string;
     jobs: number;
@@ -62,9 +62,16 @@ interface OverviewTabProps {
   showPerformanceMetrics?: boolean;
 }
 
+interface ContactInfo {
+  primaryContact?: string;
+  businessEmail?: string;
+  businessContact?: string;
+  secondaryContact?: string;
+}
+
 interface ProfileTabProps {
-  profile: ExtendedProviderProfile;
-  contactInfo?: ContactDetails;
+  profile: ProviderProfile;
+  contactInfo?: ContactInfo;
   hasContactInfo: boolean;
   hasBusinessInfo: boolean;
   hasWorkingHours: boolean;
@@ -175,10 +182,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   <XCircle className="h-4 w-4 text-red-500" />
                 </div>
                 <p className="text-2xl font-bold">
-                  {((metrics?.cancellationRate ?? 0) * 100).toFixed(1)}%
+                  {(metrics.cancellationRate * 100).toFixed(1)}%
                 </p>
                 <Progress
-                  value={(metrics?.cancellationRate ?? 0) * 100}
+                  value={metrics.cancellationRate * 100}
                   className="h-1.5"
                 />
               </div>
@@ -191,12 +198,9 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   <AlertTriangle className="h-4 w-4 text-orange-500" />
                 </div>
                 <p className="text-2xl font-bold">
-                  {((metrics?.disputeRate ?? 0) * 100).toFixed(1)}%
+                  {(metrics.disputeRate * 100).toFixed(1)}%
                 </p>
-                <Progress
-                  value={(metrics?.disputeRate ?? 0) * 100}
-                  className="h-1.5"
-                />
+                <Progress value={metrics.disputeRate * 100} className="h-1.5" />
               </div>
 
               <div className="space-y-2">
@@ -207,10 +211,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   <Phone className="h-4 w-4 text-blue-500" />
                 </div>
                 <p className="text-2xl font-bold">
-                  {((metrics?.clientRetentionRate ?? 0) * 100).toFixed(0)}%
+                  {(metrics.clientRetentionRate * 100).toFixed(0)}%
                 </p>
                 <Progress
-                  value={(metrics?.clientRetentionRate ?? 0) * 100}
+                  value={metrics.clientRetentionRate * 100}
                   className="h-1.5"
                 />
               </div>
@@ -223,10 +227,10 @@ export const OverviewTab: React.FC<OverviewTabProps> = ({
                   <Clock className="h-4 w-4 text-purple-500" />
                 </div>
                 <p className="text-2xl font-bold">
-                  {metrics?.responseTimeMinutes}m
+                  {metrics.responseTimeMinutes}m
                 </p>
                 <p className="text-xs text-slate-500">
-                  Avg: {metrics?.averageResponseTime}m
+                  Avg: {metrics.averageResponseTime}m
                 </p>
               </div>
             </div>
@@ -347,6 +351,22 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                         </div>
                       )}
 
+                      {contactInfo.businessContact && (
+                        <div className="flex items-start gap-3">
+                          <div className="h-9 w-9 rounded-lg bg-blue-100 dark:bg-blue-950/30 flex items-center justify-center flex-shrink-0">
+                            <Phone className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                              Business Contact
+                            </p>
+                            <p className="text-sm font-medium">
+                              {contactInfo.businessContact}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
                       {contactInfo.secondaryContact && (
                         <div className="flex items-start gap-3">
                           <div className="h-9 w-9 rounded-lg bg-blue-100 dark:bg-blue-950/30 flex items-center justify-center flex-shrink-0">
@@ -415,7 +435,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                               Registration Number
                             </p>
                             <p className="text-sm font-medium">
-                              {profile.businessRegistration.registrationNumber}
+                              {profile.businessRegistration}
                             </p>
                           </div>
                         </div>
@@ -430,9 +450,9 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
               </div>
             )}
 
-            {hasWorkingHours && (
+            {hasWorkingHours && profile.workingHours && (
               <>
-                <Separator />
+                <Separator className="my-6" />
                 <div>
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
@@ -449,47 +469,36 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                     )}
                   </div>
 
-                  {profile.workingHours && (
-                    <div className="space-y-2">
-                      {Object.entries(profile.workingHours).map(
-                        ([day, hours]) => (
-                          <div
-                            key={day}
-                            className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-900/50"
-                          >
-                            <div className="flex items-center gap-3">
-                              <div className="w-20">
-                                <span className="text-sm font-medium capitalize">
-                                  {day}
-                                </span>
-                              </div>
-                              {hours.isAvailable ? (
-                                <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-                                  <Clock className="h-4 w-4" />
-                                  <span>
-                                    {hours.start} - {hours.end}
-                                  </span>
-                                </div>
-                              ) : (
-                                <span className="text-sm text-slate-500 dark:text-slate-500">
-                                  Closed
-                                </span>
-                              )}
+                  <div className="space-y-2">
+                    {Object.entries(profile.workingHours).map(
+                      ([day, hours]) => (
+                        <div
+                          key={day}
+                          className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-900/50"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="w-20">
+                              <span className="text-sm font-medium capitalize">
+                                {day}
+                              </span>
                             </div>
-                            {hours.isAvailable ? (
-                              <Badge variant="success" className="text-xs">
-                                Open
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline" className="text-xs">
-                                Closed
-                              </Badge>
-                            )}
+                            <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                              <Clock className="h-4 w-4" />
+                              <span>
+                                {hours.start} - {hours.end}
+                              </span>
+                            </div>
                           </div>
-                        )
-                      )}
-                    </div>
-                  )}
+                          <Badge
+                            variant="default"
+                            className="text-xs bg-emerald-500"
+                          >
+                            Open
+                          </Badge>
+                        </div>
+                      )
+                    )}
+                  </div>
                 </div>
               </>
             )}
@@ -530,7 +539,7 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
 
                 {profile.lastRiskAssessmentDate && (
                   <>
-                    <Separator />
+                    <Separator className="my-4" />
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-slate-600 dark:text-slate-400">
                         Last Assessment
@@ -544,17 +553,17 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
                   </>
                 )}
 
-                {(profile?.penaltiesCount ?? 0) > 0 && (
+                {profile.penaltiesCount > 0 && (
                   <Alert variant="destructive">
                     <Ban className="h-4 w-4" />
                     <AlertDescription className="ml-2">
                       <div className="flex items-center justify-between">
                         <span className="font-semibold">Penalties</span>
                         <span className="text-lg font-bold">
-                          {profile.penaltiesCount ?? 0}
+                          {profile.penaltiesCount}
                         </span>
                       </div>
-                      {profile?.lastPenaltyDate && (
+                      {profile.lastPenaltyDate && (
                         <p className="text-xs mt-1">
                           Last:{" "}
                           {new Date(
@@ -569,83 +578,28 @@ export const ProfileTab: React.FC<ProfileTabProps> = ({
             </Card>
           )}
 
-          {/* Safety Measures */}
-          {profile.safetyMeasures && (
+          {/* Deposit Information */}
+          {profile.requireInitialDeposit && (
             <Card className="border-0 shadow-lg">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Shield className="h-5 w-5 text-blue-600" />
-                  Safety Measures
+                  Deposit Requirements
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-900/50">
                   <span className="text-sm font-medium">Requires Deposit</span>
-                  {profile.safetyMeasures.requiresDeposit ? (
-                    <CheckCircle className="h-5 w-5 text-emerald-600" />
-                  ) : (
-                    <XCircle className="h-5 w-5 text-slate-400" />
-                  )}
+                  <CheckCircle className="h-5 w-5 text-emerald-600" />
                 </div>
 
-                {profile.safetyMeasures.requiresDeposit &&
-                  profile.safetyMeasures.depositAmount && (
-                    <div className="pl-4 text-sm text-slate-600 dark:text-slate-400">
-                      Amount:{" "}
-                      <span className="font-semibold">
-                        GHS {profile.safetyMeasures.depositAmount}
-                      </span>
-                    </div>
-                  )}
-
-                <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-900/50">
-                  <span className="text-sm font-medium">Has Insurance</span>
-                  {profile.safetyMeasures.hasInsurance ? (
-                    <CheckCircle className="h-5 w-5 text-emerald-600" />
-                  ) : (
-                    <XCircle className="h-5 w-5 text-slate-400" />
-                  )}
-                </div>
-
-                <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-900/50">
-                  <span className="text-sm font-medium">
-                    Emergency Contact Verified
-                  </span>
-                  {profile.safetyMeasures.emergencyContactVerified ? (
-                    <CheckCircle className="h-5 w-5 text-emerald-600" />
-                  ) : (
-                    <XCircle className="h-5 w-5 text-slate-400" />
-                  )}
-                </div>
-
-                {profile.insurance && (
-                  <>
-                    <Separator />
-                    <div className="space-y-2">
-                      <div className="flex items-start gap-3">
-                        <div className="h-9 w-9 rounded-lg bg-blue-100 dark:bg-blue-950/30 flex items-center justify-center flex-shrink-0">
-                          <Shield className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-xs text-slate-500 dark:text-slate-400">
-                            Insurance Provider
-                          </p>
-                          <p className="text-sm font-medium">
-                            {profile.insurance.provider}
-                          </p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                            Policy: {profile.insurance.policyNumber}
-                          </p>
-                          <p className="text-xs text-slate-500 dark:text-slate-400">
-                            Expires:{" "}
-                            {new Date(
-                              profile.insurance.expiryDate
-                            ).toLocaleDateString()}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </>
+                {profile.percentageDeposit && (
+                  <div className="pl-4 text-sm text-slate-600 dark:text-slate-400">
+                    Deposit Amount:{" "}
+                    <span className="font-semibold text-lg">
+                      {profile.percentageDeposit}%
+                    </span>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -668,7 +622,7 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({
   onEdit,
 }) => {
   const router = useRouter();
-  console.log(services[0].slug);
+
   return (
     <div className="space-y-6">
       <Card className="border-0 shadow-lg">
@@ -704,7 +658,12 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({
                       {service.images && service.images.length > 0 ? (
                         <div className="relative w-full h-full">
                           <Image
-                            src={service.images[0]?.url ?? "/placeholder.png"}
+                            src={
+                              typeof service.images[0] === "string"
+                                ? service.images[0]
+                                : (service.images[0] as FileReference)?.url ??
+                                  "/placeholder.png"
+                            }
                             alt={service.title}
                             className="rounded-xl object-cover"
                             fill
@@ -741,22 +700,6 @@ export const ServicesTab: React.FC<ServicesTabProps> = ({
                           {service.description}
                         </p>
                       )}
-                      <div className="flex items-center gap-3 flex-wrap">
-                        {service.category && (
-                          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-slate-100 dark:bg-slate-800 text-xs text-slate-600 dark:text-slate-400">
-                            <span className="font-medium">Category:</span>
-                            <span>{service.category.name}</span>
-                          </div>
-                        )}
-                        {service.basePrice && (
-                          <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-emerald-100 dark:bg-emerald-950/30 text-xs text-emerald-700 dark:text-emerald-400">
-                            <span className="font-medium">Price:</span>
-                            <span className="font-semibold">
-                              GHS {service.basePrice}
-                            </span>
-                          </div>
-                        )}
-                      </div>
                     </div>
                   </div>
                 </div>

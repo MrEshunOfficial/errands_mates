@@ -27,12 +27,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
-import {
-  ProviderProfile,
-  ProviderOperationalStatus,
-  UserLocation,
-  ContactDetails,
-} from "@/types";
+import { ProviderProfile, ProviderOperationalStatus, Service } from "@/types";
 
 import {
   OverviewTab,
@@ -42,21 +37,8 @@ import {
 } from "./ConsolidatedProviderTabs";
 import { useRouter } from "next/navigation";
 
-export interface ExtendedProviderProfile extends Partial<ProviderProfile> {
-  profileId?: {
-    _id: string;
-    bio?: string;
-    location?: UserLocation;
-    contactDetails?: {
-      primaryContact?: string;
-      secondaryContact?: string;
-      businessEmail?: string;
-    };
-  };
-}
-
 interface ProviderProfileDashboardProps {
-  profile: ExtendedProviderProfile | null;
+  profile: ProviderProfile | null;
   loading?: boolean;
   error?: string | null;
   isOwnProfile?: boolean;
@@ -166,6 +148,7 @@ const ProviderProfileDashboard: React.FC<ProviderProfileDashboardProps> = ({
   const shouldShowEditControls = showEditControls ?? isOwnProfile;
   const shouldShowRiskAssessment = showRiskAssessment ?? isOwnProfile;
   const router = useRouter();
+
   const performanceData = useMemo(() => {
     return profile ? generatePerformanceData(profile) : [];
   }, [profile]);
@@ -182,34 +165,26 @@ const ProviderProfileDashboard: React.FC<ProviderProfileDashboardProps> = ({
     return profile?.serviceOfferings?.length ?? 0;
   }, [profile]);
 
-  // const isAvailable = useMemo(() => {
-  //   return profile?.isAvailableForWork ?? false;
-  // }, [profile]);
-
   const hasWorkingHours = useMemo(() => {
     const workingHours = profile?.workingHours;
     return !!workingHours && Object.keys(workingHours).length > 0;
   }, [profile]);
 
   const hasContactInfo = useMemo(() => {
-    return !!(
-      profile?.providerContactInfo || profile?.profileId?.contactDetails
-    );
+    return !!profile?.providerContactInfo?.businessContact;
   }, [profile]);
 
   const hasBusinessInfo = useMemo(() => {
     return !!(
-      profile?.businessName ||
-      profile?.businessRegistration ||
-      (profile?.serviceOfferings?.length ?? 0) > 0
+      profile?.businessName || (profile?.serviceOfferings?.length ?? 0) > 0
     );
   }, [profile]);
 
   const contactInfo = useMemo(() => {
-    if (profile?.providerContactInfo) {
-      return profile.providerContactInfo;
-    }
-    return profile?.profileId?.contactDetails;
+    return {
+      businessEmail: profile?.providerContactInfo?.businessEmail,
+      businessContact: profile?.providerContactInfo?.businessContact,
+    };
   }, [profile]);
 
   // Loading state
@@ -277,7 +252,13 @@ const ProviderProfileDashboard: React.FC<ProviderProfileDashboardProps> = ({
                   : "This provider profile could not be found or is not available."}
               </CardDescription>
               {isOwnProfile && (
-                <Button size="lg">Create Provider Profile</Button>
+                <Button
+                  size="lg"
+                  onClick={() => router.push("profile/provider-profile/create")}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Provider Profile
+                </Button>
               )}
             </CardContent>
           </Card>
@@ -307,10 +288,10 @@ const ProviderProfileDashboard: React.FC<ProviderProfileDashboardProps> = ({
               <span className="text-slate-300 dark:text-slate-700">•</span>
               <span className="flex items-center gap-1">
                 <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
-                {metrics?.averageRating.toFixed(1)} Rating
+                {metrics.averageRating.toFixed(1)} Rating
               </span>
               <span className="text-slate-300 dark:text-slate-700">•</span>
-              <span>{metrics?.totalJobs} Jobs Completed</span>
+              <span>{metrics.totalJobs} Jobs Completed</span>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -322,21 +303,10 @@ const ProviderProfileDashboard: React.FC<ProviderProfileDashboardProps> = ({
                 {profile.operationalStatus.replace("_", " ").toUpperCase()}
               </Badge>
             )}
-            {shouldShowEditControls && onEdit && !profile ? (
+            {shouldShowEditControls && onEdit && (
               <Button variant="outline" size="sm" onClick={onEdit}>
                 <Edit className="h-4 w-4 mr-2" />
-                Edit
-              </Button>
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  router.push("profile/provider-profile/create");
-                }}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                Create Business Profile
+                Edit Profile
               </Button>
             )}
           </div>
@@ -356,18 +326,18 @@ const ProviderProfileDashboard: React.FC<ProviderProfileDashboardProps> = ({
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-slate-900 dark:text-slate-100">
-                  {metrics?.averageRating.toFixed(1)}
+                  {metrics.averageRating.toFixed(1)}
                 </div>
                 <div className="flex items-center mt-2 text-sm text-emerald-600 dark:text-emerald-400">
                   <TrendingUp className="h-4 w-4 mr-1" />
-                  <span>Based on {metrics?.totalJobs} jobs</span>
+                  <span>Based on {metrics.totalJobs} jobs</span>
                 </div>
                 <div className="flex gap-1 mt-3">
                   {[...Array(5)].map((_, i) => (
                     <Star
                       key={i}
                       className={`h-4 w-4 ${
-                        i < Math.floor(metrics?.averageRating ?? 0)
+                        i < Math.floor(metrics.averageRating)
                           ? "text-amber-500 fill-amber-500"
                           : "text-slate-300 dark:text-slate-700"
                       }`}
@@ -388,10 +358,10 @@ const ProviderProfileDashboard: React.FC<ProviderProfileDashboardProps> = ({
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-slate-900 dark:text-slate-100">
-                  {((metrics?.completionRate ?? 0) * 100).toFixed(0)}%
+                  {(metrics.completionRate * 100).toFixed(0)}%
                 </div>
                 <Progress
-                  value={(metrics?.completionRate ?? 0) * 100}
+                  value={metrics.completionRate * 100}
                   className="mt-3 h-2"
                 />
                 <p className="text-xs text-slate-600 dark:text-slate-400 mt-2">
@@ -411,18 +381,18 @@ const ProviderProfileDashboard: React.FC<ProviderProfileDashboardProps> = ({
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-slate-900 dark:text-slate-100">
-                  {metrics?.averageResponseTime}
+                  {metrics.averageResponseTime}
                   <span className="text-lg text-slate-500 dark:text-slate-400 ml-1">
                     min
                   </span>
                 </div>
                 <div className="flex items-center mt-2">
-                  {(metrics?.averageResponseTime ?? 0) < 30 ? (
+                  {metrics.averageResponseTime < 30 ? (
                     <Badge variant="default" className="bg-emerald-500">
                       <Zap className="h-3 w-3 mr-1" />
                       Excellent
                     </Badge>
-                  ) : (metrics?.averageResponseTime ?? 0) < 60 ? (
+                  ) : metrics.averageResponseTime < 60 ? (
                     <Badge variant="secondary">Good</Badge>
                   ) : (
                     <Badge variant="destructive">Needs improvement</Badge>
@@ -442,14 +412,14 @@ const ProviderProfileDashboard: React.FC<ProviderProfileDashboardProps> = ({
               </CardHeader>
               <CardContent>
                 <div className="text-3xl font-bold text-slate-900 dark:text-slate-100">
-                  {metrics?.totalJobs}
+                  {metrics.totalJobs}
                 </div>
                 <div className="flex items-center justify-between mt-3 text-sm">
                   <span className="text-slate-600 dark:text-slate-400">
                     Retention:
                   </span>
                   <span className="font-semibold text-slate-900 dark:text-slate-100">
-                    {((metrics?.clientRetentionRate ?? 0) * 100).toFixed(0)}%
+                    {(metrics.clientRetentionRate * 100).toFixed(0)}%
                   </span>
                 </div>
               </CardContent>
@@ -503,7 +473,7 @@ const ProviderProfileDashboard: React.FC<ProviderProfileDashboardProps> = ({
             <TabsContent value="profile" className="space-y-6">
               <ProfileTab
                 profile={profile}
-                contactInfo={contactInfo as ContactDetails}
+                contactInfo={contactInfo}
                 hasContactInfo={hasContactInfo}
                 hasBusinessInfo={hasBusinessInfo}
                 hasWorkingHours={hasWorkingHours}
@@ -517,7 +487,7 @@ const ProviderProfileDashboard: React.FC<ProviderProfileDashboardProps> = ({
           {visibleTabs.includes("services") && (
             <TabsContent value="services" className="space-y-6">
               <ServicesTab
-                services={profile.serviceOfferings || []}
+                services={(profile.serviceOfferings || []) as Service[]}
                 shouldShowEditControls={shouldShowEditControls}
                 onEdit={onEdit}
               />
