@@ -13,6 +13,9 @@ import {
   Star,
   Clock,
   AlertTriangle,
+  Briefcase,
+  Package,
+  MessageCircle,
 } from "lucide-react";
 
 interface ClientProfileCardProps {
@@ -62,8 +65,7 @@ export const ClientProfileCard = ({
           </div>
           <Badge
             variant={statusBadge.color === "green" ? "default" : "secondary"}
-            className="text-xs px-3 py-1 font-medium bg-green-600 dark:bg-green-700 text-white dark:text-gray-100"
-          >
+            className="text-xs px-3 py-1 font-medium bg-green-600 dark:bg-green-700 text-white dark:text-gray-100">
             {statusBadge.label}
           </Badge>
         </div>
@@ -82,8 +84,7 @@ export const ClientProfileCard = ({
               </p>
               <p
                 className="text-base font-bold capitalize"
-                style={{ color: loyaltyColor }}
-              >
+                style={{ color: loyaltyColor }}>
                 {profile.loyaltyTier || "Bronze"}
               </p>
             </div>
@@ -184,8 +185,7 @@ export const ClientReliabilityScore = ({
       <CardContent className="pt-6 space-y-6">
         {/* Main Score */}
         <div
-          className={`text-center space-y-3 p-6 rounded-2xl bg-gradient-to-br ${scoreBg}`}
-        >
+          className={`text-center space-y-3 p-6 rounded-2xl bg-gradient-to-br ${scoreBg}`}>
           <div className={`text-7xl font-black ${scoreColor} tracking-tight`}>
             {score.toFixed(0)}
           </div>
@@ -341,8 +341,7 @@ export const ClientActivityTimeline = ({
           {activities.map((activity, index) => (
             <div
               key={index}
-              className={`flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r ${activity.bgColor} border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow`}
-            >
+              className={`flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r ${activity.bgColor} border border-gray-100 dark:border-gray-700 hover:shadow-md transition-shadow`}>
               <div className={`p-3 rounded-xl ${activity.iconBg} shadow-sm`}>
                 <activity.icon className={`h-5 w-5 ${activity.color}`} />
               </div>
@@ -415,8 +414,7 @@ export const ClientRiskIndicator = ({
       <Badge
         variant="outline"
         style={{ borderColor: riskColor, color: riskColor }}
-        className="capitalize font-semibold text-gray-900 dark:text-gray-100"
-      >
+        className="capitalize font-semibold text-gray-900 dark:text-gray-100">
         {profile.riskLevel || "Low"} Risk
       </Badge>
     );
@@ -434,8 +432,7 @@ export const ClientRiskIndicator = ({
       </CardHeader>
       <CardContent className="pt-6 space-y-4">
         <div
-          className={`p-5 rounded-xl bg-gradient-to-br ${getRiskBg()} border border-gray-100 dark:border-gray-700`}
-        >
+          className={`p-5 rounded-xl bg-gradient-to-br ${getRiskBg()} border border-gray-100 dark:border-gray-700`}>
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm font-bold text-gray-700 dark:text-gray-200 uppercase tracking-wide">
               Risk Level
@@ -447,8 +444,7 @@ export const ClientRiskIndicator = ({
                 color: riskColor,
                 backgroundColor: "white",
               }}
-              className="capitalize text-base font-bold px-3 py-1 bg-white dark:bg-gray-700"
-            >
+              className="capitalize text-base font-bold px-3 py-1 bg-white dark:bg-gray-700">
               {profile.riskLevel || "Low"}
             </Badge>
           </div>
@@ -482,8 +478,7 @@ export const ClientRiskIndicator = ({
               </span>
               <span
                 className="text-3xl font-black"
-                style={{ color: riskColor }}
-              >
+                style={{ color: riskColor }}>
                 {profile.trustScore}
                 <span className="text-lg text-gray-400 dark:text-gray-500">
                   /100
@@ -499,7 +494,11 @@ export const ClientRiskIndicator = ({
 
 // components/client/ClientPreferences.tsx
 import { MessageSquare, Phone, Mail } from "lucide-react";
-import { VerificationStatus } from "@/types/client-profile.types";
+import {
+  isPreferredService,
+  PreferredService,
+  VerificationStatus,
+} from "@/types/client-profile.types";
 
 interface ClientPreferencesProps {
   profile: Partial<ClientProfile>;
@@ -514,9 +513,17 @@ export const ClientPreferences = ({ profile }: ClientPreferencesProps) => {
         );
       case "email":
         return <Mail className="h-5 w-5 text-blue-600 dark:text-blue-400" />;
+      case "sms":
+        return (
+          <MessageCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+        );
+      case "whatsapp":
+        return (
+          <MessageSquare className="h-5 w-5 text-green-600 dark:text-green-400" />
+        );
       default:
         return (
-          <MessageSquare className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+          <Phone className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
         );
     }
   };
@@ -527,6 +534,10 @@ export const ClientPreferences = ({ profile }: ClientPreferencesProps) => {
         return "from-purple-50 to-pink-50 dark:from-purple-900/50 dark:to-pink-900/50";
       case "email":
         return "from-blue-50 to-cyan-50 dark:from-blue-900/50 dark:to-cyan-900/50";
+      case "sms":
+        return "from-green-50 to-emerald-50 dark:from-green-900/50 dark:to-emerald-900/50";
+      case "whatsapp":
+        return "from-green-50 to-teal-50 dark:from-green-900/50 dark:to-teal-900/50";
       default:
         return "from-indigo-50 to-purple-50 dark:from-indigo-900/50 dark:to-purple-900/50";
     }
@@ -544,8 +555,7 @@ export const ClientPreferences = ({ profile }: ClientPreferencesProps) => {
           <div
             className={`p-5 rounded-xl bg-gradient-to-br ${getContactBg(
               profile.preferredContactMethod
-            )} border border-gray-100 dark:border-gray-700`}
-          >
+            )} border border-gray-100 dark:border-gray-700`}>
             <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
               Preferred Contact Method
             </p>
@@ -554,11 +564,190 @@ export const ClientPreferences = ({ profile }: ClientPreferencesProps) => {
                 {getContactIcon(profile.preferredContactMethod)}
               </div>
               <span className="text-base font-bold text-gray-900 dark:text-gray-100 capitalize">
-                {profile.preferredContactMethod}
+                {profile.preferredContactMethod === "all"
+                  ? "Any Preferred Method"
+                  : profile.preferredContactMethod}
               </span>
             </div>
           </div>
         )}
+      </CardContent>
+    </Card>
+  );
+};
+
+interface ClientServicesCardProps {
+  profile: Partial<ClientProfile>;
+}
+
+export const ClientServicesCard = ({ profile }: ClientServicesCardProps) => {
+  // Filter to only show populated services
+  const services = (profile.preferredServices || []).filter(
+    isPreferredService
+  ) as PreferredService[];
+
+  if (services.length === 0) {
+    return (
+      <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
+        <CardHeader className="border-b border-gray-200 dark:border-gray-700">
+          <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
+            <div className="p-2 rounded-lg bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900/50 dark:to-gray-800/50 shadow-sm">
+              <Briefcase className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            Preferred Services
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <div className="text-center py-8">
+            <Package className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              No preferred services selected yet
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
+      <CardHeader className="border-b border-gray-200 dark:border-gray-700">
+        <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
+          <div className="p-2 rounded-lg bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/50 dark:to-indigo-900/50 shadow-sm">
+            <Briefcase className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+          </div>
+          Preferred Services
+          <Badge variant="secondary" className="ml-auto">
+            {services.length}
+          </Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-6">
+        <div className="space-y-4">
+          {services.map((service) => (
+            <div
+              key={service._id}
+              className="p-4 rounded-xl bg-gradient-to-br from-gray-50 to-gray-100/50 dark:from-gray-900/50 dark:to-gray-800/50 border border-gray-100 dark:border-gray-700 hover:shadow-md transition-all">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-white dark:bg-gray-700 shadow-sm mt-0.5">
+                  <Package className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-base font-bold text-gray-900 dark:text-gray-100 mb-1">
+                    {service.title}
+                  </h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">
+                    {service.description}
+                  </p>
+                  <div className="flex items-center gap-2 mt-2">
+                    <div className="flex items-center gap-2 mt-2">
+                      <Link
+                        href={`/services/${service.slug}`}
+                        className="group">
+                        <Badge
+                          variant="outline"
+                          className="text-xs px-3 py-1.5 cursor-pointer transition-all duration-200 border-primary/30 hover:shadow-md group-hover:scale-105">
+                          Explore →
+                        </Badge>
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+// components/client/ClientProvidersCard.tsx
+import { Building2, Store } from "lucide-react";
+import {
+  isPreferredProvider,
+  PreferredProvider,
+} from "@/types/client-profile.types";
+import Link from "next/link";
+
+interface ClientProvidersCardProps {
+  profile: Partial<ClientProfile>;
+}
+
+export const ClientProvidersCard = ({ profile }: ClientProvidersCardProps) => {
+  // Filter to only show populated providers
+  const providers = (profile.preferredProviders || []).filter(
+    isPreferredProvider
+  ) as PreferredProvider[];
+
+  if (providers.length === 0) {
+    return (
+      <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
+        <CardHeader className="border-b border-gray-200 dark:border-gray-700">
+          <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
+            <div className="p-2 rounded-lg bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900/50 dark:to-gray-800/50 shadow-sm">
+              <Building2 className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+            </div>
+            Preferred Providers
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <div className="text-center py-8">
+            <Store className="h-12 w-12 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              No preferred providers selected yet
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="border-0 shadow-lg bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm">
+      <CardHeader className="border-b border-gray-200 dark:border-gray-700">
+        <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-gray-100">
+          <div className="p-2 rounded-lg bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/50 dark:to-pink-900/50 shadow-sm">
+            <Building2 className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+          </div>
+          Preferred Providers
+          <Badge variant="secondary" className="ml-auto">
+            {providers.length}
+          </Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-6">
+        <div className="space-y-4">
+          {providers.map((provider) => (
+            <div
+              key={provider._id}
+              className="p-4 rounded-xl bg-gradient-to-br from-purple-50 to-pink-50/50 dark:from-purple-900/50 dark:to-pink-900/50 border border-purple-100 dark:border-purple-800 hover:shadow-md transition-all">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-white dark:bg-gray-700 shadow-sm mt-0.5">
+                  <Store className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-base font-bold text-gray-900 dark:text-gray-100 mb-1">
+                    {provider.businessName}
+                  </h4>
+                  <div className="flex items-center gap-2 mt-2">
+                    <div className="flex items-center gap-2 mt-2">
+                      <Link
+                        href={`/providers/${provider._id}`}
+                        className="group">
+                        <Badge
+                          variant="outline"
+                          className="text-xs px-3 py-1.5 cursor-pointer transition-all duration-200 border-primary/30 hover:shadow-md group-hover:scale-105">
+                          Explore →
+                        </Badge>
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </CardContent>
     </Card>
   );

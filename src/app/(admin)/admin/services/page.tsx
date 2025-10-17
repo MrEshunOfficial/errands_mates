@@ -1,6 +1,6 @@
 import React from "react";
 import Link from "next/link";
-import AdminServiceTable from "@/components/admin/services/admin.service.list";
+import AdminServiceTable from "@/components/services/admin.service.list";
 
 export default function ServiceListPage() {
   return (
@@ -10,8 +10,7 @@ export default function ServiceListPage() {
         <nav className="flex items-center space-x-2 text-sm text-muted-foreground">
           <Link
             href="/admin"
-            className="hover:text-foreground transition-colors"
-          >
+            className="hover:text-foreground transition-colors">
             Admin
           </Link>
           <span>/</span>

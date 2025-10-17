@@ -264,8 +264,7 @@ export const ClientProfileForm: React.FC<ClientProfileFormProps> = ({
                 ...formData,
                 preferredContactMethod: value,
               })
-            }
-          >
+            }>
             <SelectTrigger className="bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700">
               <SelectValue placeholder="Select contact method" />
             </SelectTrigger>
@@ -274,6 +273,7 @@ export const ClientProfileForm: React.FC<ClientProfileFormProps> = ({
               <SelectItem value="phone">Phone</SelectItem>
               <SelectItem value="sms">SMS</SelectItem>
               <SelectItem value="whatsapp">WhatsApp</SelectItem>
+              <SelectItem value="all">Any Preferred Method</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -314,8 +314,7 @@ export const ClientProfileForm: React.FC<ClientProfileFormProps> = ({
             <div className="relative">
               <div
                 className="absolute top-0 left-0 right-0 max-h-64 overflow-y-auto border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 shadow-lg z-10"
-                onMouseLeave={() => setShowServiceDropdown(false)}
-              >
+                onMouseLeave={() => setShowServiceDropdown(false)}>
                 {services.length > 0 ? (
                   filteredServices.map((service) => {
                     const serviceIdStr = service._id?.toString() || "";
@@ -333,8 +332,7 @@ export const ClientProfileForm: React.FC<ClientProfileFormProps> = ({
                         }}
                         className={`w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-start justify-between border-b border-gray-100 dark:border-gray-700 last:border-b-0 ${
                           isSelected ? "bg-blue-50 dark:bg-blue-900/20" : ""
-                        }`}
-                      >
+                        }`}>
                         <div className="flex-1">
                           <div className="font-medium text-sm text-gray-900 dark:text-gray-100">
                             {service.title}
@@ -370,18 +368,16 @@ export const ClientProfileForm: React.FC<ClientProfileFormProps> = ({
                   return (
                     <Badge
                       key={serviceIdStr}
-                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 dark:bg-blue-700 text-white hover:bg-blue-700 dark:hover:bg-blue-600"
-                    >
+                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-600 dark:bg-blue-700 text-white hover:bg-blue-700 dark:hover:bg-blue-600">
                       <span className="text-sm">
                         {service?.title || serviceIdStr}
                       </span>
-                      <button
+                      <Button
                         type="button"
                         onClick={() => removeService(serviceIdStr)}
-                        className="hover:bg-blue-500 dark:hover:bg-blue-600 rounded p-0.5 transition-colors"
-                      >
+                        className="hover:bg-blue-500 dark:hover:bg-blue-600 rounded p-0.5 transition-colors">
                         <X className="h-3 w-3" />
-                      </button>
+                      </Button>
                     </Badge>
                   );
                 })}
@@ -431,8 +427,7 @@ export const ClientProfileForm: React.FC<ClientProfileFormProps> = ({
             <div className="relative">
               <div
                 className="absolute top-0 left-0 right-0 max-h-64 overflow-y-auto border border-gray-300 dark:border-gray-700 rounded-md bg-white dark:bg-gray-800 shadow-lg z-10"
-                onMouseLeave={() => setShowProviderDropdown(false)}
-              >
+                onMouseLeave={() => setShowProviderDropdown(false)}>
                 {providers.length > 0 ? (
                   <>
                     {filteredProviders.map((provider) => {
@@ -453,8 +448,7 @@ export const ClientProfileForm: React.FC<ClientProfileFormProps> = ({
                             isSelected
                               ? "bg-emerald-50 dark:bg-emerald-900/20"
                               : ""
-                          }`}
-                        >
+                          }`}>
                           <div className="flex-1">
                             <div className="font-medium text-sm text-gray-900 dark:text-gray-100">
                               {provider.businessName}
@@ -480,8 +474,7 @@ export const ClientProfileForm: React.FC<ClientProfileFormProps> = ({
                         type="button"
                         onClick={() => loadMore()}
                         disabled={loadingProviders}
-                        className="w-full px-4 py-2 text-center text-sm text-blue-600 dark:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-t border-gray-100 dark:border-gray-700"
-                      >
+                        className="w-full px-4 py-2 text-center text-sm text-blue-600 dark:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-t border-gray-100 dark:border-gray-700">
                         {loadingProviders ? (
                           <span className="flex items-center justify-center gap-2">
                             <Loader2 size={16} className="animate-spin" />
@@ -512,18 +505,16 @@ export const ClientProfileForm: React.FC<ClientProfileFormProps> = ({
                   return (
                     <Badge
                       key={providerIdStr}
-                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-600 dark:bg-emerald-700 text-white hover:bg-emerald-700 dark:hover:bg-emerald-600"
-                    >
+                      className="inline-flex items-center gap-2 px-3 py-1.5 bg-emerald-600 dark:bg-emerald-700 text-white hover:bg-emerald-700 dark:hover:bg-emerald-600">
                       <span className="text-sm">
                         {provider?.businessName || providerIdStr}
                       </span>
-                      <button
+                      <Button
                         type="button"
                         onClick={() => removeProvider(providerIdStr)}
-                        className="hover:bg-emerald-500 dark:hover:bg-emerald-600 rounded p-0.5 transition-colors"
-                      >
+                        className="hover:bg-emerald-500 dark:hover:bg-emerald-600 rounded p-0.5 transition-colors">
                         <X className="h-3 w-3" />
-                      </button>
+                      </Button>
                     </Badge>
                   );
                 })}
@@ -537,8 +528,7 @@ export const ClientProfileForm: React.FC<ClientProfileFormProps> = ({
             isCreateMode
               ? "pt-4 border-t border-gray-200 dark:border-gray-800"
               : "pt-4"
-          }
-        >
+          }>
           {isCreateMode && (
             <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
               You can update these preferences anytime from your dashboard
@@ -549,8 +539,7 @@ export const ClientProfileForm: React.FC<ClientProfileFormProps> = ({
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
-            >
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white">
               {isSubmitting && (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               )}
@@ -562,8 +551,7 @@ export const ClientProfileForm: React.FC<ClientProfileFormProps> = ({
                 onClick={onCancel}
                 disabled={isSubmitting}
                 variant="outline"
-                className="flex-1 border-gray-300 dark:border-gray-700"
-              >
+                className="flex-1 border-gray-300 dark:border-gray-700">
                 Cancel
               </Button>
             )}

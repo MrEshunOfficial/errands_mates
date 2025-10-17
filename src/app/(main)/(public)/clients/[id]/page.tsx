@@ -13,7 +13,7 @@ import {
   Award,
   Activity,
   Calendar,
-  Eye,
+  InfoIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -21,8 +21,11 @@ import {
   ClientProfileCard,
   ClientPreferences,
   ClientRiskIndicator,
+  ClientServicesCard,
 } from "@/components/user/dashboard/client.dashboard/ClientDashboard";
 import { usePublicClientProfile } from "@/hooks/clientProfiles/use-public-client-profile";
+import { ClientProfile, isProfileIdObject, isUserIdObject } from "@/types";
+import Image from "next/image";
 
 export default function PublicClientProfilePage() {
   const params = useParams();
@@ -65,23 +68,20 @@ export default function PublicClientProfilePage() {
           <Button
             variant="ghost"
             onClick={() => router.back()}
-            className="mb-6"
-          >
+            className="mb-6">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Go Back
           </Button>
           <Alert
             variant="destructive"
-            className="bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800"
-          >
+            className="bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800">
             <AlertDescription className="text-red-800 dark:text-red-200">
               {error}
             </AlertDescription>
           </Alert>
           <Button
             onClick={clearError}
-            className="mt-4 bg-blue-600 hover:bg-blue-700 text-white"
-          >
+            className="mt-4 bg-blue-600 hover:bg-blue-700 text-white">
             Try Again
           </Button>
         </div>
@@ -96,8 +96,7 @@ export default function PublicClientProfilePage() {
           <Button
             variant="ghost"
             onClick={() => router.back()}
-            className="mb-6"
-          >
+            className="mb-6">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Go Back
           </Button>
@@ -111,6 +110,50 @@ export default function PublicClientProfilePage() {
     );
   }
 
+  // Helper function to safely extract user name
+  const getUserName = (profile: Partial<ClientProfile>): string => {
+    if (profile.profileId && isProfileIdObject(profile.profileId)) {
+      const userId = profile.profileId.userId;
+      if (userId && isUserIdObject(userId)) {
+        return userId.name;
+      }
+    }
+    return "Client Profile";
+  };
+
+  // Helper function to safely extract profile picture
+  const getProfilePicture = (
+    profile: Partial<ClientProfile>
+  ): string | null => {
+    if (profile.profileId && isProfileIdObject(profile.profileId)) {
+      return profile.profileId.profilePicture?.url || null;
+    }
+    return null;
+  };
+
+  // Helper function to safely extract location
+  const getLocation = (profile: Partial<ClientProfile>): string | null => {
+    if (profile.profileId && isProfileIdObject(profile.profileId)) {
+      const location = profile.profileId.location;
+      if (location?.city) return location.city;
+      if (location?.region) return location.region;
+    }
+    return null;
+  };
+
+  // helper function to safely extract bio
+  const getBio = (profile: Partial<ClientProfile>): string | null => {
+    if (profile.profileId && isProfileIdObject(profile.profileId)) {
+      return profile.profileId.bio || null;
+    }
+    return null;
+  };
+
+  const userName = getUserName(profile);
+  const profilePicture = getProfilePicture(profile);
+  const location = getLocation(profile);
+  const bio = getBio(profile);
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       {/* Header Section */}
@@ -119,21 +162,47 @@ export default function PublicClientProfilePage() {
           <Button
             variant="ghost"
             onClick={() => router.back()}
-            className="mb-4"
-          >
+            className="mb-4">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
           </Button>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                Client Profile
-              </h1>
-              <div className="flex items-center gap-2 mt-2">
-                <Eye className="h-4 w-4 text-gray-500" />
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Public view • Limited information available
-                </p>
+            <div className="flex items-center gap-4">
+              {/* Profile Picture */}
+              {profilePicture ? (
+                <Image
+                  src={profilePicture}
+                  alt={userName}
+                  className="w-16 h-16 rounded-full object-cover border-2 border-gray-200 dark:border-gray-700"
+                  width={64}
+                  height={64}
+                />
+              ) : (
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center">
+                  <span className="text-white text-xl font-semibold">
+                    {userName?.charAt(0)?.toUpperCase() || "?"}
+                  </span>
+                </div>
+              )}
+
+              {/* Header Info */}
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+                  {userName}
+                </h1>
+                <div className="flex items-center gap-2 mt-2">
+                  <InfoIcon className="h-4 w-4 text-gray-500" />
+                  {bio && (
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {bio.charAt(0).toUpperCase() + bio.slice(1)}
+                    </p>
+                  )}
+                </div>
+                {location && (
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                    📍 {location}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -141,7 +210,7 @@ export default function PublicClientProfilePage() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="p-4">
         {/* Stats Grid - Top Priority */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <Card className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
@@ -171,9 +240,6 @@ export default function PublicClientProfilePage() {
                   </p>
                   <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">
                     {profile.averageRating?.toFixed(1) ?? "N/A"}
-                  </p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    / 5.0
                   </p>
                 </div>
                 <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg flex items-center justify-center">
@@ -224,7 +290,7 @@ export default function PublicClientProfilePage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
           {/* Left Column - Profile and Preferences */}
           <div className="lg:col-span-2 space-y-8">
-            <ClientProfileCard profile={profile} isPublicView />
+            <ClientProfileCard profile={profile} />
             <ClientPreferences profile={profile} />
           </div>
 
@@ -270,114 +336,24 @@ export default function PublicClientProfilePage() {
                     </span>
                   </div>
                 )}
+                {profile.warningsCount !== undefined && (
+                  <div className="flex justify-between items-center text-sm pt-2 border-t border-gray-200 dark:border-gray-700">
+                    <span className="text-gray-600 dark:text-gray-400">
+                      Active Warnings
+                    </span>
+                    <span className="font-medium text-gray-900 dark:text-gray-100">
+                      {profile.warningsCount}
+                    </span>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
         </div>
 
-        {/* Bottom Section - Reliability Metrics */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <Card className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
-            <CardHeader className="border-b border-gray-200 dark:border-gray-800 pb-4">
-              <CardTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                <Shield className="h-5 w-5" />
-                Reliability Metrics
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6 space-y-6">
-              {profile.trustScore !== undefined && (
-                <div className="p-6 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
-                  <div className="flex items-center gap-3 mb-2">
-                    <Shield className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                    <p className="text-sm font-medium text-emerald-900 dark:text-emerald-100">
-                      Trust Score
-                    </p>
-                  </div>
-                  <p className="text-4xl font-bold text-emerald-900 dark:text-emerald-100">
-                    {profile.trustScore.toFixed(1)}
-                  </p>
-                  <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-2">
-                    High trust indicates reliable client behavior
-                  </p>
-                </div>
-              )}
-              {profile.averageRating !== undefined && (
-                <div className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                  <div className="flex items-center gap-3 mb-2">
-                    <Activity className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                    <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                      Average Rating
-                    </p>
-                  </div>
-                  <p className="text-4xl font-bold text-blue-900 dark:text-blue-100">
-                    {profile.averageRating.toFixed(1)} / 5.0
-                  </p>
-                  <p className="text-xs text-blue-700 dark:text-blue-300 mt-2">
-                    Based on {profile.totalReviews || 0} verified reviews
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800">
-            <CardHeader className="border-b border-gray-200 dark:border-gray-800 pb-4">
-              <CardTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Activity Summary
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-6">
-              <div className="space-y-6">
-                <div className="p-6 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                        Total Reviews
-                      </p>
-                      <p className="text-3xl font-bold text-gray-900 dark:text-gray-100 mt-1">
-                        {profile.totalReviews ?? 0}
-                      </p>
-                    </div>
-                    <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                      <TrendingUp className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-3">
-                  {profile.loyaltyTier && (
-                    <div className="flex justify-between items-center p-3 bg-amber-50 dark:bg-amber-900/10 rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <Award className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                        <span className="text-sm text-gray-600 dark:text-gray-400">
-                          Loyalty Status
-                        </span>
-                      </div>
-                      <span className="font-semibold text-amber-700 dark:text-amber-300 capitalize">
-                        {profile.loyaltyTier}
-                      </span>
-                    </div>
-                  )}
-                  {profile.memberSince && (
-                    <div className="flex justify-between items-center p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">
-                        Account Age
-                      </span>
-                      <span className="font-medium text-gray-900 dark:text-gray-100">
-                        {Math.floor(
-                          (new Date().getTime() -
-                            new Date(profile.memberSince).getTime()) /
-                            (1000 * 60 * 60 * 24 * 30)
-                        )}{" "}
-                        months
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+        {/* Services Section */}
+        <div className="mb-8">
+          <ClientServicesCard profile={profile} />
         </div>
       </div>
     </div>

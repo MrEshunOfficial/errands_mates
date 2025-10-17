@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/popover";
 import Link from "next/link";
 import { ProviderProfile } from "@/types";
+import { Button } from "../ui/button";
 
 // Extended Service type with populated providers
 export interface ServiceWithProviders extends Omit<Service, "providers"> {
@@ -195,8 +196,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
           <span
             key={`${tag}-${index}`}
             className="inline-flex items-center px-2 py-0.5 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 text-gray-700 dark:text-gray-300 text-xs font-medium rounded-full border border-gray-200/50 dark:border-gray-600/50 hover:shadow-sm transition-all duration-200 hover:scale-105 cursor-default"
-            title={tag}
-          >
+            title={tag}>
             <span className="capitalize truncate max-w-[60px]">{tag}</span>
           </span>
         ))}
@@ -206,8 +206,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
             className="inline-flex items-center px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-semibold rounded-full border border-blue-200/50 dark:border-blue-800/50 cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
             title={`${hiddenTagsCount} more tags: ${service.tags
               .slice(maxVisibleTags)
-              .join(", ")}`}
-          >
+              .join(", ")}`}>
             +{hiddenTagsCount}
           </span>
         )}
@@ -224,8 +223,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
 
   return (
     <div
-      className={`flex flex-col group bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-200/50 dark:border-gray-800/50 hover:border-gray-300/50 dark:hover:border-gray-700/50 min-h-[300px] ${className}`}
-    >
+      className={`flex flex-col group bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden border border-gray-200/50 dark:border-gray-800/50 hover:border-gray-300/50 dark:hover:border-gray-700/50 min-h-[300px] ${className}`}>
       <div className="relative flex-shrink-0 h-32 overflow-hidden">
         <Image
           src={getImageUrl()}
@@ -244,8 +242,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
           <span
             className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium border backdrop-blur-sm ${getStatusColor(
               service.status
-            )}`}
-          >
+            )}`}>
             <div className="w-1 h-1 rounded-full bg-current mr-1" />
             {getStatusLabel(service.status)}
           </span>
@@ -262,8 +259,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
           <button
             onClick={handleShare}
             className="bg-white/90 dark:bg-gray-900/90 hover:bg-white dark:hover:bg-gray-900 backdrop-blur-sm p-1 rounded-full transition-all duration-200 hover:shadow-md group/share"
-            title="Share this service"
-          >
+            title="Share this service">
             <Share2 className="w-3 h-3 text-gray-700 dark:text-gray-300 group-hover/share:text-blue-600 dark:group-hover/share:text-blue-400 transition-colors" />
           </button>
         </div>
@@ -271,8 +267,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
         <div className="absolute bottom-1.5 right-1.5">
           <div
             className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm px-1.5 py-0.5 rounded cursor-help transition-all duration-200 hover:bg-white dark:hover:bg-gray-900 hover:shadow-md"
-            title={getPriceTooltip()}
-          >
+            title={getPriceTooltip()}>
             <div className="flex items-center text-xs">
               {hasPrice() ? (
                 <span className="font-bold text-gray-900 dark:text-gray-100">
@@ -308,8 +303,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
         <div className="mb-2 flex-shrink-0">
           <h2
             className="font-bold capitalize text-gray-900 dark:text-gray-100 line-clamp-2 hover:text-blue-600 dark:hover:text-blue-400 transition-colors cursor-pointer text-sm"
-            title={service.title}
-          >
+            title={service.title}>
             {service.title}
           </h2>
         </div>
@@ -329,8 +323,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
           <div className="flex gap-1.5 pt-2 border-t border-gray-100 dark:border-gray-800 flex-shrink-0 mt-auto">
             <button
               onClick={() => onView?.(service)}
-              className="flex-1 group/btn flex items-center justify-center bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-1.5 px-2 rounded-lg text-xs font-semibold transition-all duration-200 shadow-sm hover:shadow-md hover:shadow-blue-500/20"
-            >
+              className="flex-1 group/btn flex items-center justify-center bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-1.5 px-2 rounded-lg text-xs font-semibold transition-all duration-200 shadow-sm hover:shadow-md hover:shadow-blue-500/20">
               <Info className="w-3 h-3 mr-1 group-hover/btn:scale-110 transition-transform" />
               Details
             </button>
@@ -344,8 +337,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
                 className="w-96 p-1 shadow-2xl border-gray-200/50 dark:border-gray-800/50"
                 align="end"
                 side="top"
-                sideOffset={8}
-              >
+                sideOffset={8}>
                 <div className="p-4 border-b border-gray-100 dark:border-gray-800">
                   <h3 className="font-semibold text-gray-900 dark:text-gray-100">
                     Service Providers
@@ -371,8 +363,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
                           return (
                             <div
                               key={provider._id.toString()}
-                              className="flex gap-3 p-3 my-1.5 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-                            >
+                              className="flex gap-3 p-3 my-1.5 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                               <div className="flex-shrink-0">
                                 {providerImageUrl ? (
                                   <div className="relative w-10 h-10">
@@ -401,8 +392,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
                                   className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center"
                                   style={{
                                     display: providerImageUrl ? "none" : "flex",
-                                  }}
-                                >
+                                  }}>
                                   <Users className="w-5 h-5 text-white" />
                                 </div>
                               </div>
@@ -417,8 +407,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
                                     href={`/providers/${provider._id}`}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline flex-shrink-0"
-                                  >
+                                    className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline flex-shrink-0">
                                     View
                                     <ExternalLink size={10} />
                                   </Link>
@@ -455,14 +444,11 @@ const ServiceCard: React.FC<ServiceCardProps> = ({
 
                       {service.providers.length > 1 && (
                         <div className="pt-2 text-center">
-                          <Link
-                            href={`/services/${
-                              service._id || service.slug
-                            }/providers`}
-                            className="text-sm text-blue-600 dark:text-blue-400 hover:underline"
-                          >
+                          <Button
+                            onClick={() => onView?.(service)}
+                            className="p-2 w-full text-sm text-blue-600 dark:text-blue-400 hover:underline">
                             View all providers
-                          </Link>
+                          </Button>
                         </div>
                       )}
                     </div>

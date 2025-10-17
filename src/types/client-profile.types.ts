@@ -1,11 +1,108 @@
-import { IUserProfile, RiskLevel } from "@/types";
+import { RiskLevel } from "@/types";
 
+// Base User Interface
+export interface UserIdObject {
+  _id: string;
+  name: string;
+  email: string;
+  isVerified: boolean;
+  createdAt: string;
+}
+
+// Social Media Handle Interface
+export interface SocialMediaHandle {
+  nameOfSocial: string;
+  userName: string;
+  _id: string;
+}
+
+// Profile Picture Interface
+export interface ProfilePicture {
+  url: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  uploadedAt: string;
+}
+
+// Location Interface
+export interface Location {
+  gpsCoordinates?: {
+    latitude: number;
+    longitude: number;
+  };
+  ghanaPostGPS?: string;
+  nearbyLandmark?: string;
+  region?: string;
+  city?: string;
+  district?: string;
+  locality?: string;
+  other?: string;
+}
+
+// Contact Details Interface
+export interface ContactDetails {
+  primaryContact?: string;
+  secondaryContact?: string;
+}
+
+// Profile ID Object Interface
+export interface ProfileIdObject {
+  _id: string;
+  id: string;
+  userId: string | UserIdObject;
+  role: string;
+  socialMediaHandles?: SocialMediaHandle[];
+  profilePicture?: ProfilePicture;
+  bio?: string;
+  location?: Location;
+  contactDetails?: ContactDetails;
+  createdAt: string;
+}
+
+// Service Interface
+export interface PreferredService {
+  _id: string;
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  categoryId: string;
+}
+
+// Provider Interface
+export interface PreferredProvider {
+  _id: string;
+  id: string;
+  businessName: string;
+}
+
+// Notification Preferences Interface
+export interface NotificationPreferences {
+  email: boolean;
+  sms: boolean;
+  push: boolean;
+  bookingUpdates: boolean;
+  promotions: boolean;
+  newsletter: boolean;
+}
+
+// Privacy Settings Interface
+export interface PrivacySettings {
+  profileVisibility: "public" | "private" | "connections";
+  showEmail: boolean;
+  showPhone: boolean;
+  showLocation: boolean;
+  allowMessagesFromNonConnections: boolean;
+}
+
+// Main Client Profile Interface
 export interface ClientProfile {
   _id: string;
   id: string;
-  profileId: string | IUserProfile | ProfileIdObject;
-  preferredServices: string[];
-  preferredProviders: string[];
+  profileId: string | ProfileIdObject;
+  preferredServices: (string | PreferredService)[];
+  preferredProviders: (string | PreferredProvider)[];
   trustScore: number;
   riskLevel: RiskLevel;
   riskFactors: string[];
@@ -18,21 +115,8 @@ export interface ClientProfile {
   memberSince: string;
   lastActiveDate: string;
   preferredContactMethod?: string;
-  notificationPreferences: {
-    email: boolean;
-    sms: boolean;
-    push: boolean;
-    bookingUpdates: boolean;
-    promotions: boolean;
-    newsletter: boolean;
-  };
-  privacySettings: {
-    profileVisibility: "public" | "private" | "connections";
-    showEmail: boolean;
-    showPhone: boolean;
-    showLocation: boolean;
-    allowMessagesFromNonConnections: boolean;
-  };
+  notificationPreferences: NotificationPreferences;
+  privacySettings: PrivacySettings;
   notes: unknown[];
   isDeleted: boolean;
   deletedAt?: string;
@@ -41,52 +125,18 @@ export interface ClientProfile {
   updatedAt: string;
 }
 
-export interface UserIdObject {
-  _id: string;
-  name: string;
-  email: string;
-  isVerified: boolean;
-  createdAt: string;
+// Helper type to get the populated profile
+export interface PopulatedClientProfile
+  extends Omit<
+    ClientProfile,
+    "profileId" | "preferredServices" | "preferredProviders"
+  > {
+  profileId: ProfileIdObject;
+  preferredServices: PreferredService[];
+  preferredProviders: PreferredProvider[];
 }
 
-export interface ProfileIdObject {
-  _id: string;
-  id: string;
-  userId: string | UserIdObject;
-  role: string;
-  socialMediaHandles?: Array<{
-    nameOfSocial: string;
-    userName: string;
-    _id: string;
-  }>;
-  profilePicture?: {
-    url: string;
-    fileName: string;
-    fileSize: number;
-    mimeType: string;
-    uploadedAt: string;
-  };
-  bio?: string;
-  location?: {
-    gpsCoordinates?: {
-      latitude: number;
-      longitude: number;
-    };
-    ghanaPostGPS?: string;
-    nearbyLandmark?: string;
-    region?: string;
-    city?: string;
-    district?: string;
-    locality?: string;
-    other?: string;
-  };
-  contactDetails?: {
-    primaryContact?: string;
-    secondaryContact?: string;
-  };
-  createdAt: string;
-}
-
+// Request Interfaces
 export interface CreateClientProfileRequest {
   preferredServices?: string[];
   preferredProviders?: string[];
@@ -99,6 +149,7 @@ export interface UpdateClientProfileRequest {
   preferredContactMethod?: string;
 }
 
+// Response Interface
 export interface ClientProfileResponse {
   success?: boolean;
   message: string;
@@ -106,6 +157,7 @@ export interface ClientProfileResponse {
   error?: string;
 }
 
+// Pagination Interfaces
 export interface PaginationParams {
   page?: number;
   limit?: number;
@@ -135,6 +187,7 @@ export interface PaginatedResponse<T> {
   };
 }
 
+// Verification Status Interface
 export interface VerificationStatus {
   isVerified: boolean;
   verificationLevel: "none" | "partial" | "full";
@@ -149,6 +202,7 @@ export interface VerificationStatus {
   totalReviews: number;
 }
 
+// Reliability Metrics Interface
 export interface ReliabilityMetrics {
   reliabilityScore: number;
   engagement: {
@@ -163,6 +217,7 @@ export interface ReliabilityMetrics {
   };
 }
 
+// Generic API Response
 export interface ApiResponse<T> {
   success: boolean;
   message: string;
@@ -170,3 +225,92 @@ export interface ApiResponse<T> {
   error?: string;
 }
 
+// Type Guards
+export function isProfileIdObject(
+  profileId: unknown
+): profileId is ProfileIdObject {
+  return (
+    typeof profileId === "object" &&
+    profileId !== null &&
+    "_id" in profileId &&
+    "userId" in profileId &&
+    "role" in profileId
+  );
+}
+
+export function isUserIdObject(userId: unknown): userId is UserIdObject {
+  return (
+    typeof userId === "object" &&
+    userId !== null &&
+    "_id" in userId &&
+    "name" in userId &&
+    "email" in userId
+  );
+}
+
+export function isPreferredService(
+  service: unknown
+): service is PreferredService {
+  return (
+    typeof service === "object" &&
+    service !== null &&
+    "_id" in service &&
+    "title" in service
+  );
+}
+
+export function isPreferredProvider(
+  provider: unknown
+): provider is PreferredProvider {
+  return (
+    typeof provider === "object" &&
+    provider !== null &&
+    "_id" in provider &&
+    "businessName" in provider
+  );
+}
+
+// Helper function to extract user name
+export function getUserName(
+  profile: ClientProfile | Partial<ClientProfile>
+): string {
+  if (!profile?.profileId) return "User";
+
+  if (isProfileIdObject(profile.profileId)) {
+    const userId = profile.profileId.userId;
+    if (isUserIdObject(userId)) {
+      return userId.name;
+    }
+  }
+
+  return "User";
+}
+
+// Helper function to extract user email
+export function getUserEmail(
+  profile: ClientProfile | Partial<ClientProfile>
+): string | undefined {
+  if (!profile?.profileId) return undefined;
+
+  if (isProfileIdObject(profile.profileId)) {
+    const userId = profile.profileId.userId;
+    if (isUserIdObject(userId)) {
+      return userId.email;
+    }
+  }
+
+  return undefined;
+}
+
+// Helper function to get profile picture URL
+export function getProfilePictureUrl(
+  profile: ClientProfile | Partial<ClientProfile>
+): string | undefined {
+  if (!profile?.profileId) return undefined;
+
+  if (isProfileIdObject(profile.profileId)) {
+    return profile.profileId.profilePicture?.url;
+  }
+
+  return undefined;
+}

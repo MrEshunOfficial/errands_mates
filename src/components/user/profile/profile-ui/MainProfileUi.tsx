@@ -19,6 +19,7 @@ import { LocationCard } from "./LocationCard";
 import { SocialMediaCard } from "./SocialMediaCard";
 import { IdVerificationCard } from "./IdVerificationCard";
 import { WarningsCard } from "./WarningsCard";
+import { Button } from "@/components/ui/button";
 
 // Animation variants
 const containerVariants = {
@@ -52,8 +53,7 @@ const Card: React.FC<
       }
       ${className}
     `}
-    {...props}
-  >
+    {...props}>
     {children}
   </div>
 );
@@ -79,8 +79,7 @@ const BreadcrumbItem: React.FC<{
     {href ? (
       <Link
         href={href}
-        className="flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200"
-      >
+        className="flex items-center text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors duration-200">
         {children}
       </Link>
     ) : (
@@ -120,8 +119,7 @@ export const MainProfile: React.FC = () => {
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        className="space-y-4 p-4 rounded-xl"
-      >
+        className="space-y-4 p-4 rounded-xl">
         {/* Breadcrumb */}
         <motion.div>
           <Breadcrumb>
@@ -140,8 +138,7 @@ export const MainProfile: React.FC = () => {
               initial={{ opacity: 0, height: 0, y: -10 }}
               animate={{ opacity: 1, height: "auto", y: 0 }}
               exit={{ opacity: 0, height: 0, y: -10 }}
-              className="mb-6"
-            >
+              className="mb-6">
               <Card className="border-red-200 bg-red-50 dark:border-red-700 dark:bg-red-900/30">
                 <CardContent className="pt-4">
                   <div className="flex items-center justify-between">
@@ -149,12 +146,11 @@ export const MainProfile: React.FC = () => {
                       <AlertCircle className="w-5 h-5" />
                       <p className="font-medium">{error}</p>
                     </div>
-                    <button
+                    <Button
                       onClick={clearError}
-                      className="p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-200 rounded-lg hover:bg-red-100 dark:hover:bg-red-800/50 transition-colors"
-                    >
+                      className="p-1 text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-200 rounded-lg hover:bg-red-100 dark:hover:bg-red-800/50 transition-colors">
                       <X className="w-5 h-5" />
-                    </button>
+                    </Button>
                   </div>
                 </CardContent>
               </Card>

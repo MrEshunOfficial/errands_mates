@@ -264,7 +264,7 @@ export default function PublicServiceList({
   const handleContact = useCallback(
     (service: Service | ServiceWithProviders) => {
       const identifier = getServiceIdentifier(service);
-      router.push(`/services/${identifier}/providers`);
+      router.push(`/services/${identifier}`);
     },
     [router, getServiceIdentifier]
   );

@@ -28,6 +28,8 @@ import {
   ClientRiskIndicator,
   ClientPreferences,
   ClientReliabilityScore,
+  ClientServicesCard,
+  ClientProvidersCard,
 } from "@/components/user/dashboard/client.dashboard/ClientDashboard";
 import { useClientProfile } from "@/hooks/clientProfiles/use-client-profile";
 import type {
@@ -37,6 +39,11 @@ import type {
 } from "@/types";
 import { VerificationStatus } from "@/types/client-profile.types";
 import { ClientProfileForm } from "@/components/user/dashboard/client.dashboard/ClientProfileForm";
+import {
+  getUserName,
+  isProfileIdObject,
+  isUserIdObject,
+} from "@/types/client-profile.types";
 
 export default function ClientDashboardPage() {
   const {
@@ -74,12 +81,21 @@ export default function ClientDashboardPage() {
   const verificationStatus = useMemo<VerificationStatus | null>(() => {
     if (!profile) return null;
 
+    // Extract verification info from nested profileId
+    let isVerified = false;
+    if (isProfileIdObject(profile.profileId)) {
+      const userId = profile.profileId.userId;
+      if (isUserIdObject(userId)) {
+        isVerified = userId.isVerified;
+      }
+    }
+
     return {
-      isVerified: true,
+      isVerified,
       verificationLevel: "partial",
       verifiedAspects: {
         phone: false,
-        email: true,
+        email: isVerified,
         address: false,
       },
       loyaltyTier: profile.loyaltyTier,
@@ -108,21 +124,6 @@ export default function ClientDashboardPage() {
     }
   };
 
-  const getProfileName = () => {
-    if (!profile?.profileId) return "User";
-    if (typeof profile.profileId === "string") return "User";
-    if (
-      typeof profile.profileId === "object" &&
-      "userId" in profile.profileId
-    ) {
-      const userId = profile.profileId.userId;
-      if (typeof userId === "object" && userId && "name" in userId) {
-        return userId.name;
-      }
-    }
-    return "User";
-  };
-
   // Loading State
   if (loading && !profile) {
     return (
@@ -149,16 +150,14 @@ export default function ClientDashboardPage() {
         <div className="max-w-md w-full space-y-4">
           <Alert
             variant="destructive"
-            className="bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800"
-          >
+            className="bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800">
             <AlertDescription className="text-red-800 dark:text-red-200">
               {error}
             </AlertDescription>
           </Alert>
           <Button
             onClick={clearError}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-          >
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white">
             Try Again
           </Button>
         </div>
@@ -176,8 +175,7 @@ export default function ClientDashboardPage() {
               {error && (
                 <Alert
                   variant="destructive"
-                  className="mb-6 bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800"
-                >
+                  className="mb-6 bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800">
                   <AlertDescription className="text-red-800 dark:text-red-200">
                     {error}
                   </AlertDescription>
@@ -195,6 +193,8 @@ export default function ClientDashboardPage() {
     );
   }
 
+  const profileName = getUserName(profile);
+
   // Main Dashboard with Profile
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -211,7 +211,7 @@ export default function ClientDashboardPage() {
                 </span>
               </div>
               <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                {getProfileName()}
+                {profileName}
               </h1>
             </div>
             <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
@@ -234,8 +234,12 @@ export default function ClientDashboardPage() {
                   mode="update"
                   initialData={{
                     preferredContactMethod: profile.preferredContactMethod,
-                    preferredServices: profile.preferredServices,
-                    preferredProviders: profile.preferredProviders,
+                    preferredServices: profile.preferredServices.map((s) =>
+                      typeof s === "string" ? s : s._id
+                    ),
+                    preferredProviders: profile.preferredProviders.map((p) =>
+                      typeof p === "string" ? p : p._id
+                    ),
                   }}
                   onSubmit={handleUpdateProfile}
                   onCancel={() => setIsEditDialogOpen(false)}
@@ -252,8 +256,7 @@ export default function ClientDashboardPage() {
         {error && (
           <Alert
             variant="destructive"
-            className="mb-6 bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800"
-          >
+            className="mb-6 bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800">
             <AlertDescription className="text-red-800 dark:text-red-200">
               {error}
             </AlertDescription>
@@ -350,6 +353,10 @@ export default function ClientDashboardPage() {
               />
             )}
 
+            <ClientServicesCard profile={profile} />
+
+            <ClientProvidersCard profile={profile} />
+
             <ClientActivityTimeline profile={profile} />
           </div>
 
@@ -378,8 +385,7 @@ export default function ClientDashboardPage() {
                           verificationStatus?.verifiedAspects.email
                             ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
                             : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
-                        }`}
-                      >
+                        }`}>
                         {verificationStatus?.verifiedAspects.email
                           ? "Verified"
                           : "Pending"}
@@ -407,8 +413,7 @@ export default function ClientDashboardPage() {
                           verificationStatus?.verifiedAspects.phone
                             ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
                             : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                        }`}
-                      >
+                        }`}>
                         {verificationStatus?.verifiedAspects.phone
                           ? "Verified"
                           : "Pending"}
